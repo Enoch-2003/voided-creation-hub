@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Clock, Smartphone, Shield, Check } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
+import { cn } from "@/lib/utils";
 
 export default function Index() {
   const [isImageLoaded, setIsImageLoaded] = useState(false);
