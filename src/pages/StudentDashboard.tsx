@@ -1,261 +1,275 @@
 
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusCircle, Calendar, Clock, Webhook } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { QRCode } from "@/components/QRCode";
-import { Outpass, Student } from "@/lib/types";
-import { getMockOutpasses } from "@/lib/utils";
-import { Clock, AlertCircle, CheckCircle, XCircle, QrCode, ArrowRight } from "lucide-react";
+import { Student, Outpass } from "@/lib/types";
+import { formatDate } from "@/lib/utils";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
-export default function StudentDashboard() {
-  const [user, setUser] = useState<Student | null>(null);
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
+interface StudentDashboardProps {
+  user: Student;
+  onLogout: () => void;
+}
+
+export default function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const navigate = useNavigate();
+  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
+  const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
+  const [showQRDialog, setShowQRDialog] = useState(false);
 
   useEffect(() => {
-    // In a real app, we would get the user from context or state management
-    const storedUser = localStorage.getItem("user");
-    const storedRole = localStorage.getItem("userRole");
-    
-    if (!storedUser || storedRole !== "student") {
-      navigate("/login");
-      return;
+    // Load outpasses from localStorage
+    const storedOutpasses = localStorage.getItem("outpasses");
+    if (storedOutpasses) {
+      const allOutpasses = JSON.parse(storedOutpasses);
+      // Filter outpasses for the current student
+      const studentOutpasses = allOutpasses.filter(
+        (outpass: Outpass) => outpass.studentId === user.id
+      );
+      setOutpasses(studentOutpasses);
     }
-    
-    const parsedUser = JSON.parse(storedUser) as Student;
-    setUser(parsedUser);
-    
-    // Fetch outpasses for this student
-    const fetchedOutpasses = getMockOutpasses(parsedUser.id, "student");
-    setOutpasses(fetchedOutpasses);
-  }, [navigate]);
-  
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("userRole");
-    navigate("/login");
+  }, [user.id]);
+
+  // Get active (pending or approved but not yet used) outpasses
+  const activeOutpasses = outpasses.filter(
+    (outpass) =>
+      outpass.status === "pending" ||
+      (outpass.status === "approved" &&
+        new Date(outpass.exitDateTime) > new Date() &&
+        !outpass.scanTimestamp)
+  );
+
+  // Get the latest active outpass
+  const latestActiveOutpass = activeOutpasses.length > 0 
+    ? activeOutpasses.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )[0] 
+    : null;
+
+  const handleViewQR = (outpass: Outpass) => {
+    setSelectedOutpass(outpass);
+    setShowQRDialog(true);
   };
-  
-  // Get the most recent outpass by status
-  const getLatestOutpass = (status: "pending" | "approved" | "denied") => {
-    const filtered = outpasses.filter(o => o.status === status);
-    if (filtered.length === 0) return null;
-    
-    return filtered.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+
+  const handleNewRequest = () => {
+    navigate("/student/request");
   };
-  
-  const pendingOutpass = getLatestOutpass("pending");
-  const approvedOutpass = getLatestOutpass("approved");
-  const deniedOutpass = getLatestOutpass("denied");
-  
-  if (!user) {
-    return null; // Loading state
-  }
+
+  const handleViewAll = () => {
+    navigate("/student/outpasses");
+  };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <Navbar userRole="student" userName={user.name} onLogout={handleLogout} />
+    <div className="min-h-screen flex flex-col">
+      <Navbar userRole="student" userName={user.name} onLogout={onLogout} />
       
-      <main className="flex-1 container mx-auto px-4 pt-28 pb-12">
-        <header className="mb-8">
-          <h1 className="text-3xl font-display font-bold mb-2">Student Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back, {user.name}
-          </p>
-        </header>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Current Status</CardTitle>
-                <CardDescription>
-                  Your latest outpass status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {pendingOutpass ? (
-                  <div className="mb-5 flex items-start space-x-4">
-                    <div className="bg-amber-100 p-3 rounded-full">
-                      <Clock className="h-6 w-6 text-amber-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-lg">Pending Approval</h3>
-                      <p className="text-muted-foreground">
-                        Your outpass request is waiting for approval from your mentor
-                      </p>
-                    </div>
-                  </div>
-                ) : approvedOutpass ? (
-                  <div className="mb-5 flex items-start space-x-4">
-                    <div className="bg-green-100 p-3 rounded-full">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-lg">Outpass Approved</h3>
-                      <p className="text-muted-foreground">
-                        Your outpass has been approved and is ready to use
-                      </p>
-                    </div>
-                  </div>
-                ) : deniedOutpass ? (
-                  <div className="mb-5 flex items-start space-x-4">
-                    <div className="bg-red-100 p-3 rounded-full">
-                      <XCircle className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-lg">Outpass Denied</h3>
-                      <p className="text-muted-foreground">
-                        Your last outpass request was denied by your mentor
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mb-5 flex items-start space-x-4">
-                    <div className="bg-blue-100 p-3 rounded-full">
-                      <AlertCircle className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-medium text-lg">No Requests</h3>
-                      <p className="text-muted-foreground">
-                        You don't have any active outpass requests
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="flex space-x-3">
-                  <Button
-                    className="flex-1"
-                    variant={pendingOutpass ? "outline" : "default"}
-                    onClick={() => navigate("/student/request")}
-                  >
-                    {pendingOutpass ? "View Pending Request" : "Create New Request"}
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    variant="outline"
-                    onClick={() => navigate("/student/outpasses")}
-                  >
-                    View All Outpasses
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+      <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+          <div className="md:col-span-2">
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold font-display">Welcome, {user.name}</h1>
+              <p className="text-muted-foreground">
+                Manage your campus exit passes and requests
+              </p>
+            </div>
             
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Your Outpasses</CardTitle>
-                <CardDescription>
-                  Recent outpass requests and their status
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {outpasses.length > 0 ? (
-                    outpasses.slice(0, 3).map((outpass) => (
-                      <OutpassCard
-                        key={outpass.id}
-                        outpass={outpass}
-                        userRole="student"
-                      />
-                    ))
+            <div className="space-y-6">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Current Active Outpass</CardTitle>
+                      <CardDescription>
+                        {latestActiveOutpass
+                          ? "Your most recent active exit request"
+                          : "You don't have any active exit requests"}
+                      </CardDescription>
+                    </div>
+                    
+                    <Button onClick={handleNewRequest} size="sm">
+                      <PlusCircle className="h-4 w-4 mr-1" /> New Request
+                    </Button>
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  {latestActiveOutpass ? (
+                    <div className="space-y-4">
+                      <OutpassCard outpass={latestActiveOutpass} userRole="student" />
+                      
+                      {latestActiveOutpass.status === "approved" && (
+                        <Button 
+                          onClick={() => handleViewQR(latestActiveOutpass)} 
+                          className="w-full"
+                        >
+                          View QR Code
+                        </Button>
+                      )}
+                    </div>
                   ) : (
-                    <div className="text-center p-6">
-                      <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-50" />
-                      <h3 className="font-medium text-lg">No Outpasses</h3>
+                    <div className="text-center py-8">
+                      <Calendar className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground mb-4">
-                        You haven't created any outpass requests yet
+                        No active outpass requests found
                       </p>
-                      <Button onClick={() => navigate("/student/request")}>
-                        Create Your First Outpass
-                      </Button>
+                      <Button onClick={handleNewRequest}>Request New Outpass</Button>
                     </div>
                   )}
-                  
-                  {outpasses.length > 3 && (
-                    <Button
-                      variant="outline"
-                      className="w-full"
-                      onClick={() => navigate("/student/outpasses")}
-                    >
-                      View All Outpasses <ArrowRight className="ml-2 h-4 w-4" />
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>Recent Outpasses</CardTitle>
+                      <CardDescription>
+                        Your recently approved or denied outpasses
+                      </CardDescription>
+                    </div>
+                    
+                    <Button variant="outline" size="sm" onClick={handleViewAll}>
+                      View All
                     </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <div className="space-y-4">
+                    {outpasses.length > 0 ? (
+                      outpasses
+                        .filter(outpass => outpass.status !== "pending")
+                        .sort((a, b) => 
+                          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+                        )
+                        .slice(0, 3)
+                        .map(outpass => (
+                          <OutpassCard 
+                            key={outpass.id} 
+                            outpass={outpass} 
+                            userRole="student"
+                          />
+                        ))
+                    ) : (
+                      <div className="text-center py-6">
+                        <Clock className="h-10 w-10 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">No outpass history found</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
           
-          <div>
+          <div className="space-y-6">
             <Card>
-              <CardHeader className="pb-3">
+              <CardHeader>
                 <CardTitle>Your Profile</CardTitle>
-                <CardDescription>
-                  Your registered information
-                </CardDescription>
               </CardHeader>
+              
               <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Full Name
-                    </div>
-                    <div>{user.name}</div>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Enrollment No:</span>
+                    <span className="font-medium">{user.enrollmentNumber}</span>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Enrollment Number
-                    </div>
-                    <div>{user.enrollmentNumber}</div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Department:</span>
+                    <span className="font-medium">{user.department}</span>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Email
-                    </div>
-                    <div>{user.email}</div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Course:</span>
+                    <span className="font-medium">{user.course}</span>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Department / Course
-                    </div>
-                    <div>
-                      {user.department} / {user.course}
-                    </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Branch:</span>
+                    <span className="font-medium">{user.branch}</span>
                   </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Branch / Semester / Section
-                    </div>
-                    <div>
-                      {user.branch} / Semester {user.semester} / Section {user.section}
-                    </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Semester:</span>
+                    <span className="font-medium">{user.semester}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Section:</span>
+                    <span className="font-medium">{user.section}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Contact:</span>
+                    <span className="font-medium">{user.contactNumber}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Guardian:</span>
+                    <span className="font-medium">{user.guardianNumber}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            {approvedOutpass && (
-              <div className="mt-6">
-                <QRCode outpass={approvedOutpass} />
-                <Button
-                  variant="outline"
-                  className="w-full mt-4"
-                  onClick={() => navigate(`/student/outpass/${approvedOutpass.id}`)}
-                >
-                  <QrCode className="mr-2 h-4 w-4" />
-                  View Full QR Details
-                </Button>
-              </div>
-            )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Outpass Statistics</CardTitle>
+              </CardHeader>
+              
+              <CardContent>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-green-50 rounded-md p-4 text-center">
+                    <div className="text-green-600 text-2xl font-bold">
+                      {outpasses.filter(o => o.status === "approved").length}
+                    </div>
+                    <div className="text-green-700 text-sm">Approved</div>
+                  </div>
+                  
+                  <div className="bg-yellow-50 rounded-md p-4 text-center">
+                    <div className="text-yellow-600 text-2xl font-bold">
+                      {outpasses.filter(o => o.status === "pending").length}
+                    </div>
+                    <div className="text-yellow-700 text-sm">Pending</div>
+                  </div>
+                  
+                  <div className="bg-red-50 rounded-md p-4 text-center">
+                    <div className="text-red-600 text-2xl font-bold">
+                      {outpasses.filter(o => o.status === "denied").length}
+                    </div>
+                    <div className="text-red-700 text-sm">Denied</div>
+                  </div>
+                  
+                  <div className="bg-blue-50 rounded-md p-4 text-center">
+                    <div className="text-blue-600 text-2xl font-bold">
+                      {outpasses.length}
+                    </div>
+                    <div className="text-blue-700 text-sm">Total</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </main>
+      
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="max-w-md">
+          {selectedOutpass && (
+            <QRCode 
+              outpass={selectedOutpass} 
+              onClose={() => setShowQRDialog(false)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
