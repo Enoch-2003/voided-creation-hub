@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,20 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+        // Custom AmiPass colors
+        amiblue: {
+          50: '#EFF6FF',
+          100: '#DBEAFE',
+          200: '#BFDBFE',
+          300: '#93C5FD',
+          400: '#60A5FA',
+          500: '#3B82F6',
+          600: '#2563EB',
+          700: '#1D4ED8',
+          800: '#1E40AF',
+          900: '#1E3A8A',
+        },
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -84,12 +98,73 @@ export default {
 					to: {
 						height: '0'
 					}
-				}
+				},
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        },
+        'fade-up': {
+          '0%': { 
+            opacity: '0',
+            transform: 'translateY(10px)'
+          },
+          '100%': { 
+            opacity: '1',
+            transform: 'translateY(0)'
+          }
+        },
+        'slide-in-right': {
+          '0%': { 
+            transform: 'translateX(100%)',
+            opacity: '0'
+          },
+          '100%': { 
+            transform: 'translateX(0)',
+            opacity: '1'
+          }
+        },
+        'slide-in-left': {
+          '0%': { 
+            transform: 'translateX(-100%)',
+            opacity: '0'
+          },
+          '100%': { 
+            transform: 'translateX(0)',
+            opacity: '1'
+          }
+        },
+        'scale-up': {
+          '0%': { 
+            transform: 'scale(0.95)',
+            opacity: '0'
+          },
+          '100%': { 
+            transform: 'scale(1)',
+            opacity: '1'
+          }
+        }
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
-			}
+				'accordion-up': 'accordion-up 0.2s ease-out',
+        'fade-in': 'fade-in 0.4s ease-out',
+        'fade-up': 'fade-up 0.5s ease-out',
+        'slide-in-right': 'slide-in-right 0.5s ease-out',
+        'slide-in-left': 'slide-in-left 0.5s ease-out',
+        'scale-up': 'scale-up 0.4s ease-out'
+			},
+      fontFamily: {
+        sans: ['Inter var', 'sans-serif'],
+        display: ['SF Pro Display', 'Inter var', 'sans-serif']
+      },
+      boxShadow: {
+        'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
+        'glass-hover': '0 8px 32px rgba(0, 0, 0, 0.12)',
+        'subtle': '0 1px 2px rgba(0, 0, 0, 0.04)'
+      },
+      backdropBlur: {
+        'glass': 'blur(10px)'
+      }
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
