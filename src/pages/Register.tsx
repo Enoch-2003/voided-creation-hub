@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,17 +23,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Navbar } from "@/components/Navbar";
 import { useToast } from "@/hooks/use-toast";
 import { generateId } from "@/lib/utils";
 
 const studentSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
+  name: z.string().min(1, "Name is required"),
   enrollmentNumber: z.string().min(1, "Enrollment number is required"),
   email: z.string().email("Invalid email address"),
-  contactNumber: z.string().min(10, "Contact number must be at least 10 digits"),
-  guardianNumber: z.string().min(10, "Guardian number must be at least 10 digits"),
+  contactNumber: z.string().min(10, "Invalid contact number"),
+  guardianNumber: z.string().min(10, "Invalid guardian number"),
   department: z.string().min(1, "Department is required"),
   course: z.string().min(1, "Course is required"),
   branch: z.string().min(1, "Branch is required"),
@@ -46,9 +54,13 @@ const studentSchema = z.object({
 });
 
 const mentorSchema = z.object({
-  name: z.string().min(3, "Name must be at least 3 characters"),
+  name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email address"),
   department: z.string().min(1, "Department is required"),
+  branches: z.string().array().nonempty("At least one branch is required"),
+  courses: z.string().array().nonempty("At least one course is required"),
+  semesters: z.string().array().nonempty("At least one semester is required"),
+  sections: z.string().array().nonempty("At least one section is required"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6, "Confirm password is required"),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -86,6 +98,10 @@ export default function Register() {
       name: "",
       email: "",
       department: "",
+      branches: [],
+      courses: [],
+      semesters: [],
+      sections: [],
       password: "",
       confirmPassword: "",
     },
@@ -93,54 +109,27 @@ export default function Register() {
 
   const onStudentSubmit = async (data: z.infer<typeof studentSchema>) => {
     setIsLoading(true);
-    
     try {
-      // For now, simulate registration with localStorage
-      const newStudent = {
+      // In a real app, we would register the user with Firebase Authentication
+      // and store the user data in Firestore
+      const user = {
         id: generateId(),
-        name: data.name,
-        email: data.email,
-        role: "student" as const,
-        enrollmentNumber: data.enrollmentNumber,
-        contactNumber: data.contactNumber,
-        guardianNumber: data.guardianNumber,
-        department: data.department,
-        course: data.course,
-        branch: data.branch,
-        semester: data.semester,
-        section: data.section,
+        ...data,
+        role: "student",
       };
       
-      // Get existing students or initialize empty array
-      const existingStudents = JSON.parse(localStorage.getItem("students") || "[]");
-      
-      // Check if enrollment number already exists
-      if (existingStudents.some((s: any) => s.enrollmentNumber === data.enrollmentNumber)) {
+      // Mock successful registration
+      setTimeout(() => {
         toast({
-          title: "Registration failed",
-          description: "Enrollment number already registered",
-          variant: "destructive",
+          title: "Registration successful",
+          description: "You can now login with your credentials",
         });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Add new student to array
-      existingStudents.push(newStudent);
-      
-      // Save updated array back to localStorage
-      localStorage.setItem("students", JSON.stringify(existingStudents));
-      
-      toast({
-        title: "Registration successful",
-        description: "You can now login with your credentials",
-      });
-      
-      navigate("/login");
+        navigate("/login");
+      }, 1000);
     } catch (error) {
       toast({
         title: "Registration failed",
-        description: "An error occurred during registration",
+        description: "An error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -150,51 +139,27 @@ export default function Register() {
 
   const onMentorSubmit = async (data: z.infer<typeof mentorSchema>) => {
     setIsLoading(true);
-    
     try {
-      // For now, simulate registration with localStorage
-      const newMentor = {
+      // In a real app, we would register the user with Firebase Authentication
+      // and store the user data in Firestore
+      const user = {
         id: generateId(),
-        name: data.name,
-        email: data.email,
-        role: "mentor" as const,
-        department: data.department,
-        branches: ["Computer Science", "Information Technology"], // Default values for now
-        courses: ["B.Tech", "M.Tech"], // Default values for now
-        semesters: ["3", "4", "5"], // Default values for now
-        sections: ["A", "B"], // Default values for now
+        ...data,
+        role: "mentor",
       };
       
-      // Get existing mentors or initialize empty array
-      const existingMentors = JSON.parse(localStorage.getItem("mentors") || "[]");
-      
-      // Check if email already exists
-      if (existingMentors.some((m: any) => m.email === data.email)) {
+      // Mock successful registration
+      setTimeout(() => {
         toast({
-          title: "Registration failed",
-          description: "Email already registered",
-          variant: "destructive",
+          title: "Registration successful",
+          description: "You can now login with your credentials",
         });
-        setIsLoading(false);
-        return;
-      }
-      
-      // Add new mentor to array
-      existingMentors.push(newMentor);
-      
-      // Save updated array back to localStorage
-      localStorage.setItem("mentors", JSON.stringify(existingMentors));
-      
-      toast({
-        title: "Registration successful",
-        description: "You can now login with your credentials",
-      });
-      
-      navigate("/login");
+        navigate("/login");
+      }, 1000);
     } catch (error) {
       toast({
         title: "Registration failed",
-        description: "An error occurred during registration",
+        description: "An error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -202,19 +167,26 @@ export default function Register() {
     }
   };
 
+  // Mock data for dropdowns
+  const departments = ["Computer Science", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering"];
+  const courses = ["B.Tech", "M.Tech", "MBA", "BBA"];
+  const branches = ["Computer Science", "Information Technology", "Electrical", "Mechanical"];
+  const semesters = ["1", "2", "3", "4", "5", "6", "7", "8"];
+  const sections = ["A", "B", "C", "D"];
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
-        <div className="w-full max-w-lg mx-auto">
+      <div className="flex-1 py-16 px-4">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amiblue-400 to-amiblue-600 flex items-center justify-center shadow-lg mx-auto">
               <span className="text-white font-semibold text-xl">A</span>
             </div>
-            <h1 className="text-3xl font-display font-bold mt-4">Create an Account</h1>
+            <h1 className="text-3xl font-display font-bold mt-4">Create your AmiPass Account</h1>
             <p className="text-muted-foreground mt-2">
-              Register as a student or mentor to use AmiPass
+              Register to start managing your campus exit passes
             </p>
           </div>
           
@@ -222,7 +194,7 @@ export default function Register() {
             <CardHeader className="space-y-1 pb-4">
               <CardTitle className="text-2xl font-display">Register</CardTitle>
               <CardDescription>
-                Choose your role to create an account
+                Choose your role to create your account
               </CardDescription>
             </CardHeader>
             
@@ -300,9 +272,9 @@ export default function Register() {
                           name="guardianNumber"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Guardian's Number</FormLabel>
+                              <FormLabel>Guardian's Contact</FormLabel>
                               <FormControl>
-                                <Input placeholder="+0987654321" {...field} />
+                                <Input placeholder="+1234567890" {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -318,14 +290,15 @@ export default function Register() {
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select Department" />
+                                    <SelectValue placeholder="Select department" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Computer Science">Computer Science</SelectItem>
-                                  <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                                  <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                                  <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                                  {departments.map((dept) => (
+                                    <SelectItem key={dept} value={dept}>
+                                      {dept}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -342,13 +315,15 @@ export default function Register() {
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select Course" />
+                                    <SelectValue placeholder="Select course" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="B.Tech">B.Tech</SelectItem>
-                                  <SelectItem value="M.Tech">M.Tech</SelectItem>
-                                  <SelectItem value="PhD">PhD</SelectItem>
+                                  {courses.map((course) => (
+                                    <SelectItem key={course} value={course}>
+                                      {course}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -365,13 +340,15 @@ export default function Register() {
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select Branch" />
+                                    <SelectValue placeholder="Select branch" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  <SelectItem value="Computer Science">Computer Science</SelectItem>
-                                  <SelectItem value="Information Technology">Information Technology</SelectItem>
-                                  <SelectItem value="Electronics">Electronics</SelectItem>
+                                  {branches.map((branch) => (
+                                    <SelectItem key={branch} value={branch}>
+                                      {branch}
+                                    </SelectItem>
+                                  ))}
                                 </SelectContent>
                               </Select>
                               <FormMessage />
@@ -388,12 +365,12 @@ export default function Register() {
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select Semester" />
+                                    <SelectValue placeholder="Select semester" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
-                                    <SelectItem key={sem} value={sem.toString()}>
+                                  {semesters.map((sem) => (
+                                    <SelectItem key={sem} value={sem}>
                                       {sem}
                                     </SelectItem>
                                   ))}
@@ -413,11 +390,11 @@ export default function Register() {
                               <Select onValueChange={field.onChange} defaultValue={field.value}>
                                 <FormControl>
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Select Section" />
+                                    <SelectValue placeholder="Select section" />
                                   </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                  {['A', 'B', 'C', 'D'].map((sec) => (
+                                  {sections.map((sec) => (
                                     <SelectItem key={sec} value={sec}>
                                       {sec}
                                     </SelectItem>
@@ -458,7 +435,7 @@ export default function Register() {
                         />
                       </div>
                       
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button type="submit" className="w-full mt-6" disabled={isLoading}>
                         {isLoading ? "Registering..." : "Register"}
                       </Button>
                     </form>
@@ -468,87 +445,246 @@ export default function Register() {
                 <TabsContent value="mentor" className="mt-0">
                   <Form {...mentorForm}>
                     <form onSubmit={mentorForm.handleSubmit(onMentorSubmit)} className="space-y-4">
-                      <FormField
-                        control={mentorForm.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Full Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="Dr. Jane Smith" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={mentorForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input placeholder="name@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={mentorForm.control}
-                        name="department"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Department</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
+                          control={mentorForm.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Full Name</FormLabel>
                               <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select Department" />
-                                </SelectTrigger>
+                                <Input placeholder="Dr. Jane Smith" {...field} />
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="Computer Science">Computer Science</SelectItem>
-                                <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                                <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                                <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email</FormLabel>
+                              <FormControl>
+                                <Input placeholder="name@example.com" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="department"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Department</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select department" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {departments.map((dept) => (
+                                    <SelectItem key={dept} value={dept}>
+                                      {dept}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="branches"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Branches (Select multiple)</FormLabel>
+                              <FormControl>
+                                <div className="space-y-2">
+                                  {branches.map((branch) => (
+                                    <div key={branch} className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id={`branch-${branch}`}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        value={branch}
+                                        checked={field.value.includes(branch)}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          if (checked) {
+                                            field.onChange([...field.value, branch]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter((b) => b !== branch)
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`branch-${branch}`} className="text-sm">
+                                        {branch}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="courses"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Courses (Select multiple)</FormLabel>
+                              <FormControl>
+                                <div className="space-y-2">
+                                  {courses.map((course) => (
+                                    <div key={course} className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id={`course-${course}`}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        value={course}
+                                        checked={field.value.includes(course)}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          if (checked) {
+                                            field.onChange([...field.value, course]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter((c) => c !== course)
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`course-${course}`} className="text-sm">
+                                        {course}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="semesters"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Semesters (Select multiple)</FormLabel>
+                              <FormControl>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {semesters.map((sem) => (
+                                    <div key={sem} className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id={`sem-${sem}`}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        value={sem}
+                                        checked={field.value.includes(sem)}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          if (checked) {
+                                            field.onChange([...field.value, sem]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter((s) => s !== sem)
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`sem-${sem}`} className="text-sm">
+                                        {sem}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="sections"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sections (Select multiple)</FormLabel>
+                              <FormControl>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {sections.map((sec) => (
+                                    <div key={sec} className="flex items-center space-x-2">
+                                      <input
+                                        type="checkbox"
+                                        id={`sec-${sec}`}
+                                        className="h-4 w-4 rounded border-gray-300"
+                                        value={sec}
+                                        checked={field.value.includes(sec)}
+                                        onChange={(e) => {
+                                          const checked = e.target.checked;
+                                          if (checked) {
+                                            field.onChange([...field.value, sec]);
+                                          } else {
+                                            field.onChange(
+                                              field.value.filter((s) => s !== sec)
+                                            );
+                                          }
+                                        }}
+                                      />
+                                      <label htmlFor={`sec-${sec}`} className="text-sm">
+                                        {sec}
+                                      </label>
+                                    </div>
+                                  ))}
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="password"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="••••••••" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={mentorForm.control}
+                          name="confirmPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirm Password</FormLabel>
+                              <FormControl>
+                                <Input type="password" placeholder="••••••••" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       
-                      <FormField
-                        control={mentorForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={mentorForm.control}
-                        name="confirmPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Confirm Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button type="submit" className="w-full mt-6" disabled={isLoading}>
                         {isLoading ? "Registering..." : "Register"}
                       </Button>
                     </form>

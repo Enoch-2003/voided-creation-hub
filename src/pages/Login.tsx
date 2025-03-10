@@ -61,6 +61,7 @@ export default function Login() {
         data.password,
         "student"
       );
+      // In a real app, we would store the user in context or state management
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("userRole", "student");
       
@@ -89,6 +90,7 @@ export default function Login() {
         data.password,
         "mentor"
       );
+      // In a real app, we would store the user in context or state management
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("userRole", "mentor");
       

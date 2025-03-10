@@ -1,161 +1,157 @@
 
-import React from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState } from "react";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Student } from "@/lib/types";
-import { generateId } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon, Clock } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-const outpassSchema = z.object({
-  exitDateTime: z
-    .string()
-    .min(1, "Exit date and time is required")
-    .refine((val) => {
-      const date = new Date(val);
-      return !isNaN(date.getTime()) && date > new Date();
-    }, "Exit date and time must be in the future"),
-  reason: z
-    .string()
-    .min(5, "Reason must be at least 5 characters")
-    .max(200, "Reason cannot exceed 200 characters"),
+const formSchema = z.object({
+  date: z.date({
+    required_error: "Please select a date",
+  }),
+  time: z.string().min(1, "Please select a time"),
+  reason: z.string().min(5, "Reason must be at least 5 characters"),
 });
 
 interface OutpassFormProps {
-  student: Student;
-  onSuccess?: () => void;
+  onSubmit: (data: z.infer<typeof formSchema>) => void;
+  isPending?: boolean;
 }
 
-export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+export function OutpassForm({ onSubmit, isPending = false }: OutpassFormProps) {
+  const [date, setDate] = useState<Date | undefined>(new Date());
 
-  const form = useForm<z.infer<typeof outpassSchema>>({
-    resolver: zodResolver(outpassSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
-      exitDateTime: "",
+      time: format(new Date(), "HH:mm"),
       reason: "",
     },
   });
 
-  const onSubmit = async (data: z.infer<typeof outpassSchema>) => {
-    setIsSubmitting(true);
-    
-    try {
-      // Create a new outpass request
-      const newOutpass = {
-        id: generateId(),
-        studentId: student.id,
-        studentName: student.name,
-        enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: new Date(data.exitDateTime).toISOString(),
-        reason: data.reason,
-        status: "pending" as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      
-      // Get existing outpasses from localStorage or initialize
-      const outpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
-      
-      // Add new outpass
-      outpasses.push(newOutpass);
-      
-      // Save back to localStorage
-      localStorage.setItem("outpasses", JSON.stringify(outpasses));
-      
-      toast({
-        title: "Outpass requested successfully",
-        description: "Your request has been sent to your mentor for approval.",
-      });
-      
-      // Reset form
-      form.reset();
-      
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
-      
-    } catch (error) {
-      toast({
-        title: "Something went wrong",
-        description: "Could not submit outpass request. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  function handleSubmit(values: z.infer<typeof formSchema>) {
+    onSubmit(values);
+  }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Request New Outpass</CardTitle>
-        <CardDescription>
-          Fill out this form to request permission to leave campus
-        </CardDescription>
-      </CardHeader>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)}>
-          <CardContent className="space-y-4">
-            <FormField
-              control={form.control}
-              name="exitDateTime"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Exit Date & Time</FormLabel>
+    <Form {...form}>
+      <form
+        onSubmit={form.handleSubmit(handleSubmit)}
+        className="space-y-6 animate-fade-up"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField
+            control={form.control}
+            name="date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel>Exit Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "pl-3 text-left font-normal h-11",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                        setDate(date);
+                      }}
+                      disabled={(date) => date < new Date()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                <FormDescription>
+                  The date when you need to exit the campus
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="time"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Exit Time</FormLabel>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                   <FormControl>
-                    <Input 
-                      type="datetime-local" 
-                      {...field} 
-                      min={new Date().toISOString().slice(0, 16)} 
+                    <Input
+                      type="time"
+                      className="pl-10 h-11"
+                      {...field}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="reason"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reason for Exit</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      placeholder="Please provide a detailed reason for your exit request..." 
-                      {...field} 
-                      rows={4}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-          
-          <CardFooter className="flex justify-end">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit Request"}
-            </Button>
-          </CardFooter>
-        </form>
-      </Form>
-    </Card>
+                </div>
+                <FormDescription>
+                  The time when you need to exit the campus
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="reason"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Reason for Exit</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Please provide a detailed reason for your exit request"
+                  className="resize-none min-h-[120px]"
+                  {...field}
+                />
+              </FormControl>
+              <FormDescription>
+                Be specific to increase chances of approval
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <Button type="submit" className="w-full" disabled={isPending}>
+          {isPending ? "Submitting..." : "Submit Request"}
+        </Button>
+      </form>
+    </Form>
   );
 }
