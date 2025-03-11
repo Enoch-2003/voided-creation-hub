@@ -31,8 +31,14 @@ const App = () => {
     const storedUserRole = localStorage.getItem("userRole") as UserRole | null;
     
     if (storedUser && storedUserRole) {
-      setUser(JSON.parse(storedUser));
-      setUserRole(storedUserRole);
+      try {
+        setUser(JSON.parse(storedUser));
+        setUserRole(storedUserRole);
+      } catch (error) {
+        // Handle JSON parse error by clearing invalid data
+        localStorage.removeItem("user");
+        localStorage.removeItem("userRole");
+      }
     }
     
     setIsLoading(false);
@@ -46,7 +52,7 @@ const App = () => {
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
   return (
@@ -58,17 +64,17 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Index />} />
             
-            {/* Public Routes */}
+            {/* Public Routes - redirect if already logged in */}
             <Route 
               path="/login" 
               element={userRole ? (
-                userRole === "student" ? <Navigate to="/student" /> : <Navigate to="/mentor" />
+                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
               ) : <Login />}
             />
             <Route 
               path="/register" 
               element={userRole ? (
-                userRole === "student" ? <Navigate to="/student" /> : <Navigate to="/mentor" />
+                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
               ) : <Register />}
             />
             
@@ -76,25 +82,25 @@ const App = () => {
             <Route 
               path="/student" 
               element={
-                userRole === "student" ? 
+                userRole === "student" && user ? 
                 <StudentDashboard user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             <Route 
               path="/student/outpasses" 
               element={
-                userRole === "student" ? 
+                userRole === "student" && user ? 
                 <StudentOutpasses user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             <Route 
               path="/student/request" 
               element={
-                userRole === "student" ? 
+                userRole === "student" && user ? 
                 <StudentRequest user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             
@@ -102,33 +108,33 @@ const App = () => {
             <Route 
               path="/mentor" 
               element={
-                userRole === "mentor" ? 
+                userRole === "mentor" && user ? 
                 <MentorDashboard user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             <Route 
               path="/mentor/pending" 
               element={
-                userRole === "mentor" ? 
+                userRole === "mentor" && user ? 
                 <MentorPending user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             <Route 
               path="/mentor/approved" 
               element={
-                userRole === "mentor" ? 
+                userRole === "mentor" && user ? 
                 <MentorApproved user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             <Route 
               path="/mentor/denied" 
               element={
-                userRole === "mentor" ? 
+                userRole === "mentor" && user ? 
                 <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               } 
             />
             

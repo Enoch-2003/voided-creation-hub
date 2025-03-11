@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,20 @@ export default function Login() {
   // Mentor form state
   const [mentorEmail, setMentorEmail] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const userRole = localStorage.getItem("userRole") as UserRole | null;
+    const user = localStorage.getItem("user");
+    
+    if (userRole && user) {
+      if (userRole === "student") {
+        navigate("/student", { replace: true });
+      } else if (userRole === "mentor") {
+        navigate("/mentor", { replace: true });
+      }
+    }
+  }, [navigate]);
   
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,10 +80,10 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Navigate to student dashboard with a slight delay to ensure localStorage is updated
+      // Navigate to student dashboard with a delay and replace true to prevent going back
       setTimeout(() => {
         navigate("/student", { replace: true });
-      }, 100);
+      }, 300);
     } catch (error) {
       toast({
         title: "Login failed",
@@ -125,10 +139,10 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Navigate to mentor dashboard with a slight delay to ensure localStorage is updated
+      // Navigate to mentor dashboard with a delay and replace true to prevent going back
       setTimeout(() => {
         navigate("/mentor", { replace: true });
-      }, 100);
+      }, 300);
     } catch (error) {
       toast({
         title: "Login failed",
