@@ -28,8 +28,13 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
     }
   }, []);
   
-  // Filter outpasses by status: pending
-  const pendingOutpasses = outpasses.filter(o => o.status === "pending");
+  // Filter outpasses by mentor's sections
+  const sectionFilteredOutpasses = outpasses.filter((outpass) => {
+    return outpass.studentSection && user.sections.includes(outpass.studentSection);
+  });
+  
+  // Filter by status: pending
+  const pendingOutpasses = sectionFilteredOutpasses.filter(o => o.status === "pending");
   
   // Apply search filter if query exists
   const filteredOutpasses = searchQuery 
@@ -112,7 +117,7 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
         <div className="mb-6">
           <h1 className="text-3xl font-bold font-display">Pending Requests</h1>
           <p className="text-muted-foreground">
-            Review and manage pending outpass requests from students
+            Review and manage pending outpass requests from students in your sections: {user.sections.map(s => `Section ${s}`).join(", ")}
           </p>
         </div>
         

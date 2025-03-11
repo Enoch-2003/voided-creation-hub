@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { mockAuthenticate } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import { UserRole } from "@/lib/types";
 
@@ -39,10 +38,23 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      const user = await mockAuthenticate(studentId, studentPassword, "student");
+      // Get all users from localStorage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      
+      // Find student by enrollment number and password
+      const student = users.find(
+        (user: any) => 
+          user.role === "student" && 
+          user.enrollmentNumber === studentId && 
+          user.password === studentPassword
+      );
+      
+      if (!student) {
+        throw new Error("Invalid credentials");
+      }
       
       // Save user data to localStorage
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(student));
       localStorage.setItem("userRole", "student");
       
       // Initialize outpass data if not exists
@@ -83,10 +95,23 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      const user = await mockAuthenticate(mentorEmail, mentorPassword, "mentor");
+      // Get all users from localStorage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      
+      // Find mentor by email and password
+      const mentor = users.find(
+        (user: any) => 
+          user.role === "mentor" && 
+          user.email === mentorEmail && 
+          user.password === mentorPassword
+      );
+      
+      if (!mentor) {
+        throw new Error("Invalid credentials");
+      }
       
       // Save user data to localStorage
-      localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem("user", JSON.stringify(mentor));
       localStorage.setItem("userRole", "mentor");
       
       // Initialize outpass data if not exists
@@ -99,7 +124,7 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Navigate to mentor dashboard
+      // Navigate to mentor dashboard with clear path
       navigate("/mentor");
     } catch (error) {
       toast({

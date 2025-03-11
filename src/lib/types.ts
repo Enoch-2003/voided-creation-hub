@@ -6,6 +6,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  password?: string; // Added for login authentication
 }
 
 export interface Student extends User {
@@ -46,4 +47,5 @@ export interface Outpass {
   updatedAt: string;
   scanTimestamp?: string;
   denyReason?: string;
+  studentSection?: string; // Added to match students with mentors
 }

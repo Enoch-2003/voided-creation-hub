@@ -29,11 +29,10 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     }
   }, []);
   
-  // Filter outpasses by mentor's department, courses, branches, semesters, sections
+  // Filter outpasses by mentor's sections
   const filteredOutpasses = outpasses.filter((outpass) => {
-    // In a real app, we would join with student data to get these details
-    // For demo, we'll just use the outpasses
-    return true; // Accept all outpasses for this demo
+    // Check if the outpass has a studentSection property and if it's in the mentor's sections
+    return outpass.studentSection && user.sections.includes(outpass.studentSection);
   });
   
   const pendingOutpasses = filteredOutpasses.filter(o => o.status === "pending");
@@ -114,7 +113,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
             <div className="mb-6">
               <h1 className="text-3xl font-bold font-display">Welcome, {user.name}</h1>
               <p className="text-muted-foreground">
-                Review and manage student outpass requests
+                Review and manage student outpass requests for your sections: {user.sections.map(s => `Section ${s}`).join(", ")}
               </p>
             </div>
             
@@ -257,6 +256,17 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                       {user.semesters.map(semester => (
                         <span key={semester} className="bg-muted px-2 py-1 rounded text-xs">
                           {semester}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col text-sm mt-2">
+                    <span className="text-muted-foreground mb-1">Sections:</span>
+                    <div className="flex flex-wrap gap-1">
+                      {user.sections.map(section => (
+                        <span key={section} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                          Section {section}
                         </span>
                       ))}
                     </div>

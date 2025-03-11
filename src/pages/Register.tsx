@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateId } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import { UserRole, Student, Mentor } from "@/lib/types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -37,6 +38,15 @@ export default function Register() {
   const [mentorDepartment, setMentorDepartment] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
   const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
+  const [mentorSections, setMentorSections] = useState<string[]>(["A"]);
+  
+  const handleSectionToggle = (section: string) => {
+    setMentorSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section) 
+        : [...prev, section]
+    );
+  };
   
   const handleStudentRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +90,7 @@ export default function Register() {
         id: generateId(),
         name: studentName,
         email: studentEmail,
+        password: studentPassword, // Store password for login authentication
         role: "student",
         enrollmentNumber: studentEnrollment,
         contactNumber: studentContact,
@@ -91,8 +102,11 @@ export default function Register() {
         section: studentSection,
       };
       
-      // In a real app, we would send this to a server
-      // For demo, just store in localStorage
+      // Store in users collection in localStorage
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      localStorage.setItem("users", JSON.stringify([...existingUsers, studentUser]));
+      
+      // Also store in current user
       localStorage.setItem("user", JSON.stringify(studentUser));
       localStorage.setItem("userRole", "student");
       
@@ -123,10 +137,10 @@ export default function Register() {
     e.preventDefault();
     
     // Validate fields
-    if (!mentorName || !mentorEmail || !mentorDepartment || !mentorPassword || !mentorConfirmPassword) {
+    if (!mentorName || !mentorEmail || !mentorDepartment || !mentorPassword || !mentorConfirmPassword || mentorSections.length === 0) {
       toast({
         title: "Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all fields and select at least one section",
         variant: "destructive",
       });
       return;
@@ -158,16 +172,20 @@ export default function Register() {
         id: generateId(),
         name: mentorName,
         email: mentorEmail,
+        password: mentorPassword, // Store password for login authentication
         role: "mentor",
         department: mentorDepartment,
         branches: ["Computer Science", "Information Technology"],
         courses: ["B.Tech", "M.Tech"],
         semesters: ["1", "2", "3", "4", "5", "6", "7", "8"],
-        sections: ["A", "B", "C"],
+        sections: mentorSections,
       };
       
-      // In a real app, we would send this to a server
-      // For demo, just store in localStorage
+      // Store in users collection in localStorage
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      localStorage.setItem("users", JSON.stringify([...existingUsers, mentorUser]));
+      
+      // Also store in current user
       localStorage.setItem("user", JSON.stringify(mentorUser));
       localStorage.setItem("userRole", "mentor");
       
@@ -460,6 +478,27 @@ export default function Register() {
                       <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Sections You Mentor</Label>
+                  <div className="grid grid-cols-3 gap-4 pt-1">
+                    {["A", "B", "C"].map(section => (
+                      <div key={section} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`section-${section}`}
+                          checked={mentorSections.includes(section)}
+                          onCheckedChange={() => handleSectionToggle(section)}
+                        />
+                        <label 
+                          htmlFor={`section-${section}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Section {section}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
