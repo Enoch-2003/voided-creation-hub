@@ -23,8 +23,10 @@ const queryClient = new QueryClient();
 const App = () => {
   const [user, setUser] = useState<Student | Mentor | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Load user data from localStorage
     const storedUser = localStorage.getItem("user");
     const storedUserRole = localStorage.getItem("userRole") as UserRole | null;
     
@@ -32,6 +34,8 @@ const App = () => {
       setUser(JSON.parse(storedUser));
       setUserRole(storedUserRole);
     }
+    
+    setIsLoading(false);
   }, []);
 
   const handleLogout = () => {
@@ -41,6 +45,10 @@ const App = () => {
     setUserRole(null);
   };
 
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -49,8 +57,20 @@ const App = () => {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            
+            {/* Public Routes */}
+            <Route 
+              path="/login" 
+              element={userRole ? (
+                userRole === "student" ? <Navigate to="/student" /> : <Navigate to="/mentor" />
+              ) : <Login />}
+            />
+            <Route 
+              path="/register" 
+              element={userRole ? (
+                userRole === "student" ? <Navigate to="/student" /> : <Navigate to="/mentor" />
+              ) : <Register />}
+            />
             
             {/* Student Routes - Protected */}
             <Route 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,8 +66,10 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Navigate to student dashboard
-      navigate("/student");
+      // Navigate to student dashboard with a slight delay to ensure localStorage is updated
+      setTimeout(() => {
+        navigate("/student", { replace: true });
+      }, 100);
     } catch (error) {
       toast({
         title: "Login failed",
@@ -124,8 +125,10 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Navigate to mentor dashboard
-      navigate("/mentor");
+      // Navigate to mentor dashboard with a slight delay to ensure localStorage is updated
+      setTimeout(() => {
+        navigate("/mentor", { replace: true });
+      }, 100);
     } catch (error) {
       toast({
         title: "Login failed",
