@@ -43,8 +43,12 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
       <div className="container mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amiblue-400 to-amiblue-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-semibold text-lg">A</span>
+            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center">
+              <img
+                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+                alt="Amity University"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="font-display font-semibold text-xl tracking-tight">
               AmiPass

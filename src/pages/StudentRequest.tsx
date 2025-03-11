@@ -5,6 +5,8 @@ import { OutpassForm } from "@/components/OutpassForm";
 import { Student } from "@/lib/types";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface StudentRequestProps {
   user: Student;
@@ -15,8 +17,13 @@ export default function StudentRequest({ user, onLogout }: StudentRequestProps) 
   const navigate = useNavigate();
   
   const handleSuccess = () => {
+    // Show success toast
+    toast.success("Your outpass request has been submitted successfully", {
+      description: "Your request has been sent to your mentor for approval.",
+    });
+    
     // Navigate back to dashboard after successful submission
-    navigate("/student");
+    navigate("/student/outpasses");
   };
   
   return (
@@ -41,7 +48,9 @@ export default function StudentRequest({ user, onLogout }: StudentRequestProps) 
             </AlertDescription>
           </Alert>
           
-          <OutpassForm student={user} onSuccess={handleSuccess} />
+          <Card className="p-6">
+            <OutpassForm student={user} onSuccess={handleSuccess} />
+          </Card>
         </div>
       </main>
     </div>

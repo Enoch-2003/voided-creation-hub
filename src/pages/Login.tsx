@@ -1,74 +1,61 @@
 
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Navbar } from "@/components/Navbar";
-import { mockAuthenticate } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Student, Mentor } from "@/lib/types";
-
-const studentSchema = z.object({
-  enrollmentNumber: z.string().min(1, "Enrollment number is required"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
-
-const mentorSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-});
+import { mockAuthenticate } from "@/lib/utils";
+import { Navbar } from "@/components/Navbar";
+import { UserRole } from "@/lib/types";
 
 export default function Login() {
-  const [activeTab, setActiveTab] = useState("student");
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const studentForm = useForm<z.infer<typeof studentSchema>>({
-    resolver: zodResolver(studentSchema),
-    defaultValues: {
-      enrollmentNumber: "",
-      password: "",
-    },
-  });
-
-  const mentorForm = useForm<z.infer<typeof mentorSchema>>({
-    resolver: zodResolver(mentorSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
-  });
-
-  const onStudentSubmit = async (data: z.infer<typeof studentSchema>) => {
+  const [activeTab, setActiveTab] = useState<UserRole>("student");
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Student form state
+  const [studentId, setStudentId] = useState("");
+  const [studentPassword, setStudentPassword] = useState("");
+  
+  // Mentor form state
+  const [mentorEmail, setMentorEmail] = useState("");
+  const [mentorPassword, setMentorPassword] = useState("");
+  
+  const handleStudentLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!studentId || !studentPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
+    
     try {
-      const user = await mockAuthenticate(
-        data.enrollmentNumber,
-        data.password,
-        "student"
-      );
+      const user = await mockAuthenticate(studentId, studentPassword, "student");
+      
+      // Save user data to localStorage
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("userRole", "student");
       
+      // Initialize outpass data if not exists
+      if (!localStorage.getItem("outpasses")) {
+        localStorage.setItem("outpasses", JSON.stringify([]));
+      }
+      
       toast({
-        title: "Login successful",
-        description: `Welcome back, ${user.name}!`,
+        title: "Success!",
+        description: "You have successfully logged in as a student.",
       });
       
+      // Navigate to student dashboard
       navigate("/student");
     } catch (error) {
       toast({
@@ -80,23 +67,39 @@ export default function Login() {
       setIsLoading(false);
     }
   };
-
-  const onMentorSubmit = async (data: z.infer<typeof mentorSchema>) => {
+  
+  const handleMentorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!mentorEmail || !mentorPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsLoading(true);
+    
     try {
-      const user = await mockAuthenticate(
-        data.email,
-        data.password,
-        "mentor"
-      );
+      const user = await mockAuthenticate(mentorEmail, mentorPassword, "mentor");
+      
+      // Save user data to localStorage
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("userRole", "mentor");
       
+      // Initialize outpass data if not exists
+      if (!localStorage.getItem("outpasses")) {
+        localStorage.setItem("outpasses", JSON.stringify([]));
+      }
+      
       toast({
-        title: "Login successful",
-        description: `Welcome back, ${user.name}!`,
+        title: "Success!",
+        description: "You have successfully logged in as a mentor.",
       });
       
+      // Navigate to mentor dashboard
       navigate("/mentor");
     } catch (error) {
       toast({
@@ -108,132 +111,116 @@ export default function Login() {
       setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <div className="flex-1 flex items-center justify-center p-4 md:p-8">
-        <div className="w-full max-w-md mx-auto">
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amiblue-400 to-amiblue-600 flex items-center justify-center shadow-lg mx-auto">
-              <span className="text-white font-semibold text-xl">A</span>
+      <main className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-md p-6 sm:p-8 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 mb-4 relative">
+              <img
+                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+                alt="Amity University"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-3xl font-display font-bold mt-4">Welcome to AmiPass</h1>
-            <p className="text-muted-foreground mt-2">
-              Login to manage your outpass requests
+            <h1 className="text-2xl font-bold font-display">Login to AmiPass</h1>
+            <p className="text-muted-foreground">
+              Access your campus outpass system
             </p>
           </div>
           
-          <Card className="animate-scale-up">
-            <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl font-display">Login</CardTitle>
-              <CardDescription>
-                Choose your role to sign in to your account
-              </CardDescription>
-            </CardHeader>
+          <Tabs defaultValue="student" value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole)}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="student">Student</TabsTrigger>
+              <TabsTrigger value="mentor">Mentor</TabsTrigger>
+            </TabsList>
             
-            <Tabs defaultValue="student" value={activeTab} onValueChange={setActiveTab}>
-              <div className="px-6">
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="student">Student</TabsTrigger>
-                  <TabsTrigger value="mentor">Mentor</TabsTrigger>
-                </TabsList>
-              </div>
-              
-              <CardContent className="pt-6">
-                <TabsContent value="student" className="mt-0">
-                  <Form {...studentForm}>
-                    <form onSubmit={studentForm.handleSubmit(onStudentSubmit)} className="space-y-4">
-                      <FormField
-                        control={studentForm.control}
-                        name="enrollmentNumber"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Enrollment Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="CS20220001" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={studentForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? "Signing in..." : "Sign In"}
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
+            <TabsContent value="student">
+              <form onSubmit={handleStudentLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="student-id">Enrollment Number</Label>
+                  <Input
+                    id="student-id"
+                    type="text"
+                    placeholder="e.g., CS20220001"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
                 
-                <TabsContent value="mentor" className="mt-0">
-                  <Form {...mentorForm}>
-                    <form onSubmit={mentorForm.handleSubmit(onMentorSubmit)} className="space-y-4">
-                      <FormField
-                        control={mentorForm.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input placeholder="name@example.com" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={mentorForm.control}
-                        name="password"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Password</FormLabel>
-                            <FormControl>
-                              <Input type="password" placeholder="••••••••" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? "Signing in..." : "Sign In"}
-                      </Button>
-                    </form>
-                  </Form>
-                </TabsContent>
-              </CardContent>
-            </Tabs>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="student-password">Password</Label>
+                    <Link to="#" className="text-xs text-muted-foreground hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <Input
+                    id="student-password"
+                    type="password"
+                    value={studentPassword}
+                    onChange={(e) => setStudentPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login as Student"}
+                </Button>
+              </form>
+            </TabsContent>
             
-            <CardFooter className="flex flex-col space-y-4">
-              <div className="text-center text-sm text-muted-foreground mt-2">
-                Don't have an account?{" "}
-                <Link
-                  to="/register"
-                  className="text-amiblue-600 hover:text-amiblue-700 font-medium underline-offset-4 hover:underline"
-                >
-                  Register here
-                </Link>
-              </div>
-            </CardFooter>
-          </Card>
+            <TabsContent value="mentor">
+              <form onSubmit={handleMentorLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="mentor-email">Email Address</Label>
+                  <Input
+                    id="mentor-email"
+                    type="email"
+                    placeholder="name@amity.edu"
+                    value={mentorEmail}
+                    onChange={(e) => setMentorEmail(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="mentor-password">Password</Label>
+                    <Link to="#" className="text-xs text-muted-foreground hover:underline">
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <Input
+                    id="mentor-password"
+                    type="password"
+                    value={mentorPassword}
+                    onChange={(e) => setMentorPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login as Mentor"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="mt-6 text-center text-sm">
+            <p className="text-muted-foreground">
+              Don't have an account?{" "}
+              <Link to="/register" className="text-blue-600 hover:underline">
+                Register
+              </Link>
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

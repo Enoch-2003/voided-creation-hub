@@ -5,7 +5,7 @@ import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Clock } from "lucide-react";
+import { Clock, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
