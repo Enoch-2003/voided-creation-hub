@@ -124,7 +124,7 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Navigate to mentor dashboard with clear path
+      // Navigate to mentor dashboard
       navigate("/mentor");
     } catch (error) {
       toast({
