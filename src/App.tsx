@@ -48,6 +48,8 @@ const App = () => {
           // Handle JSON parse error by clearing invalid data
           localStorage.removeItem("user");
           localStorage.removeItem("userRole");
+          storageSync.removeItem("user");
+          storageSync.removeItem("userRole");
           setUser(null);
           setUserRole(null);
         }
@@ -64,11 +66,7 @@ const App = () => {
     
     // Subscribe to changes in user data from other tabs
     const unsubscribeUser = storageSync.subscribe("user", (userData) => {
-      if (userData) {
-        setUser(userData);
-      } else {
-        setUser(null);
-      }
+      setUser(userData);
     });
     
     const unsubscribeUserRole = storageSync.subscribe("userRole", (role) => {
@@ -86,10 +84,8 @@ const App = () => {
   }, []);
 
   const handleLogout = () => {
-    storageSync.setItem("user", null);
-    storageSync.setItem("userRole", null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("userRole");
+    storageSync.removeItem("user");
+    storageSync.removeItem("userRole");
     setUser(null);
     setUserRole(null);
   };

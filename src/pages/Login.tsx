@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
 import { UserRole } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import storageSync from "@/lib/storageSync";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function Login() {
     
     if (userRole && user) {
       try {
-        const parsedUser = JSON.parse(user);
+        JSON.parse(user); // Validate JSON
         if (userRole === "student") {
           navigate("/student", { replace: true });
         } else if (userRole === "mentor") {
@@ -42,6 +43,8 @@ export default function Login() {
         // Handle JSON parse error
         localStorage.removeItem("user");
         localStorage.removeItem("userRole");
+        storageSync.removeItem("user");
+        storageSync.removeItem("userRole");
       }
     }
   }, [navigate]);
@@ -76,25 +79,23 @@ export default function Login() {
         throw new Error("Invalid credentials");
       }
       
-      // Save user data to localStorage
-      localStorage.setItem("user", JSON.stringify(student));
-      localStorage.setItem("userRole", "student");
-      
       // Initialize outpass data if not exists
       if (!localStorage.getItem("outpasses")) {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
+      // Save user data to localStorage
+      storageSync.setItem("user", student);
+      storageSync.setItem("userRole", "student");
+      
+      // Show success toast
       toast({
         title: "Success!",
         description: "You have successfully logged in as a student.",
       });
       
-      // Show animation and navigate
+      // Show animation then navigate
       setIsAuthSuccess(true);
-      
-      // Navigate immediately - the animation will overlay during navigation
-      navigate("/student", { replace: true });
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -135,25 +136,23 @@ export default function Login() {
         throw new Error("Invalid credentials");
       }
       
-      // Save user data to localStorage
-      localStorage.setItem("user", JSON.stringify(mentor));
-      localStorage.setItem("userRole", "mentor");
-      
       // Initialize outpass data if not exists
       if (!localStorage.getItem("outpasses")) {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
+      // Save user data to localStorage
+      storageSync.setItem("user", mentor);
+      storageSync.setItem("userRole", "mentor");
+      
+      // Show success toast
       toast({
         title: "Success!",
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Show animation and navigate
+      // Show animation then navigate
       setIsAuthSuccess(true);
-      
-      // Navigate immediately - the animation will overlay during navigation
-      navigate("/mentor", { replace: true });
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -163,6 +162,22 @@ export default function Login() {
       });
     }
   };
+
+  // Handle redirection after successful animation display
+  useEffect(() => {
+    if (isAuthSuccess) {
+      const userRole = localStorage.getItem("userRole") as UserRole;
+      const redirectTimeout = setTimeout(() => {
+        if (userRole === "student") {
+          navigate("/student", { replace: true });
+        } else {
+          navigate("/mentor", { replace: true });
+        }
+      }, 1500); // Show animation for 1.5 seconds
+
+      return () => clearTimeout(redirectTimeout);
+    }
+  }, [isAuthSuccess, navigate]);
   
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -171,17 +186,17 @@ export default function Login() {
       {isAuthSuccess && (
         <div className="fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50 animate-fade-in">
           <div className="text-center">
-            <div className="mx-auto w-24 h-24 mb-4 relative animate-pulse">
+            <div className="mx-auto w-24 h-24 mb-4 relative">
               <img
                 src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
                 alt="Amity University"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain animate-pulse"
               />
             </div>
             <div className="text-2xl font-bold font-display animate-fade-in mb-3">
               Welcome to AmiPass
             </div>
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center animate-fade-in">
               <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
               <span>Redirecting to dashboard...</span>
             </div>
@@ -221,7 +236,7 @@ export default function Login() {
                     placeholder="e.g., CS20220001"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isAuthSuccess}
                   />
                 </div>
                 
@@ -237,11 +252,11 @@ export default function Login() {
                     type="password"
                     value={studentPassword}
                     onChange={(e) => setStudentPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isAuthSuccess}
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || isAuthSuccess}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -264,7 +279,7 @@ export default function Login() {
                     placeholder="name@amity.edu"
                     value={mentorEmail}
                     onChange={(e) => setMentorEmail(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isAuthSuccess}
                   />
                 </div>
                 
@@ -280,11 +295,11 @@ export default function Login() {
                     type="password"
                     value={mentorPassword}
                     onChange={(e) => setMentorPassword(e.target.value)}
-                    disabled={isLoading}
+                    disabled={isLoading || isAuthSuccess}
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading || isAuthSuccess}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Outpass } from '@/lib/types';
+import { Outpass, Student, Mentor, UserRole } from '@/lib/types';
 import storageSync from '@/lib/storageSync';
 
 /**
@@ -10,8 +10,17 @@ import storageSync from '@/lib/storageSync';
 export function useOutpasses() {
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<Student | Mentor | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
 
   useEffect(() => {
+    // Get current user info
+    const user = storageSync.getItem<Student | Mentor>('user');
+    const role = storageSync.getItem<UserRole>('userRole');
+    
+    setCurrentUser(user);
+    setUserRole(role);
+
     // Initial load
     const loadOutpasses = () => {
       const storedOutpasses = localStorage.getItem('outpasses');
@@ -41,9 +50,37 @@ export function useOutpasses() {
         setOutpasses([]);
       }
     });
+    
+    // Subscribe to user changes
+    const userUnsubscribe = storageSync.subscribe('user', (userData) => {
+      setCurrentUser(userData);
+    });
+    
+    const roleUnsubscribe = storageSync.subscribe('userRole', (role) => {
+      setUserRole(role as UserRole);
+    });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      userUnsubscribe();
+      roleUnsubscribe();
+    };
   }, []);
+
+  // Get filtered outpasses based on user role
+  const filteredOutpasses = outpasses.filter(outpass => {
+    if (!currentUser) return false;
+    
+    if (userRole === 'student') {
+      return outpass.studentId === currentUser.id;
+    } else if (userRole === 'mentor') {
+      const mentor = currentUser as Mentor;
+      // Show outpasses for sections that the mentor manages
+      return outpass.studentSection && mentor.sections.includes(outpass.studentSection);
+    }
+    
+    return false;
+  });
 
   // Function to update outpasses
   const updateOutpass = (updatedOutpass: Outpass) => {
@@ -67,7 +104,8 @@ export function useOutpasses() {
   };
 
   return {
-    outpasses,
+    outpasses: filteredOutpasses,
+    allOutpasses: outpasses, // For admin purposes if needed
     isLoading,
     updateOutpass,
     addOutpass,

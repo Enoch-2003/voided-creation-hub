@@ -42,14 +42,35 @@ class StorageSyncService {
 
   /**
    * Set data in localStorage and trigger updates in the current tab
+   * This method ensures proper stringification and avoids overwriting data with invalid values
    */
   setItem(key: string, data: any): void {
-    const stringifiedData = JSON.stringify(data);
-    localStorage.setItem(key, stringifiedData);
+    try {
+      // Only store valid data (prevent null or undefined from being stored as "null" or "undefined")
+      const stringifiedData = data !== null && data !== undefined 
+        ? JSON.stringify(data)
+        : '';
+      
+      localStorage.setItem(key, stringifiedData);
+      
+      // Also notify listeners in the current tab
+      if (this.listeners[key]) {
+        this.listeners[key].forEach(callback => callback(data));
+      }
+    } catch (error) {
+      console.error(`Error setting localStorage value for ${key}:`, error);
+    }
+  }
+
+  /**
+   * Remove an item from localStorage and notify listeners
+   */
+  removeItem(key: string): void {
+    localStorage.removeItem(key);
     
-    // Also notify listeners in the current tab
+    // Notify listeners that the item has been removed
     if (this.listeners[key]) {
-      this.listeners[key].forEach(callback => callback(data));
+      this.listeners[key].forEach(callback => callback(null));
     }
   }
 
