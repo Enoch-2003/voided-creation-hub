@@ -17,8 +17,16 @@ import MentorApproved from "./pages/MentorApproved";
 import MentorDenied from "./pages/MentorDenied";
 import NotFound from "./pages/NotFound";
 import { Student, Mentor, UserRole } from "./lib/types";
+import storageSync from "./lib/storageSync";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
 
 const App = () => {
   const [user, setUser] = useState<Student | Mentor | null>(null);
@@ -27,24 +35,59 @@ const App = () => {
 
   useEffect(() => {
     // Load user data from localStorage
-    const storedUser = localStorage.getItem("user");
-    const storedUserRole = localStorage.getItem("userRole") as UserRole | null;
-    
-    if (storedUser && storedUserRole) {
-      try {
-        setUser(JSON.parse(storedUser));
-        setUserRole(storedUserRole);
-      } catch (error) {
-        // Handle JSON parse error by clearing invalid data
-        localStorage.removeItem("user");
-        localStorage.removeItem("userRole");
+    const loadUserData = () => {
+      const storedUser = localStorage.getItem("user");
+      const storedUserRole = localStorage.getItem("userRole") as UserRole | null;
+      
+      if (storedUser && storedUserRole) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setUserRole(storedUserRole);
+        } catch (error) {
+          // Handle JSON parse error by clearing invalid data
+          localStorage.removeItem("user");
+          localStorage.removeItem("userRole");
+          setUser(null);
+          setUserRole(null);
+        }
+      } else {
+        setUser(null);
+        setUserRole(null);
       }
-    }
+      
+      setIsLoading(false);
+    };
+
+    // Initial load
+    loadUserData();
     
-    setIsLoading(false);
+    // Subscribe to changes in user data from other tabs
+    const unsubscribeUser = storageSync.subscribe("user", (userData) => {
+      if (userData) {
+        setUser(userData);
+      } else {
+        setUser(null);
+      }
+    });
+    
+    const unsubscribeUserRole = storageSync.subscribe("userRole", (role) => {
+      if (role) {
+        setUserRole(role as UserRole);
+      } else {
+        setUserRole(null);
+      }
+    });
+    
+    return () => {
+      unsubscribeUser();
+      unsubscribeUserRole();
+    };
   }, []);
 
   const handleLogout = () => {
+    storageSync.setItem("user", null);
+    storageSync.setItem("userRole", null);
     localStorage.removeItem("user");
     localStorage.removeItem("userRole");
     setUser(null);
@@ -52,7 +95,20 @@ const App = () => {
   };
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 mb-4 relative animate-pulse">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="text-xl font-semibold text-gray-700">Loading...</div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -67,13 +123,13 @@ const App = () => {
             {/* Public Routes - redirect if already logged in */}
             <Route 
               path="/login" 
-              element={userRole ? (
+              element={userRole && user ? (
                 userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
               ) : <Login />}
             />
             <Route 
               path="/register" 
-              element={userRole ? (
+              element={userRole && user ? (
                 userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
               ) : <Register />}
             />

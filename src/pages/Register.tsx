@@ -11,12 +11,14 @@ import { generateId } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import { UserRole, Student, Mentor } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2 } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentName, setStudentName] = useState("");
@@ -40,11 +42,40 @@ export default function Register() {
   const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
   const [mentorSections, setMentorSections] = useState<string[]>(["A"]);
   
+  // Mentor additional dynamic fields
+  const [mentorBranches, setMentorBranches] = useState<string[]>(["Computer Science"]);
+  const [mentorCourses, setMentorCourses] = useState<string[]>(["B.Tech"]);
+  const [mentorSemesters, setMentorSemesters] = useState<string[]>(["1"]);
+  
   const handleSectionToggle = (section: string) => {
     setMentorSections(prev => 
       prev.includes(section) 
         ? prev.filter(s => s !== section) 
         : [...prev, section]
+    );
+  };
+  
+  const handleBranchToggle = (branch: string) => {
+    setMentorBranches(prev => 
+      prev.includes(branch) 
+        ? prev.filter(b => b !== branch) 
+        : [...prev, branch]
+    );
+  };
+  
+  const handleCourseToggle = (course: string) => {
+    setMentorCourses(prev => 
+      prev.includes(course) 
+        ? prev.filter(c => c !== course) 
+        : [...prev, course]
+    );
+  };
+  
+  const handleSemesterToggle = (semester: string) => {
+    setMentorSemesters(prev => 
+      prev.includes(semester) 
+        ? prev.filter(s => s !== semester) 
+        : [...prev, semester]
     );
   };
   
@@ -120,16 +151,18 @@ export default function Register() {
         description: "Your student account has been created",
       });
       
-      // Redirect to student dashboard
-      setTimeout(() => navigate("/student"), 1000);
+      // Show animation before redirect
+      setIsAuthSuccess(true);
+      
+      // Navigate immediately - the animation will overlay during navigation
+      navigate("/student", { replace: true });
     } catch (error) {
+      setIsLoading(false);
       toast({
         title: "Registration failed",
         description: "An error occurred during registration",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -167,7 +200,7 @@ export default function Register() {
     setIsLoading(true);
     
     try {
-      // Create mentor user
+      // Create mentor user with dynamic values
       const mentorUser: Mentor = {
         id: generateId(),
         name: mentorName,
@@ -175,9 +208,9 @@ export default function Register() {
         password: mentorPassword, // Store password for login authentication
         role: "mentor",
         department: mentorDepartment,
-        branches: ["Computer Science", "Information Technology"],
-        courses: ["B.Tech", "M.Tech"],
-        semesters: ["1", "2", "3", "4", "5", "6", "7", "8"],
+        branches: mentorBranches,
+        courses: mentorCourses,
+        semesters: mentorSemesters,
         sections: mentorSections,
       };
       
@@ -199,22 +232,45 @@ export default function Register() {
         description: "Your mentor account has been created",
       });
       
-      // Redirect to mentor dashboard
-      setTimeout(() => navigate("/mentor"), 1000);
+      // Show animation before redirect
+      setIsAuthSuccess(true);
+      
+      // Navigate immediately - the animation will overlay during navigation
+      navigate("/mentor", { replace: true });
     } catch (error) {
+      setIsLoading(false);
       toast({
         title: "Registration failed",
         description: "An error occurred during registration",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
       <Navbar />
+      
+      {isAuthSuccess && (
+        <div className="fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50 animate-fade-in">
+          <div className="text-center">
+            <div className="mx-auto w-24 h-24 mb-4 relative animate-pulse">
+              <img
+                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+                alt="Amity University"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="text-2xl font-bold font-display animate-fade-in mb-3">
+              Welcome to AmiPass
+            </div>
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+              <span>Setting up your account...</span>
+            </div>
+          </div>
+        </div>
+      )}
       
       <main className="flex-1 py-16 px-4">
         <div className="max-w-2xl mx-auto bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-6 sm:p-8">
@@ -430,7 +486,14 @@ export default function Register() {
                 </div>
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating Account..." : "Register as Student"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Register as Student"
+                  )}
                 </Button>
               </form>
             </TabsContent>
@@ -501,6 +564,70 @@ export default function Register() {
                   </div>
                 </div>
                 
+                {/* New fields for branches, courses, and semesters */}
+                <div className="space-y-2">
+                  <Label>Branches You Handle</Label>
+                  <div className="grid grid-cols-2 gap-4 pt-1">
+                    {["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"].map(branch => (
+                      <div key={branch} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`branch-${branch}`}
+                          checked={mentorBranches.includes(branch)}
+                          onCheckedChange={() => handleBranchToggle(branch)}
+                        />
+                        <label 
+                          htmlFor={`branch-${branch}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {branch}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Courses You Teach</Label>
+                  <div className="grid grid-cols-3 gap-4 pt-1">
+                    {["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc"].map(course => (
+                      <div key={course} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`course-${course}`}
+                          checked={mentorCourses.includes(course)}
+                          onCheckedChange={() => handleCourseToggle(course)}
+                        />
+                        <label 
+                          htmlFor={`course-${course}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {course}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Semesters You Handle</Label>
+                  <div className="grid grid-cols-4 gap-4 pt-1">
+                    {Array.from({ length: 8 }, (_, i) => String(i + 1)).map(semester => (
+                      <div key={semester} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`semester-${semester}`}
+                          checked={mentorSemesters.includes(semester)}
+                          onCheckedChange={() => handleSemesterToggle(semester)}
+                        />
+                        <label 
+                          htmlFor={`semester-${semester}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          Sem {semester}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="mentor-password">Password</Label>
@@ -529,7 +656,14 @@ export default function Register() {
                 </div>
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Creating Account..." : "Register as Mentor"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    "Register as Mentor"
+                  )}
                 </Button>
               </form>
             </TabsContent>

@@ -9,6 +9,7 @@ import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PanelRight, Clock, CheckCheck, XCircle } from "lucide-react";
+import { useOutpasses } from "@/hooks/useOutpasses";
 
 interface MentorDashboardProps {
   user: Mentor;
@@ -18,16 +19,7 @@ interface MentorDashboardProps {
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
-  
-  useEffect(() => {
-    // Load outpasses from localStorage
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (storedOutpasses) {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      setOutpasses(allOutpasses);
-    }
-  }, []);
+  const { outpasses, updateOutpass } = useOutpasses();
   
   // Filter outpasses by mentor's sections
   const filteredOutpasses = outpasses.filter((outpass) => {
@@ -40,67 +32,53 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const deniedOutpasses = filteredOutpasses.filter(o => o.status === "denied");
   
   const handleApprove = (id: string) => {
-    // Get current outpasses
-    const currentOutpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
+    // Find the outpass to update
+    const outpassToUpdate = outpasses.find(o => o.id === id);
     
-    // Find and update the outpass
-    const updatedOutpasses = currentOutpasses.map((outpass: Outpass) => {
-      if (outpass.id === id) {
-        return {
-          ...outpass,
-          status: "approved",
-          mentorId: user.id,
-          mentorName: user.name,
-          qrCode: generateQRCode(outpass.id),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return outpass;
-    });
-    
-    // Save back to localStorage
-    localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-    
-    // Update local state
-    setOutpasses(updatedOutpasses);
-    
-    // Show success toast
-    toast({
-      title: "Outpass approved",
-      description: "Student has been notified and QR code generated.",
-    });
+    if (outpassToUpdate) {
+      const updatedOutpass: Outpass = {
+        ...outpassToUpdate,
+        status: "approved",
+        mentorId: user.id,
+        mentorName: user.name,
+        qrCode: generateQRCode(outpassToUpdate.id),
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update in real-time using the hook
+      updateOutpass(updatedOutpass);
+      
+      // Show success toast
+      toast({
+        title: "Outpass approved",
+        description: "Student has been notified and QR code generated.",
+      });
+    }
   };
   
   const handleDeny = (id: string, reason: string) => {
-    // Get current outpasses
-    const currentOutpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
+    // Find the outpass to update
+    const outpassToUpdate = outpasses.find(o => o.id === id);
     
-    // Find and update the outpass
-    const updatedOutpasses = currentOutpasses.map((outpass: Outpass) => {
-      if (outpass.id === id) {
-        return {
-          ...outpass,
-          status: "denied",
-          mentorId: user.id,
-          mentorName: user.name,
-          denyReason: reason,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return outpass;
-    });
-    
-    // Save back to localStorage
-    localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-    
-    // Update local state
-    setOutpasses(updatedOutpasses);
-    
-    // Show success toast
-    toast({
-      title: "Outpass denied",
-      description: "Student has been notified of the denial.",
-    });
+    if (outpassToUpdate) {
+      const updatedOutpass: Outpass = {
+        ...outpassToUpdate,
+        status: "denied",
+        mentorId: user.id,
+        mentorName: user.name,
+        denyReason: reason,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Update in real-time using the hook
+      updateOutpass(updatedOutpass);
+      
+      // Show success toast
+      toast({
+        title: "Outpass denied",
+        description: "Student has been notified of the denial.",
+      });
+    }
   };
   
   return (

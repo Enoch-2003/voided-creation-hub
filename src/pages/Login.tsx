@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -7,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
 import { UserRole } from "@/lib/types";
+import { Loader2 } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentId, setStudentId] = useState("");
@@ -28,10 +31,17 @@ export default function Login() {
     const user = localStorage.getItem("user");
     
     if (userRole && user) {
-      if (userRole === "student") {
-        navigate("/student", { replace: true });
-      } else if (userRole === "mentor") {
-        navigate("/mentor", { replace: true });
+      try {
+        const parsedUser = JSON.parse(user);
+        if (userRole === "student") {
+          navigate("/student", { replace: true });
+        } else if (userRole === "mentor") {
+          navigate("/mentor", { replace: true });
+        }
+      } catch (error) {
+        // Handle JSON parse error
+        localStorage.removeItem("user");
+        localStorage.removeItem("userRole");
       }
     }
   }, [navigate]);
@@ -80,18 +90,18 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Navigate to student dashboard with a delay and replace true to prevent going back
-      setTimeout(() => {
-        navigate("/student", { replace: true });
-      }, 300);
+      // Show animation and navigate
+      setIsAuthSuccess(true);
+      
+      // Navigate immediately - the animation will overlay during navigation
+      navigate("/student", { replace: true });
     } catch (error) {
+      setIsLoading(false);
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -139,24 +149,45 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Navigate to mentor dashboard with a delay and replace true to prevent going back
-      setTimeout(() => {
-        navigate("/mentor", { replace: true });
-      }, 300);
+      // Show animation and navigate
+      setIsAuthSuccess(true);
+      
+      // Navigate immediately - the animation will overlay during navigation
+      navigate("/mentor", { replace: true });
     } catch (error) {
+      setIsLoading(false);
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
   
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
       <Navbar />
+      
+      {isAuthSuccess && (
+        <div className="fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50 animate-fade-in">
+          <div className="text-center">
+            <div className="mx-auto w-24 h-24 mb-4 relative animate-pulse">
+              <img
+                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+                alt="Amity University"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div className="text-2xl font-bold font-display animate-fade-in mb-3">
+              Welcome to AmiPass
+            </div>
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
+              <span>Redirecting to dashboard...</span>
+            </div>
+          </div>
+        </div>
+      )}
       
       <main className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md p-6 sm:p-8 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
@@ -211,7 +242,14 @@ export default function Login() {
                 </div>
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login as Student"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login as Student"
+                  )}
                 </Button>
               </form>
             </TabsContent>
@@ -247,7 +285,14 @@ export default function Login() {
                 </div>
                 
                 <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login as Mentor"}
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login as Mentor"
+                  )}
                 </Button>
               </form>
             </TabsContent>
