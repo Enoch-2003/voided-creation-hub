@@ -1,4 +1,3 @@
-
 /**
  * Storage Sync Service
  * 
@@ -18,8 +17,24 @@ interface StorageSyncListeners {
 class StorageSyncService {
   private listeners: StorageSyncListeners = {};
   private storageLastUpdated: { [key: string]: number } = {};
+  private tabId: string;
+  private activeUserRoles: { [tabId: string]: string } = {};
 
   constructor() {
+    // Generate a unique tab ID
+    this.tabId = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    
+    // Initialize stored tab data
+    try {
+      const storedTabs = localStorage.getItem('amipass_active_tabs');
+      if (storedTabs) {
+        this.activeUserRoles = JSON.parse(storedTabs);
+      }
+    } catch (error) {
+      console.error('Error parsing active tabs data:', error);
+      this.activeUserRoles = {};
+    }
+    
     // Set up event listener for storage events (fired when localStorage changes in other tabs)
     window.addEventListener('storage', this.handleStorageChange);
     
@@ -28,6 +43,102 @@ class StorageSyncService {
     keysToTrack.forEach(key => {
       this.storageLastUpdated[key] = Date.now();
     });
+    
+    // Register this tab on page load
+    window.addEventListener('load', () => {
+      this.registerTabSession();
+    });
+    
+    // Cleanup tab data on unload
+    window.addEventListener('beforeunload', () => {
+      this.unregisterTabSession();
+    });
+    
+    // Set up broadcast channel for faster real-time communication
+    this.setupBroadcastChannels();
+  }
+  
+  /**
+   * Register this tab's session with user role information
+   */
+  private registerTabSession(): void {
+    const userRole = localStorage.getItem('userRole');
+    if (userRole) {
+      // Store this tab's user role
+      this.activeUserRoles[this.tabId] = userRole;
+      localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
+    }
+  }
+  
+  /**
+   * Unregister this tab's session when closing
+   */
+  private unregisterTabSession(): void {
+    delete this.activeUserRoles[this.tabId];
+    localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
+  }
+  
+  /**
+   * Set user authentication data for this specific tab
+   */
+  setUser(userData: any, userRole: string): void {
+    // Store in session storage (specific to this tab)
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.setItem('userRole', userRole);
+    
+    // We still keep localStorage for outpass data synchronization
+    localStorage.setItem('user_' + this.tabId, JSON.stringify(userData));
+    localStorage.setItem('userRole_' + this.tabId, userRole);
+    
+    // Update active tabs registry
+    this.activeUserRoles[this.tabId] = userRole;
+    localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
+    
+    // Trigger listeners in current tab
+    if (this.listeners['user']) {
+      this.listeners['user'].forEach(callback => callback(userData));
+    }
+    
+    if (this.listeners['userRole']) {
+      this.listeners['userRole'].forEach(callback => callback(userRole));
+    }
+    
+    // Broadcast update about user change for outpass filtering
+    if (window.BroadcastChannel) {
+      const channel = new BroadcastChannel('amipass_user_changed');
+      channel.postMessage({ tabId: this.tabId, userRole });
+    }
+  }
+  
+  /**
+   * Get user data for this specific tab
+   */
+  getUser(): any {
+    // Use sessionStorage to keep sessions isolated between tabs
+    const userData = sessionStorage.getItem('user');
+    if (!userData) return null;
+    
+    try {
+      return JSON.parse(userData);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Get user role for this specific tab
+   */
+  getUserRole(): string | null {
+    // Use sessionStorage to keep sessions isolated between tabs
+    return sessionStorage.getItem('userRole');
+  }
+  
+  /**
+   * Get tab ID 
+   */
+  getTabId(): string {
+    return this.tabId;
   }
 
   /**
@@ -35,6 +146,18 @@ class StorageSyncService {
    */
   private handleStorageChange = (event: StorageEvent) => {
     if (!event.key) return;
+    
+    // Skip user and userRole changes (now handled by session storage)
+    if (event.key === 'user' || event.key === 'userRole') {
+      return;
+    }
+    
+    // Skip tab-specific user data
+    if (event.key.startsWith('user_') || event.key.startsWith('userRole_')) {
+      return;
+    }
+    
+    // Handle outpasses and other shared data
     
     // Debounce the update to prevent multiple rapid changes
     const now = Date.now();
@@ -84,6 +207,19 @@ class StorageSyncService {
    */
   removeItem(key: string): void {
     localStorage.removeItem(key);
+    // Also clear from sessionStorage for user-related items
+    if (key === 'user' || key === 'userRole') {
+      sessionStorage.removeItem(key);
+      
+      // Clear from tab-specific storage too
+      localStorage.removeItem('user_' + this.tabId);
+      localStorage.removeItem('userRole_' + this.tabId);
+      
+      // Update active tabs registry
+      delete this.activeUserRoles[this.tabId];
+      localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
+    }
+    
     this.storageLastUpdated[key] = Date.now();
     
     // Notify listeners that the item has been removed
@@ -96,6 +232,16 @@ class StorageSyncService {
    * Get data from localStorage
    */
   getItem<T>(key: string): T | null {
+    // For user data, use tab-specific storage
+    if (key === 'user') {
+      return this.getUser() as T;
+    }
+    
+    if (key === 'userRole') {
+      return this.getUserRole() as unknown as T;
+    }
+    
+    // For other data, use localStorage as before
     const item = localStorage.getItem(key);
     if (!item) return null;
     
@@ -136,29 +282,46 @@ class StorageSyncService {
   }
 
   /**
-   * Creates a broadcast channel for even faster cross-tab communication
-   * This is an enhancement over the localStorage event which can sometimes be delayed
+   * Creates broadcast channels for even faster cross-tab communication
+   */
+  private setupBroadcastChannels(): void {
+    if (typeof BroadcastChannel !== 'undefined') {
+      // Channel for outpass changes
+      const outpassChannel = new BroadcastChannel('amity-outpass-outpasses');
+      
+      // Listen for messages from other tabs
+      outpassChannel.onmessage = (event) => {
+        if (event.data && event.data.type === 'update' && event.data.key === 'outpasses') {
+          // Refresh from localStorage
+          const data = this.getItem('outpasses');
+          
+          // Notify listeners
+          if (this.listeners['outpasses']) {
+            this.listeners['outpasses'].forEach(callback => callback(data));
+          }
+        }
+      };
+      
+      // User change channel
+      const userChannel = new BroadcastChannel('amipass_user_changed');
+      userChannel.onmessage = (event) => {
+        // We don't update the user data across tabs anymore
+        // Just log for debugging
+        console.log('Another tab changed user:', event.data);
+      };
+    }
+  }
+
+  /**
+   * Sets up real-time sync for a specific key
    */
   setupRealtimeSync(key: string): void {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel(`amity-outpass-${key}`);
       
-      // Listen for messages from other tabs
-      channel.onmessage = (event) => {
-        if (event.data && event.data.type === 'update' && event.data.key === key) {
-          // Refresh from localStorage
-          const data = this.getItem(key);
-          
-          // Notify listeners
-          if (this.listeners[key]) {
-            this.listeners[key].forEach(callback => callback(data));
-          }
-        }
-      };
-      
       // Enhance setItem to also broadcast changes
       const originalSetItem = this.setItem;
-      this.setItem = (itemKey: string, data: any) => {
+      this.setItem = function(itemKey: string, data: any) {
         originalSetItem.call(this, itemKey, data);
         
         // If this is the key we're syncing, broadcast the change
@@ -166,6 +329,32 @@ class StorageSyncService {
           channel.postMessage({ type: 'update', key: itemKey });
         }
       };
+    }
+  }
+  
+  /**
+   * Logout function that handles session cleanup
+   */
+  logout(): void {
+    // Clear session storage (tab-specific)
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('userRole');
+    
+    // Clear tab-specific localStorage items
+    localStorage.removeItem('user_' + this.tabId);
+    localStorage.removeItem('userRole_' + this.tabId);
+    
+    // Update active tabs registry
+    delete this.activeUserRoles[this.tabId];
+    localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
+    
+    // Notify listeners
+    if (this.listeners['user']) {
+      this.listeners['user'].forEach(callback => callback(null));
+    }
+    
+    if (this.listeners['userRole']) {
+      this.listeners['userRole'].forEach(callback => callback(null));
     }
   }
 }

@@ -13,10 +13,12 @@ export function useOutpasses() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<Student | Mentor | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [tabId, setTabId] = useState<string>('');
 
   // Load initial data and subscribe to changes
   useEffect(() => {
     setIsLoading(true);
+    setTabId(storageSync.getTabId());
     
     // Subscribe to outpass changes (both from this tab and other tabs)
     const unsubscribe = storageSync.subscribe('outpasses', (newOutpasses) => {
@@ -31,20 +33,32 @@ export function useOutpasses() {
       setIsLoading(false);
     });
     
-    // Subscribe to user changes
-    const userUnsubscribe = storageSync.subscribe('user', (userData) => {
-      setCurrentUser(userData);
-    });
+    // Get session-specific user data
+    const userData = storageSync.getUser();
+    const userRoleData = storageSync.getUserRole() as UserRole | null;
     
-    // Subscribe to user role changes
-    const roleUnsubscribe = storageSync.subscribe('userRole', (role) => {
-      setUserRole(role as UserRole);
-    });
-
+    setCurrentUser(userData);
+    setUserRole(userRoleData);
+    
+    // Set up broadcast channel for user changes if available
+    let userChangeChannel: BroadcastChannel | null = null;
+    
+    if (typeof BroadcastChannel !== 'undefined') {
+      userChangeChannel = new BroadcastChannel('amipass_user_changed');
+      userChangeChannel.onmessage = () => {
+        // Just refresh our outpasses, don't change user session
+        const outpassesData = storageSync.getItem<Outpass[]>('outpasses');
+        if (outpassesData) {
+          setOutpasses(outpassesData);
+        }
+      };
+    }
+    
     return () => {
       unsubscribe();
-      userUnsubscribe();
-      roleUnsubscribe();
+      if (userChangeChannel) {
+        userChangeChannel.close();
+      }
     };
   }, []);
 
@@ -69,19 +83,24 @@ export function useOutpasses() {
       outpass.id === updatedOutpass.id ? updatedOutpass : outpass
     );
     
+    // Update timestamp
+    updatedOutpass.updatedAt = new Date().toISOString();
+    
     storageSync.setItem('outpasses', updatedOutpasses);
     
-    // Show toast for real-time feedback
+    // Show toast for real-time feedback with tab ID
+    const toastMessage = `[Tab: ${tabId.substring(0, 5)}] `;
+    
     if (userRole === 'mentor' && updatedOutpass.status === 'approved') {
-      toast.success(`Outpass for ${updatedOutpass.studentName} approved`);
+      toast.success(`${toastMessage}Outpass for ${updatedOutpass.studentName} approved`);
     } else if (userRole === 'mentor' && updatedOutpass.status === 'denied') {
-      toast.error(`Outpass for ${updatedOutpass.studentName} denied`);
+      toast.error(`${toastMessage}Outpass for ${updatedOutpass.studentName} denied`);
     } else if (userRole === 'student' && updatedOutpass.status === 'approved') {
-      toast.success(`Your outpass has been approved!`);
+      toast.success(`${toastMessage}Your outpass has been approved!`);
     } else if (userRole === 'student' && updatedOutpass.status === 'denied') {
-      toast.error(`Your outpass was denied: ${updatedOutpass.denyReason}`);
+      toast.error(`${toastMessage}Your outpass was denied: ${updatedOutpass.denyReason}`);
     }
-  }, [outpasses, userRole]);
+  }, [outpasses, userRole, tabId]);
 
   // Function to add a new outpass with real-time syncing
   const addOutpass = useCallback((newOutpass: Outpass) => {
@@ -90,17 +109,17 @@ export function useOutpasses() {
     
     // Show toast for real-time feedback
     if (userRole === 'student') {
-      toast.success('Outpass request submitted successfully');
+      toast.success(`[Tab: ${tabId.substring(0, 5)}] Outpass request submitted successfully`);
     }
-  }, [outpasses, userRole]);
+  }, [outpasses, userRole, tabId]);
 
   // Function to delete an outpass with real-time syncing
   const deleteOutpass = useCallback((outpassId: string) => {
     const updatedOutpasses = outpasses.filter(outpass => outpass.id !== outpassId);
     storageSync.setItem('outpasses', updatedOutpasses);
     
-    toast.success('Outpass deleted successfully');
-  }, [outpasses]);
+    toast.success(`[Tab: ${tabId.substring(0, 5)}] Outpass deleted successfully`);
+  }, [outpasses, tabId]);
 
   return {
     outpasses: filteredOutpasses,
@@ -108,6 +127,7 @@ export function useOutpasses() {
     isLoading,
     updateOutpass,
     addOutpass,
-    deleteOutpass
+    deleteOutpass,
+    tabId
   };
 }

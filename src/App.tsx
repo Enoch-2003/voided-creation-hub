@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,10 +33,11 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user data from localStorage
+    // Load user data from sessionStorage instead of localStorage
     const loadUserData = () => {
-      const storedUser = localStorage.getItem("user");
-      const storedUserRole = localStorage.getItem("userRole") as UserRole | null;
+      // Get user data from sessionStorage (tab-specific)
+      const storedUser = sessionStorage.getItem("user");
+      const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
       
       if (storedUser && storedUserRole) {
         try {
@@ -46,10 +46,9 @@ const App = () => {
           setUserRole(storedUserRole);
         } catch (error) {
           // Handle JSON parse error by clearing invalid data
-          localStorage.removeItem("user");
-          localStorage.removeItem("userRole");
-          storageSync.removeItem("user");
-          storageSync.removeItem("userRole");
+          sessionStorage.removeItem("user");
+          sessionStorage.removeItem("userRole");
+          storageSync.logout(); // Use our new logout method
           setUser(null);
           setUserRole(null);
         }
@@ -64,7 +63,7 @@ const App = () => {
     // Initial load
     loadUserData();
     
-    // Subscribe to changes in user data from other tabs
+    // Subscribe to changes in user data
     const unsubscribeUser = storageSync.subscribe("user", (userData) => {
       setUser(userData);
     });
@@ -84,8 +83,7 @@ const App = () => {
   }, []);
 
   const handleLogout = () => {
-    storageSync.removeItem("user");
-    storageSync.removeItem("userRole");
+    storageSync.logout(); // Use the new logout method
     setUser(null);
     setUserRole(null);
   };

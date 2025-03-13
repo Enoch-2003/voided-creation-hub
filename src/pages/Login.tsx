@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,8 +27,8 @@ export default function Login() {
 
   // Check if user is already logged in
   useEffect(() => {
-    const userRole = localStorage.getItem("userRole") as UserRole | null;
-    const user = localStorage.getItem("user");
+    const userRole = sessionStorage.getItem("userRole") as UserRole | null;
+    const user = sessionStorage.getItem("user");
     
     if (userRole && user) {
       try {
@@ -41,10 +40,9 @@ export default function Login() {
         }
       } catch (error) {
         // Handle JSON parse error
-        localStorage.removeItem("user");
-        localStorage.removeItem("userRole");
-        storageSync.removeItem("user");
-        storageSync.removeItem("userRole");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("userRole");
+        storageSync.logout();
       }
     }
   }, [navigate]);
@@ -84,9 +82,8 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data to localStorage
-      storageSync.setItem("user", student);
-      storageSync.setItem("userRole", "student");
+      // Save user data using our new method
+      storageSync.setUser(student, "student");
       
       // Show success toast
       toast({
@@ -141,9 +138,8 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data to localStorage
-      storageSync.setItem("user", mentor);
-      storageSync.setItem("userRole", "mentor");
+      // Save user data using our new method
+      storageSync.setUser(mentor, "mentor");
       
       // Show success toast
       toast({
@@ -166,7 +162,7 @@ export default function Login() {
   // Handle redirection after successful animation display
   useEffect(() => {
     if (isAuthSuccess) {
-      const userRole = localStorage.getItem("userRole") as UserRole;
+      const userRole = sessionStorage.getItem("userRole") as UserRole;
       const redirectTimeout = setTimeout(() => {
         if (userRole === "student") {
           navigate("/student", { replace: true });
