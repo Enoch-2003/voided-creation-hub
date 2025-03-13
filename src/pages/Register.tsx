@@ -47,6 +47,11 @@ export default function Register() {
   const [mentorCourses, setMentorCourses] = useState<string[]>(["B.Tech"]);
   const [mentorSemesters, setMentorSemesters] = useState<string[]>(["1"]);
   
+  // Department options based on the new requirements
+  const departmentOptions = [
+    "ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"
+  ];
+  
   const handleSectionToggle = (section: string) => {
     setMentorSections(prev => 
       prev.includes(section) 
@@ -368,11 +373,9 @@ export default function Register() {
                         <SelectValue placeholder="Select department" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Computer Science">Computer Science</SelectItem>
-                        <SelectItem value="Information Technology">Information Technology</SelectItem>
-                        <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                        <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                        <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                        {departmentOptions.map(dept => (
+                          <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -534,11 +537,9 @@ export default function Register() {
                       <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="Computer Science">Computer Science</SelectItem>
-                      <SelectItem value="Information Technology">Information Technology</SelectItem>
-                      <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                      <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                      <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                      {departmentOptions.map(dept => (
+                        <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

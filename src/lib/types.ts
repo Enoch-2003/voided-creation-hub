@@ -14,7 +14,7 @@ export interface Student extends User {
   enrollmentNumber: string;
   contactNumber: string;
   guardianNumber: string;
-  department: string;
+  department: string; // Now using college abbreviations like ASET, ABS, etc.
   course: string;
   branch: string;
   semester: string;
@@ -23,7 +23,7 @@ export interface Student extends User {
 
 export interface Mentor extends User {
   role: 'mentor';
-  department: string;
+  department: string; // Now using college abbreviations like ASET, ABS, etc.
   branches: string[];
   courses: string[];
   semesters: string[];

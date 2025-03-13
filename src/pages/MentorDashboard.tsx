@@ -8,8 +8,9 @@ import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { PanelRight, Clock, CheckCheck, XCircle } from "lucide-react";
+import { PanelRight, Clock, CheckCheck, XCircle, Edit } from "lucide-react";
 import { useOutpasses } from "@/hooks/useOutpasses";
+import { MentorProfileEdit } from "@/components/MentorProfileEdit";
 
 interface MentorDashboardProps {
   user: Mentor;
@@ -20,11 +21,13 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const navigate = useNavigate();
   const { toast } = useToast();
   const { outpasses, updateOutpass } = useOutpasses();
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Mentor>(user);
   
   // Filter outpasses by mentor's sections
   const filteredOutpasses = outpasses.filter((outpass) => {
     // Check if the outpass has a studentSection property and if it's in the mentor's sections
-    return outpass.studentSection && user.sections.includes(outpass.studentSection);
+    return outpass.studentSection && currentUser.sections.includes(outpass.studentSection);
   });
   
   const pendingOutpasses = filteredOutpasses.filter(o => o.status === "pending");
@@ -39,8 +42,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "approved",
-        mentorId: user.id,
-        mentorName: user.name,
+        mentorId: currentUser.id,
+        mentorName: currentUser.name,
         qrCode: generateQRCode(outpassToUpdate.id),
         updatedAt: new Date().toISOString()
       };
@@ -64,8 +67,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "denied",
-        mentorId: user.id,
-        mentorName: user.name,
+        mentorId: currentUser.id,
+        mentorName: currentUser.name,
         denyReason: reason,
         updatedAt: new Date().toISOString()
       };
@@ -81,17 +84,21 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     }
   };
   
+  const handleProfileUpdate = (updatedMentor: Mentor) => {
+    setCurrentUser(updatedMentor);
+  };
+  
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar userRole="mentor" userName={user.name} onLogout={onLogout} />
+      <Navbar userRole="mentor" userName={currentUser.name} onLogout={onLogout} />
       
       <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <div className="md:col-span-2">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold font-display">Welcome, {user.name}</h1>
+              <h1 className="text-3xl font-bold font-display">Welcome, {currentUser.name}</h1>
               <p className="text-muted-foreground">
-                Review and manage student outpass requests for your sections: {user.sections.map(s => `Section ${s}`).join(", ")}
+                Review and manage student outpass requests for your sections: {currentUser.sections.map(s => `Section ${s}`).join(", ")}
               </p>
             </div>
             
@@ -186,30 +193,41 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
           <div className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Mentor Profile</CardTitle>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Mentor Profile</CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setIsEditProfileOpen(true)}
+                    className="flex items-center gap-1"
+                  >
+                    <Edit className="h-4 w-4" />
+                    <span>Edit</span>
+                  </Button>
+                </div>
               </CardHeader>
               
               <CardContent>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">{user.name}</span>
+                    <span className="font-medium">{currentUser.name}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{user.email}</span>
+                    <span className="font-medium">{currentUser.email}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-medium">{user.department}</span>
+                    <span className="font-medium">{currentUser.department}</span>
                   </div>
                   
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Branches:</span>
                     <div className="flex flex-wrap gap-1">
-                      {user.branches.map(branch => (
+                      {currentUser.branches.map(branch => (
                         <span key={branch} className="bg-muted px-2 py-1 rounded text-xs">
                           {branch}
                         </span>
@@ -220,7 +238,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Courses:</span>
                     <div className="flex flex-wrap gap-1">
-                      {user.courses.map(course => (
+                      {currentUser.courses.map(course => (
                         <span key={course} className="bg-muted px-2 py-1 rounded text-xs">
                           {course}
                         </span>
@@ -231,7 +249,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Semesters:</span>
                     <div className="flex flex-wrap gap-1">
-                      {user.semesters.map(semester => (
+                      {currentUser.semesters.map(semester => (
                         <span key={semester} className="bg-muted px-2 py-1 rounded text-xs">
                           {semester}
                         </span>
@@ -242,7 +260,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Sections:</span>
                     <div className="flex flex-wrap gap-1">
-                      {user.sections.map(section => (
+                      {currentUser.sections.map(section => (
                         <span key={section} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                           Section {section}
                         </span>
@@ -332,6 +350,13 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
           </div>
         </div>
       </main>
+      
+      <MentorProfileEdit
+        isOpen={isEditProfileOpen}
+        onClose={() => setIsEditProfileOpen(false)}
+        mentor={currentUser}
+        onUpdate={handleProfileUpdate}
+      />
     </div>
   );
 }

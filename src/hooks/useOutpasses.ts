@@ -45,20 +45,47 @@ export function useOutpasses() {
     
     if (typeof BroadcastChannel !== 'undefined') {
       userChangeChannel = new BroadcastChannel('amipass_user_changed');
-      userChangeChannel.onmessage = () => {
+      userChangeChannel.onmessage = (event) => {
         // Just refresh our outpasses, don't change user session
         const outpassesData = storageSync.getItem<Outpass[]>('outpasses');
         if (outpassesData) {
           setOutpasses(outpassesData);
         }
+        
+        // If the event contains updated user data for this tab's user, update it
+        if (event.data && event.data.userId) {
+          const currentTabUser = storageSync.getUser();
+          if (currentTabUser && currentTabUser.id === event.data.userId) {
+            // Get the latest user data
+            const updatedUser = storageSync.getUser();
+            if (updatedUser) {
+              setCurrentUser(updatedUser);
+            }
+          }
+        }
       };
     }
+    
+    // Monitor for changes to the current user data
+    const checkUserChanges = () => {
+      const latestUser = storageSync.getUser();
+      if (latestUser && currentUser && latestUser.id === currentUser.id) {
+        // Update if any properties have changed
+        if (JSON.stringify(latestUser) !== JSON.stringify(currentUser)) {
+          setCurrentUser(latestUser);
+        }
+      }
+    };
+    
+    // Check for user changes every 2 seconds
+    const userCheckInterval = setInterval(checkUserChanges, 2000);
     
     return () => {
       unsubscribe();
       if (userChangeChannel) {
         userChangeChannel.close();
       }
+      clearInterval(userCheckInterval);
     };
   }, []);
 
@@ -121,6 +148,18 @@ export function useOutpasses() {
     toast.success(`[Tab: ${tabId.substring(0, 5)}] Outpass deleted successfully`);
   }, [outpasses, tabId]);
 
+  // Function to update the user
+  const updateUser = useCallback((updatedUser: Student | Mentor) => {
+    setCurrentUser(updatedUser);
+    
+    // Notify other tabs about the user update via broadcast channel
+    if (typeof BroadcastChannel !== 'undefined') {
+      const userChangeChannel = new BroadcastChannel('amipass_user_changed');
+      userChangeChannel.postMessage({ userId: updatedUser.id });
+      userChangeChannel.close();
+    }
+  }, []);
+
   return {
     outpasses: filteredOutpasses,
     allOutpasses: outpasses, // For admin purposes if needed
@@ -128,6 +167,8 @@ export function useOutpasses() {
     updateOutpass,
     addOutpass,
     deleteOutpass,
-    tabId
+    tabId,
+    currentUser,
+    updateUser
   };
 }
