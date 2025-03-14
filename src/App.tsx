@@ -27,8 +27,14 @@ function App() {
     // Check if user is logged in via sessionStorage
     const storedUser = sessionStorage.getItem("currentUser");
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        // Handle JSON parse error
+        sessionStorage.removeItem("currentUser");
+        sessionStorage.removeItem("userRole");
+      }
     }
     
     setLoading(false);
@@ -36,6 +42,7 @@ function App() {
   
   const handleLogout = () => {
     sessionStorage.removeItem("currentUser");
+    sessionStorage.removeItem("userRole");
     setUser(null);
   };
   

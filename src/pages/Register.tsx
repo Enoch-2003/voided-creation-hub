@@ -64,11 +64,11 @@ export default function Register() {
         section,
       };
       
-      // Get existing students or initialize empty array
-      const existingStudents = JSON.parse(localStorage.getItem("students") || "[]");
+      // Get existing users or initialize empty array
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       
       // Add new student
-      localStorage.setItem("students", JSON.stringify([...existingStudents, studentData]));
+      localStorage.setItem("users", JSON.stringify([...existingUsers, studentData]));
       
       toast.success("Student registration successful!");
     } else {
@@ -83,11 +83,11 @@ export default function Register() {
         sections: sections,
       };
       
-      // Get existing mentors or initialize empty array
-      const existingMentors = JSON.parse(localStorage.getItem("mentors") || "[]");
+      // Get existing users or initialize empty array
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       
       // Add new mentor
-      localStorage.setItem("mentors", JSON.stringify([...existingMentors, mentorData]));
+      localStorage.setItem("users", JSON.stringify([...existingUsers, mentorData]));
       
       toast.success("Mentor registration successful!");
     }

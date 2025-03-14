@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -82,8 +83,9 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data using our new method
-      storageSync.setUser(student, "student");
+      // Store user data in session storage
+      sessionStorage.setItem("currentUser", JSON.stringify(student));
+      sessionStorage.setItem("userRole", "student");
       
       // Show success toast
       toast({
@@ -138,8 +140,9 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data using our new method
-      storageSync.setUser(mentor, "mentor");
+      // Store user data in session storage
+      sessionStorage.setItem("currentUser", JSON.stringify(mentor));
+      sessionStorage.setItem("userRole", "mentor");
       
       // Show success toast
       toast({
