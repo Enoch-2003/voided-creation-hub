@@ -28,19 +28,19 @@ export default function Login() {
   // Check if user is already logged in
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole") as UserRole | null;
-    const user = sessionStorage.getItem("user");
+    const user = sessionStorage.getItem("currentUser");
     
     if (userRole && user) {
       try {
         JSON.parse(user); // Validate JSON
         if (userRole === "student") {
-          navigate("/student", { replace: true });
+          navigate("/student/dashboard", { replace: true });
         } else if (userRole === "mentor") {
-          navigate("/mentor", { replace: true });
+          navigate("/mentor/dashboard", { replace: true });
         }
       } catch (error) {
         // Handle JSON parse error
-        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("currentUser");
         sessionStorage.removeItem("userRole");
         storageSync.logout();
       }
@@ -165,9 +165,9 @@ export default function Login() {
       const userRole = sessionStorage.getItem("userRole") as UserRole;
       const redirectTimeout = setTimeout(() => {
         if (userRole === "student") {
-          navigate("/student", { replace: true });
+          navigate("/student/dashboard", { replace: true });
         } else {
-          navigate("/mentor", { replace: true });
+          navigate("/mentor/dashboard", { replace: true });
         }
       }, 1500); // Show animation for 1.5 seconds
 
