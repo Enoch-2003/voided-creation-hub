@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Mentor } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -11,9 +10,11 @@ import { toast } from "sonner";
 interface MentorProfileEditProps {
   mentor: Mentor;
   onUpdate: (updatedMentor: Mentor) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) {
+export function MentorProfileEdit({ mentor, onUpdate, isOpen, onClose }: MentorProfileEditProps) {
   const [name, setName] = useState(mentor.name);
   const [email, setEmail] = useState(mentor.email);
   const [department, setDepartment] = useState(mentor.department);
@@ -21,9 +22,18 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
   const [courses, setCourses] = useState<string[]>(mentor.courses || []);
   const [semesters, setSemesters] = useState<string[]>(mentor.semesters || []);
   const [sections, setSections] = useState<string[]>(mentor.sections || []);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
 
   const departments = ["ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"];
+
+  const dialogOpen = isOpen !== undefined ? isOpen : internalOpen;
+  const setDialogOpen = (value: boolean) => {
+    if (isOpen !== undefined && onClose) {
+      if (!value) onClose();
+    } else {
+      setInternalOpen(value);
+    }
+  };
 
   const handleMultiSelect = (value: string, stateArray: string[], setStateArray: React.Dispatch<React.SetStateAction<string[]>>) => {
     if (stateArray.includes(value)) {
@@ -34,19 +44,16 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
   };
 
   const handleSubmit = () => {
-    // Simple validation
     if (!name || !email || !department) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Validate multi-select fields
     if (branches.length === 0 || courses.length === 0 || semesters.length === 0 || sections.length === 0) {
       toast.error("Please select at least one option for each category");
       return;
     }
 
-    // Create updated mentor object
     const updatedMentor: Mentor = {
       ...mentor,
       name,
@@ -58,27 +65,25 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
       sections,
     };
 
-    // Update mentor in localStorage and state
     const mentors = JSON.parse(localStorage.getItem("mentors") || "[]");
     const updatedMentors = mentors.map((m: Mentor) => (m.id === mentor.id ? updatedMentor : m));
     localStorage.setItem("mentors", JSON.stringify(updatedMentors));
     
-    // Update current user in sessionStorage
     sessionStorage.setItem("currentUser", JSON.stringify(updatedMentor));
 
-    // Call parent update function
     onUpdate(updatedMentor);
     
-    // Show success message and close dialog
     toast.success("Profile updated successfully");
-    setIsOpen(false);
+    setDialogOpen(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Edit Profile</Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!isOpen && (
+        <DialogTrigger asChild>
+          <Button variant="outline">Edit Profile</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Mentor Profile</DialogTitle>
@@ -199,7 +204,7 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleSubmit}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
