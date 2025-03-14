@@ -5,14 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Navbar } from "@/components/Navbar";
 import { Student, Mentor, UserRole } from "@/lib/types";
 import { Loader2 } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthSuccess, setIsAuthSuccess] = useState(false);
@@ -51,7 +50,6 @@ export default function Login() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
-        variant: "destructive",
       });
       return;
     }
@@ -94,7 +92,6 @@ export default function Login() {
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
-        variant: "destructive",
       });
     }
   };
@@ -106,7 +103,6 @@ export default function Login() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
-        variant: "destructive",
       });
       return;
     }
@@ -149,7 +145,6 @@ export default function Login() {
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
-        variant: "destructive",
       });
     }
   };
