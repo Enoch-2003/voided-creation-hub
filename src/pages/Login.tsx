@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,19 +28,19 @@ export default function Login() {
   // Check if user is already logged in
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole") as UserRole | null;
-    const user = sessionStorage.getItem("currentUser");
+    const user = sessionStorage.getItem("user");
     
     if (userRole && user) {
       try {
         JSON.parse(user); // Validate JSON
         if (userRole === "student") {
-          navigate("/student/dashboard", { replace: true });
+          navigate("/student", { replace: true });
         } else if (userRole === "mentor") {
-          navigate("/mentor/dashboard", { replace: true });
+          navigate("/mentor", { replace: true });
         }
       } catch (error) {
         // Handle JSON parse error
-        sessionStorage.removeItem("currentUser");
+        sessionStorage.removeItem("user");
         sessionStorage.removeItem("userRole");
         storageSync.logout();
       }
@@ -83,9 +82,8 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Store user data in session storage
-      sessionStorage.setItem("currentUser", JSON.stringify(student));
-      sessionStorage.setItem("userRole", "student");
+      // Save user data using our new method
+      storageSync.setUser(student, "student");
       
       // Show success toast
       toast({
@@ -140,9 +138,8 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Store user data in session storage
-      sessionStorage.setItem("currentUser", JSON.stringify(mentor));
-      sessionStorage.setItem("userRole", "mentor");
+      // Save user data using our new method
+      storageSync.setUser(mentor, "mentor");
       
       // Show success toast
       toast({
@@ -168,9 +165,9 @@ export default function Login() {
       const userRole = sessionStorage.getItem("userRole") as UserRole;
       const redirectTimeout = setTimeout(() => {
         if (userRole === "student") {
-          navigate("/student/dashboard", { replace: true });
+          navigate("/student", { replace: true });
         } else {
-          navigate("/mentor/dashboard", { replace: true });
+          navigate("/mentor", { replace: true });
         }
       }, 1500); // Show animation for 1.5 seconds
 

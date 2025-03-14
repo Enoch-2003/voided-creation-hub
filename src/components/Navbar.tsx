@@ -69,7 +69,7 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             ) : userRole === "student" ? (
               <>
                 <Button variant="ghost" asChild>
-                  <Link to="/student/dashboard">Dashboard</Link>
+                  <Link to="/student">Dashboard</Link>
                 </Button>
                 <Button variant="ghost" asChild>
                   <Link to="/student/outpasses">My Outpasses</Link>
@@ -81,7 +81,7 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             ) : (
               <>
                 <Button variant="ghost" asChild>
-                  <Link to="/mentor/dashboard">Dashboard</Link>
+                  <Link to="/mentor">Dashboard</Link>
                 </Button>
                 <Button variant="ghost" asChild>
                   <Link to="/mentor/pending">Pending</Link>
@@ -145,7 +145,7 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             ) : userRole === "student" ? (
               <>
                 <Button variant="ghost" className="justify-start" asChild>
-                  <Link to="/student/dashboard">Dashboard</Link>
+                  <Link to="/student">Dashboard</Link>
                 </Button>
                 <Button variant="ghost" className="justify-start" asChild>
                   <Link to="/student/outpasses">My Outpasses</Link>
@@ -157,7 +157,7 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             ) : (
               <>
                 <Button variant="ghost" className="justify-start" asChild>
-                  <Link to="/mentor/dashboard">Dashboard</Link>
+                  <Link to="/mentor">Dashboard</Link>
                 </Button>
                 <Button variant="ghost" className="justify-start" asChild>
                   <Link to="/mentor/pending">Pending</Link>

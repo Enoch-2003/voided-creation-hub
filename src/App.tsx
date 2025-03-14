@@ -1,83 +1,200 @@
-
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import "./App.css";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
+import MentorDashboard from "./pages/MentorDashboard";
 import StudentOutpasses from "./pages/StudentOutpasses";
 import StudentRequest from "./pages/StudentRequest";
-import StudentOutpassDetail from "./pages/StudentOutpassDetail";
-import MentorDashboard from "./pages/MentorDashboard";
 import MentorPending from "./pages/MentorPending";
 import MentorApproved from "./pages/MentorApproved";
 import MentorDenied from "./pages/MentorDenied";
 import NotFound from "./pages/NotFound";
-import QRScanResult from "./pages/QRScanResult";
-import { Toaster } from "sonner";
-import { Student, Mentor } from "./lib/types";
+import { Student, Mentor, UserRole } from "./lib/types";
 import storageSync from "./lib/storageSync";
 
-function App() {
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+    },
+  },
+});
+
+const App = () => {
   const [user, setUser] = useState<Student | Mentor | null>(null);
-  const [loading, setLoading] = useState(true);
-  
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
   useEffect(() => {
-    // Check if user is logged in via sessionStorage
-    const storedUser = sessionStorage.getItem("currentUser");
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (error) {
-        // Handle JSON parse error
-        sessionStorage.removeItem("currentUser");
-        sessionStorage.removeItem("userRole");
+    // Load user data from sessionStorage instead of localStorage
+    const loadUserData = () => {
+      // Get user data from sessionStorage (tab-specific)
+      const storedUser = sessionStorage.getItem("user");
+      const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
+      
+      if (storedUser && storedUserRole) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+          setUserRole(storedUserRole);
+        } catch (error) {
+          // Handle JSON parse error by clearing invalid data
+          sessionStorage.removeItem("user");
+          sessionStorage.removeItem("userRole");
+          storageSync.logout(); // Use our new logout method
+          setUser(null);
+          setUserRole(null);
+        }
+      } else {
+        setUser(null);
+        setUserRole(null);
       }
-    }
+      
+      setIsLoading(false);
+    };
+
+    // Initial load
+    loadUserData();
     
-    setLoading(false);
+    // Subscribe to changes in user data
+    const unsubscribeUser = storageSync.subscribe("user", (userData) => {
+      setUser(userData);
+    });
+    
+    const unsubscribeUserRole = storageSync.subscribe("userRole", (role) => {
+      if (role) {
+        setUserRole(role as UserRole);
+      } else {
+        setUserRole(null);
+      }
+    });
+    
+    return () => {
+      unsubscribeUser();
+      unsubscribeUserRole();
+    };
   }, []);
-  
+
   const handleLogout = () => {
-    sessionStorage.removeItem("currentUser");
-    sessionStorage.removeItem("userRole");
+    storageSync.logout(); // Use the new logout method
     setUser(null);
+    setUserRole(null);
   };
-  
-  if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 mb-4 relative animate-pulse">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="text-xl font-semibold text-gray-700">Loading...</div>
+        </div>
+      </div>
+    );
   }
-  
+
   return (
-    <Router>
-      <Toaster position="top-right" />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/login" element={!user ? <Login /> : <Navigate to={user.role === "student" ? "/student/dashboard" : "/mentor/dashboard"} />} />
-        <Route path="/register" element={!user ? <Register /> : <Navigate to={user.role === "student" ? "/student/dashboard" : "/mentor/dashboard"} />} />
-        
-        {/* Student Routes */}
-        <Route path="/student/dashboard" element={user && user.role === "student" ? <StudentDashboard user={user as Student} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/student/outpasses" element={user && user.role === "student" ? <StudentOutpasses user={user as Student} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/student/request" element={user && user.role === "student" ? <StudentRequest user={user as Student} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/student/outpass/:id" element={user && user.role === "student" ? <StudentOutpassDetail user={user as Student} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        
-        {/* Mentor Routes */}
-        <Route path="/mentor/dashboard" element={user && user.role === "mentor" ? <MentorDashboard user={user as Mentor} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/mentor/pending" element={user && user.role === "mentor" ? <MentorPending user={user as Mentor} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/mentor/approved" element={user && user.role === "mentor" ? <MentorApproved user={user as Mentor} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        <Route path="/mentor/denied" element={user && user.role === "mentor" ? <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-        
-        {/* QR Code Scan Result */}
-        <Route path="/scan/:id" element={<QRScanResult />} />
-        
-        {/* 404 Not Found */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Router>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            
+            {/* Public Routes - redirect if already logged in */}
+            <Route 
+              path="/login" 
+              element={userRole && user ? (
+                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+              ) : <Login />}
+            />
+            <Route 
+              path="/register" 
+              element={userRole && user ? (
+                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+              ) : <Register />}
+            />
+            
+            {/* Student Routes - Protected */}
+            <Route 
+              path="/student" 
+              element={
+                userRole === "student" && user ? 
+                <StudentDashboard user={user as Student} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/student/outpasses" 
+              element={
+                userRole === "student" && user ? 
+                <StudentOutpasses user={user as Student} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/student/request" 
+              element={
+                userRole === "student" && user ? 
+                <StudentRequest user={user as Student} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            
+            {/* Mentor Routes - Protected */}
+            <Route 
+              path="/mentor" 
+              element={
+                userRole === "mentor" && user ? 
+                <MentorDashboard user={user as Mentor} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/mentor/pending" 
+              element={
+                userRole === "mentor" && user ? 
+                <MentorPending user={user as Mentor} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/mentor/approved" 
+              element={
+                userRole === "mentor" && user ? 
+                <MentorApproved user={user as Mentor} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            <Route 
+              path="/mentor/denied" 
+              element={
+                userRole === "mentor" && user ? 
+                <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : 
+                <Navigate to="/login" replace />
+              } 
+            />
+            
+            {/* Catch-all route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
-}
+};
 
 export default App;
