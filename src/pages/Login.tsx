@@ -1,17 +1,18 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
-import { Student, Mentor, UserRole } from "@/lib/types";
+import { UserRole } from "@/lib/types";
 import { Loader2 } from "lucide-react";
+import storageSync from "@/lib/storageSync";
 
 export default function Login() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthSuccess, setIsAuthSuccess] = useState(false);
@@ -26,19 +27,22 @@ export default function Login() {
 
   // Check if user is already logged in
   useEffect(() => {
-    const user = sessionStorage.getItem("currentUser");
+    const userRole = sessionStorage.getItem("userRole") as UserRole | null;
+    const user = sessionStorage.getItem("user");
     
-    if (user) {
+    if (userRole && user) {
       try {
-        const parsedUser = JSON.parse(user);
-        if (parsedUser.role === "student") {
-          navigate("/student/dashboard", { replace: true });
-        } else if (parsedUser.role === "mentor") {
-          navigate("/mentor/dashboard", { replace: true });
+        JSON.parse(user); // Validate JSON
+        if (userRole === "student") {
+          navigate("/student", { replace: true });
+        } else if (userRole === "mentor") {
+          navigate("/mentor", { replace: true });
         }
       } catch (error) {
         // Handle JSON parse error
-        sessionStorage.removeItem("currentUser");
+        sessionStorage.removeItem("user");
+        sessionStorage.removeItem("userRole");
+        storageSync.logout();
       }
     }
   }, [navigate]);
@@ -50,6 +54,7 @@ export default function Login() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
       });
       return;
     }
@@ -57,22 +62,28 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all students from localStorage
-      const students = JSON.parse(localStorage.getItem("students") || "[]");
+      // Get all users from localStorage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
       
       // Find student by enrollment number and password
-      const student = students.find(
-        (s: Student) => 
-          s.enrollmentNumber === studentId && 
-          s.password === studentPassword
+      const student = users.find(
+        (user: any) => 
+          user.role === "student" && 
+          user.enrollmentNumber === studentId && 
+          user.password === studentPassword
       );
       
       if (!student) {
         throw new Error("Invalid credentials");
       }
       
-      // Save student data to sessionStorage
-      sessionStorage.setItem("currentUser", JSON.stringify(student));
+      // Initialize outpass data if not exists
+      if (!localStorage.getItem("outpasses")) {
+        localStorage.setItem("outpasses", JSON.stringify([]));
+      }
+      
+      // Save user data using our new method
+      storageSync.setUser(student, "student");
       
       // Show success toast
       toast({
@@ -82,16 +93,12 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
-      
-      // Navigate after a short delay
-      setTimeout(() => {
-        navigate("/student/dashboard");
-      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
+        variant: "destructive",
       });
     }
   };
@@ -103,6 +110,7 @@ export default function Login() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
       });
       return;
     }
@@ -110,22 +118,28 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all mentors from localStorage
-      const mentors = JSON.parse(localStorage.getItem("mentors") || "[]");
+      // Get all users from localStorage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
       
       // Find mentor by email and password
-      const mentor = mentors.find(
-        (m: Mentor) => 
-          m.email === mentorEmail && 
-          m.password === mentorPassword
+      const mentor = users.find(
+        (user: any) => 
+          user.role === "mentor" && 
+          user.email === mentorEmail && 
+          user.password === mentorPassword
       );
       
       if (!mentor) {
         throw new Error("Invalid credentials");
       }
       
-      // Save mentor data to sessionStorage
-      sessionStorage.setItem("currentUser", JSON.stringify(mentor));
+      // Initialize outpass data if not exists
+      if (!localStorage.getItem("outpasses")) {
+        localStorage.setItem("outpasses", JSON.stringify([]));
+      }
+      
+      // Save user data using our new method
+      storageSync.setUser(mentor, "mentor");
       
       // Show success toast
       toast({
@@ -135,19 +149,31 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
-      
-      // Navigate after a short delay
-      setTimeout(() => {
-        navigate("/mentor/dashboard");
-      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
         title: "Login failed",
         description: "Invalid credentials. Please try again.",
+        variant: "destructive",
       });
     }
   };
+
+  // Handle redirection after successful animation display
+  useEffect(() => {
+    if (isAuthSuccess) {
+      const userRole = sessionStorage.getItem("userRole") as UserRole;
+      const redirectTimeout = setTimeout(() => {
+        if (userRole === "student") {
+          navigate("/student", { replace: true });
+        } else {
+          navigate("/mentor", { replace: true });
+        }
+      }, 1500); // Show animation for 1.5 seconds
+
+      return () => clearTimeout(redirectTimeout);
+    }
+  }, [isAuthSuccess, navigate]);
   
   return (
     <div className="min-h-screen flex flex-col relative">

@@ -352,10 +352,10 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
       </main>
       
       <MentorProfileEdit
-        mentor={currentUser}
-        onUpdate={handleProfileUpdate}
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
+        mentor={currentUser}
+        onUpdate={handleProfileUpdate}
       />
     </div>
   );

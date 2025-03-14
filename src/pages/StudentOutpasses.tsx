@@ -1,14 +1,12 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
+import { QRCode } from "@/components/QRCode";
 import { Student, Outpass } from "@/lib/types";
-import { FileText, X } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { CalendarCheck, CalendarX, Clock } from "lucide-react";
 
 interface StudentOutpassesProps {
   user: Student;
@@ -16,17 +14,17 @@ interface StudentOutpassesProps {
 }
 
 export default function StudentOutpasses({ user, onLogout }: StudentOutpassesProps) {
-  const navigate = useNavigate();
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
-  const [filter, setFilter] = useState<string>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
+  const [showQRDialog, setShowQRDialog] = useState(false);
   
   useEffect(() => {
     // Load outpasses from localStorage
     const storedOutpasses = localStorage.getItem("outpasses");
     if (storedOutpasses) {
       const allOutpasses = JSON.parse(storedOutpasses);
-      // Filter only outpasses for this student
+      // Filter outpasses for the current student
       const studentOutpasses = allOutpasses.filter(
         (outpass: Outpass) => outpass.studentId === user.id
       );
@@ -34,21 +32,38 @@ export default function StudentOutpasses({ user, onLogout }: StudentOutpassesPro
     }
   }, [user.id]);
   
-  // Apply status filter
-  const filteredByStatus = filter === "all"
-    ? outpasses
-    : outpasses.filter(outpass => outpass.status === filter);
+  const filteredOutpasses = outpasses.filter(outpass => {
+    if (activeTab === "all") return true;
+    return outpass.status === activeTab;
+  });
   
-  // Apply search filter
-  const filteredOutpasses = searchQuery
-    ? filteredByStatus.filter(outpass => 
-        outpass.reason.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        new Date(outpass.exitDateTime).toLocaleDateString().includes(searchQuery)
-      )
-    : filteredByStatus;
+  const handleViewQR = (outpass: Outpass) => {
+    setSelectedOutpass(outpass);
+    setShowQRDialog(true);
+  };
   
-  const handleOutpassClick = (outpass: Outpass) => {
-    navigate(`/student/outpass/${outpass.id}`);
+  const EmptyState = ({ status }: { status: string }) => {
+    const icons = {
+      all: Clock,
+      pending: Clock,
+      approved: CalendarCheck,
+      denied: CalendarX,
+    };
+    
+    const Icon = icons[status as keyof typeof icons];
+    
+    return (
+      <div className="flex flex-col items-center justify-center py-16">
+        <Icon className="h-16 w-16 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium mb-2">No {status} outpasses found</h3>
+        <p className="text-muted-foreground">
+          {status === "pending" && "You don't have any pending outpass requests."}
+          {status === "approved" && "You don't have any approved outpasses yet."}
+          {status === "denied" && "You don't have any denied outpass requests."}
+          {status === "all" && "You haven't made any outpass requests yet."}
+        </p>
+      </div>
+    );
   };
   
   return (
@@ -59,102 +74,78 @@ export default function StudentOutpasses({ user, onLogout }: StudentOutpassesPro
         <div className="mb-6">
           <h1 className="text-3xl font-bold font-display">My Outpasses</h1>
           <p className="text-muted-foreground">
-            View and manage your outpass requests
+            View and manage all your outpass requests
           </p>
         </div>
         
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="relative max-w-sm w-full">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by reason or date..."
-              className="pl-3 pr-10"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-full"
-              onClick={() => setSearchQuery("")}
-              disabled={!searchQuery}
-            >
-              {searchQuery && <X className="h-4 w-4" />}
-            </Button>
-          </div>
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="all">All Outpasses</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="approved">Approved</TabsTrigger>
+            <TabsTrigger value="denied">Denied</TabsTrigger>
+          </TabsList>
           
-          <div>
-            <RadioGroup
-              defaultValue="all"
-              value={filter}
-              onValueChange={setFilter}
-              className="flex space-x-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="all" id="all" />
-                <Label htmlFor="all">All</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="pending" id="pending" />
-                <Label htmlFor="pending">Pending</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="approved" id="approved" />
-                <Label htmlFor="approved">Approved</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="denied" id="denied" />
-                <Label htmlFor="denied">Denied</Label>
-              </div>
-            </RadioGroup>
-          </div>
-        </div>
-        
-        <div className="flex justify-end mb-6">
-          <Button onClick={() => navigate("/student/request")}>
-            Request New Outpass
-          </Button>
-        </div>
-        
-        {filteredOutpasses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredOutpasses
-              .sort((a, b) => 
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-              )
-              .map(outpass => (
-                <div 
-                  key={outpass.id} 
-                  onClick={() => handleOutpassClick(outpass)}
-                  className="cursor-pointer transition-transform hover:scale-[1.01]"
-                >
-                  <OutpassCard outpass={outpass} userRole="student" />
+          <TabsContent value={activeTab} className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredOutpasses.length > 0 ? (
+                filteredOutpasses
+                  .sort((a, b) => 
+                    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                  )
+                  .map(outpass => (
+                    <div key={outpass.id} className="relative">
+                      <OutpassCard 
+                        outpass={outpass} 
+                        userRole="student" 
+                      />
+                      {outpass.status === "approved" && (
+                        <button
+                          onClick={() => handleViewQR(outpass)}
+                          className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md hover:bg-gray-100"
+                        >
+                          <span className="sr-only">View QR Code</span>
+                          <svg 
+                            xmlns="http://www.w3.org/2000/svg" 
+                            width="20" 
+                            height="20" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                          >
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <rect x="7" y="7" width="3" height="3"></rect>
+                            <rect x="14" y="7" width="3" height="3"></rect>
+                            <rect x="7" y="14" width="3" height="3"></rect>
+                            <rect x="14" y="14" width="3" height="3"></rect>
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))
+              ) : (
+                <div className="col-span-full">
+                  <EmptyState status={activeTab} />
                 </div>
-              ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16">
-            <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No outpasses found</h3>
-            <p className="text-muted-foreground text-center max-w-md">
-              {searchQuery || filter !== "all"
-                ? "No outpasses match your current filters."
-                : "You haven't submitted any outpass requests yet."}
-            </p>
-            {(searchQuery || filter !== "all") && (
-              <Button 
-                variant="outline" 
-                className="mt-4" 
-                onClick={() => {
-                  setSearchQuery("");
-                  setFilter("all");
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </div>
-        )}
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
       </main>
+      
+      <Dialog open={showQRDialog} onOpenChange={setShowQRDialog}>
+        <DialogContent className="max-w-md">
+          {selectedOutpass && (
+            <QRCode 
+              outpass={selectedOutpass} 
+              onClose={() => setShowQRDialog(false)} 
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

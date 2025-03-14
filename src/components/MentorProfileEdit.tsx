@@ -1,220 +1,250 @@
 
-import { useState } from "react";
-import { Mentor } from "@/lib/types";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Mentor } from "@/lib/types";
 import { toast } from "sonner";
+import storageSync from "@/lib/storageSync";
 
-interface MentorProfileEditProps {
+type MentorProfileEditProps = {
+  isOpen: boolean;
+  onClose: () => void;
   mentor: Mentor;
   onUpdate: (updatedMentor: Mentor) => void;
-  isOpen?: boolean;
-  onClose?: () => void;
-}
+};
 
-export function MentorProfileEdit({ mentor, onUpdate, isOpen, onClose }: MentorProfileEditProps) {
-  const [name, setName] = useState(mentor.name);
-  const [email, setEmail] = useState(mentor.email);
-  const [department, setDepartment] = useState(mentor.department);
-  const [branches, setBranches] = useState<string[]>(mentor.branches || []);
-  const [courses, setCourses] = useState<string[]>(mentor.courses || []);
-  const [semesters, setSemesters] = useState<string[]>(mentor.semesters || []);
-  const [sections, setSections] = useState<string[]>(mentor.sections || []);
-  const [internalOpen, setInternalOpen] = useState(false);
-  
-  // Handle both controlled and uncontrolled dialog states
-  const dialogOpen = isOpen !== undefined ? isOpen : internalOpen;
-  const setDialogOpen = (open: boolean) => {
-    if (onClose && !open) {
-      onClose();
-    }
-    setInternalOpen(open);
+export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorProfileEditProps) {
+  const [mentorDepartment, setMentorDepartment] = useState(mentor.department);
+  const [mentorSections, setMentorSections] = useState<string[]>(mentor.sections);
+  const [mentorBranches, setMentorBranches] = useState<string[]>(mentor.branches);
+  const [mentorCourses, setMentorCourses] = useState<string[]>(mentor.courses);
+  const [mentorSemesters, setMentorSemesters] = useState<string[]>(mentor.semesters);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Reset form state when mentor data changes
+    setMentorDepartment(mentor.department);
+    setMentorSections(mentor.sections);
+    setMentorBranches(mentor.branches);
+    setMentorCourses(mentor.courses);
+    setMentorSemesters(mentor.semesters);
+  }, [mentor, isOpen]);
+
+  const handleSectionToggle = (section: string) => {
+    setMentorSections(prev => 
+      prev.includes(section) 
+        ? prev.filter(s => s !== section) 
+        : [...prev, section]
+    );
   };
-
-  const departments = ["ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"];
-
-  const handleMultiSelect = (value: string, stateArray: string[], setStateArray: React.Dispatch<React.SetStateAction<string[]>>) => {
-    if (stateArray.includes(value)) {
-      setStateArray(stateArray.filter(item => item !== value));
-    } else {
-      setStateArray([...stateArray, value]);
-    }
+  
+  const handleBranchToggle = (branch: string) => {
+    setMentorBranches(prev => 
+      prev.includes(branch) 
+        ? prev.filter(b => b !== branch) 
+        : [...prev, branch]
+    );
+  };
+  
+  const handleCourseToggle = (course: string) => {
+    setMentorCourses(prev => 
+      prev.includes(course) 
+        ? prev.filter(c => c !== course) 
+        : [...prev, course]
+    );
+  };
+  
+  const handleSemesterToggle = (semester: string) => {
+    setMentorSemesters(prev => 
+      prev.includes(semester) 
+        ? prev.filter(s => s !== semester) 
+        : [...prev, semester]
+    );
   };
 
   const handleSubmit = () => {
-    // Simple validation
-    if (!name || !email || !department) {
-      toast.error("Please fill in all required fields");
+    if (mentorSections.length === 0) {
+      toast.error("Please select at least one section to mentor");
       return;
     }
 
-    // Validate multi-select fields
-    if (branches.length === 0 || courses.length === 0 || semesters.length === 0 || sections.length === 0) {
-      toast.error("Please select at least one option for each category");
-      return;
+    setIsLoading(true);
+
+    try {
+      // Create updated mentor with new values
+      const updatedMentor: Mentor = {
+        ...mentor,
+        department: mentorDepartment,
+        sections: mentorSections,
+        branches: mentorBranches,
+        courses: mentorCourses,
+        semesters: mentorSemesters,
+      };
+      
+      // Update in local storage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const updatedUsers = users.map((user: any) => 
+        user.id === mentor.id ? updatedMentor : user
+      );
+      
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
+      
+      // Update current session user if this is the logged-in user
+      const currentUser = storageSync.getUser();
+      if (currentUser && currentUser.id === mentor.id) {
+        storageSync.setUser(updatedMentor);
+      }
+      
+      // Notify the parent component
+      onUpdate(updatedMentor);
+      
+      toast.success("Profile updated successfully");
+      onClose();
+    } catch (error) {
+      toast.error("An error occurred while updating profile");
+      console.error(error);
+    } finally {
+      setIsLoading(false);
     }
-
-    // Create updated mentor object
-    const updatedMentor: Mentor = {
-      ...mentor,
-      name,
-      email,
-      department,
-      branches,
-      courses,
-      semesters,
-      sections,
-    };
-
-    // Update mentor in localStorage and state
-    const mentors = JSON.parse(localStorage.getItem("mentors") || "[]");
-    const updatedMentors = mentors.map((m: Mentor) => (m.id === mentor.id ? updatedMentor : m));
-    localStorage.setItem("mentors", JSON.stringify(updatedMentors));
-    
-    // Update current user in sessionStorage
-    sessionStorage.setItem("currentUser", JSON.stringify(updatedMentor));
-
-    // Call parent update function
-    onUpdate(updatedMentor);
-    
-    // Show success message and close dialog
-    toast.success("Profile updated successfully");
-    setDialogOpen(false);
   };
 
+  // Department options based on the new requirements
+  const departmentOptions = [
+    "ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"
+  ];
+
+  // Branch options
+  const branchOptions = [
+    "Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"
+  ];
+
+  // Course options
+  const courseOptions = ["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc"];
+
+  // Section options
+  const sectionOptions = ["A", "B", "C"];
+
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      {!isOpen && (
-        <DialogTrigger asChild>
-          <Button variant="outline">Edit Profile</Button>
-        </DialogTrigger>
-      )}
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Mentor Profile</DialogTitle>
-          <DialogDescription>
-            Update your profile information and the classes you mentor.
-          </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email address"
-            />
-          </div>
-          
-          <div className="grid gap-2">
-            <Label htmlFor="department">Department</Label>
-            <Select value={department} onValueChange={setDepartment}>
+        <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label>Department</Label>
+            <Select 
+              value={mentorDepartment} 
+              onValueChange={setMentorDepartment}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                {departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
+                {departmentOptions.map(dept => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           
-          <div className="grid gap-2">
-            <Label>Branches You Mentor</Label>
-            <div className="flex flex-wrap gap-2">
-              {["CSE", "ECE", "ME", "CE", "EEE", "IT"].map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={branches.includes(option) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleMultiSelect(option, branches, setBranches)}
-                  className="mb-2"
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label>Courses You Mentor</Label>
-            <div className="flex flex-wrap gap-2">
-              {["B.Tech", "M.Tech", "BCA", "MCA", "BBA", "MBA"].map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={courses.includes(option) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleMultiSelect(option, courses, setCourses)}
-                  className="mb-2"
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
-            <Label>Semesters You Mentor</Label>
-            <div className="flex flex-wrap gap-2">
-              {["1", "2", "3", "4", "5", "6", "7", "8"].map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={semesters.includes(option) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleMultiSelect(option, semesters, setSemesters)}
-                  className="mb-2"
-                >
-                  {option}
-                </Button>
-              ))}
-            </div>
-          </div>
-          
-          <div className="grid gap-2">
+          <div className="space-y-2">
             <Label>Sections You Mentor</Label>
-            <div className="flex flex-wrap gap-2">
-              {["A", "B", "C", "D", "E", "F"].map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  variant={sections.includes(option) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => handleMultiSelect(option, sections, setSections)}
-                  className="mb-2"
-                >
-                  {option}
-                </Button>
+            <div className="grid grid-cols-3 gap-4 pt-1">
+              {sectionOptions.map(section => (
+                <div key={section} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`edit-section-${section}`}
+                    checked={mentorSections.includes(section)}
+                    onCheckedChange={() => handleSectionToggle(section)}
+                  />
+                  <label 
+                    htmlFor={`edit-section-${section}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Section {section}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Branches You Handle</Label>
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              {branchOptions.map(branch => (
+                <div key={branch} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`edit-branch-${branch}`}
+                    checked={mentorBranches.includes(branch)}
+                    onCheckedChange={() => handleBranchToggle(branch)}
+                  />
+                  <label 
+                    htmlFor={`edit-branch-${branch}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {branch}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Courses You Teach</Label>
+            <div className="grid grid-cols-3 gap-4 pt-1">
+              {courseOptions.map(course => (
+                <div key={course} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`edit-course-${course}`}
+                    checked={mentorCourses.includes(course)}
+                    onCheckedChange={() => handleCourseToggle(course)}
+                  />
+                  <label 
+                    htmlFor={`edit-course-${course}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    {course}
+                  </label>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Semesters You Handle</Label>
+            <div className="grid grid-cols-4 gap-4 pt-1">
+              {Array.from({ length: 8 }, (_, i) => String(i + 1)).map(semester => (
+                <div key={semester} className="flex items-center space-x-2">
+                  <Checkbox 
+                    id={`edit-semester-${semester}`}
+                    checked={mentorSemesters.includes(semester)}
+                    onCheckedChange={() => handleSemesterToggle(semester)}
+                  />
+                  <label 
+                    htmlFor={`edit-semester-${semester}`}
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Sem {semester}
+                  </label>
+                </div>
               ))}
             </div>
           </div>
         </div>
         
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Save Changes</Button>
-        </DialogFooter>
+        <div className="flex justify-end space-x-2 mt-4">
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Updating..." : "Save Changes"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
