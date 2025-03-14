@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,9 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
-import { UserRole } from "@/lib/types";
+import { Student, Mentor, UserRole } from "@/lib/types";
 import { Loader2 } from "lucide-react";
-import storageSync from "@/lib/storageSync";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -27,22 +27,19 @@ export default function Login() {
 
   // Check if user is already logged in
   useEffect(() => {
-    const userRole = sessionStorage.getItem("userRole") as UserRole | null;
-    const user = sessionStorage.getItem("user");
+    const user = sessionStorage.getItem("currentUser");
     
-    if (userRole && user) {
+    if (user) {
       try {
-        JSON.parse(user); // Validate JSON
-        if (userRole === "student") {
-          navigate("/student", { replace: true });
-        } else if (userRole === "mentor") {
-          navigate("/mentor", { replace: true });
+        const parsedUser = JSON.parse(user);
+        if (parsedUser.role === "student") {
+          navigate("/student/dashboard", { replace: true });
+        } else if (parsedUser.role === "mentor") {
+          navigate("/mentor/dashboard", { replace: true });
         }
       } catch (error) {
         // Handle JSON parse error
-        sessionStorage.removeItem("user");
-        sessionStorage.removeItem("userRole");
-        storageSync.logout();
+        sessionStorage.removeItem("currentUser");
       }
     }
   }, [navigate]);
@@ -62,28 +59,22 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      // Get all students from localStorage
+      const students = JSON.parse(localStorage.getItem("students") || "[]");
       
       // Find student by enrollment number and password
-      const student = users.find(
-        (user: any) => 
-          user.role === "student" && 
-          user.enrollmentNumber === studentId && 
-          user.password === studentPassword
+      const student = students.find(
+        (s: Student) => 
+          s.enrollmentNumber === studentId && 
+          s.password === studentPassword
       );
       
       if (!student) {
         throw new Error("Invalid credentials");
       }
       
-      // Initialize outpass data if not exists
-      if (!localStorage.getItem("outpasses")) {
-        localStorage.setItem("outpasses", JSON.stringify([]));
-      }
-      
-      // Save user data using our new method
-      storageSync.setUser(student, "student");
+      // Save student data to sessionStorage
+      sessionStorage.setItem("currentUser", JSON.stringify(student));
       
       // Show success toast
       toast({
@@ -93,6 +84,11 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
+      
+      // Navigate after a short delay
+      setTimeout(() => {
+        navigate("/student/dashboard");
+      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -118,28 +114,22 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      // Get all mentors from localStorage
+      const mentors = JSON.parse(localStorage.getItem("mentors") || "[]");
       
       // Find mentor by email and password
-      const mentor = users.find(
-        (user: any) => 
-          user.role === "mentor" && 
-          user.email === mentorEmail && 
-          user.password === mentorPassword
+      const mentor = mentors.find(
+        (m: Mentor) => 
+          m.email === mentorEmail && 
+          m.password === mentorPassword
       );
       
       if (!mentor) {
         throw new Error("Invalid credentials");
       }
       
-      // Initialize outpass data if not exists
-      if (!localStorage.getItem("outpasses")) {
-        localStorage.setItem("outpasses", JSON.stringify([]));
-      }
-      
-      // Save user data using our new method
-      storageSync.setUser(mentor, "mentor");
+      // Save mentor data to sessionStorage
+      sessionStorage.setItem("currentUser", JSON.stringify(mentor));
       
       // Show success toast
       toast({
@@ -149,6 +139,11 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
+      
+      // Navigate after a short delay
+      setTimeout(() => {
+        navigate("/mentor/dashboard");
+      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -158,22 +153,6 @@ export default function Login() {
       });
     }
   };
-
-  // Handle redirection after successful animation display
-  useEffect(() => {
-    if (isAuthSuccess) {
-      const userRole = sessionStorage.getItem("userRole") as UserRole;
-      const redirectTimeout = setTimeout(() => {
-        if (userRole === "student") {
-          navigate("/student", { replace: true });
-        } else {
-          navigate("/mentor", { replace: true });
-        }
-      }, 1500); // Show animation for 1.5 seconds
-
-      return () => clearTimeout(redirectTimeout);
-    }
-  }, [isAuthSuccess, navigate]);
   
   return (
     <div className="min-h-screen flex flex-col relative">

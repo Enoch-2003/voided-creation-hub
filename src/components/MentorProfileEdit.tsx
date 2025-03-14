@@ -11,9 +11,11 @@ import { toast } from "sonner";
 interface MentorProfileEditProps {
   mentor: Mentor;
   onUpdate: (updatedMentor: Mentor) => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) {
+export function MentorProfileEdit({ mentor, onUpdate, isOpen, onClose }: MentorProfileEditProps) {
   const [name, setName] = useState(mentor.name);
   const [email, setEmail] = useState(mentor.email);
   const [department, setDepartment] = useState(mentor.department);
@@ -21,7 +23,16 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
   const [courses, setCourses] = useState<string[]>(mentor.courses || []);
   const [semesters, setSemesters] = useState<string[]>(mentor.semesters || []);
   const [sections, setSections] = useState<string[]>(mentor.sections || []);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Handle both controlled and uncontrolled dialog states
+  const dialogOpen = isOpen !== undefined ? isOpen : internalOpen;
+  const setDialogOpen = (open: boolean) => {
+    if (onClose && !open) {
+      onClose();
+    }
+    setInternalOpen(open);
+  };
 
   const departments = ["ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"];
 
@@ -71,14 +82,16 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
     
     // Show success message and close dialog
     toast.success("Profile updated successfully");
-    setIsOpen(false);
+    setDialogOpen(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">Edit Profile</Button>
-      </DialogTrigger>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {!isOpen && (
+        <DialogTrigger asChild>
+          <Button variant="outline">Edit Profile</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Mentor Profile</DialogTitle>
@@ -199,7 +212,7 @@ export function MentorProfileEdit({ mentor, onUpdate }: MentorProfileEditProps) 
         </div>
         
         <DialogFooter>
-          <Button variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleSubmit}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>

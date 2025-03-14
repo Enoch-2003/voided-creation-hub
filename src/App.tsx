@@ -17,21 +17,23 @@ import NotFound from "./pages/NotFound";
 import QRScanResult from "./pages/QRScanResult";
 import { Toaster } from "sonner";
 import { Student, Mentor } from "./lib/types";
-import { setupStorageSyncService } from "./lib/storageSync";
+import storageSync from "./lib/storageSync";
 
 function App() {
   const [user, setUser] = useState<Student | Mentor | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
-    // Initialize real-time synchronization
-    setupStorageSyncService();
-    
     // Check if user is logged in via sessionStorage
     const storedUser = sessionStorage.getItem("currentUser");
     if (storedUser) {
-      const parsedUser = JSON.parse(storedUser);
-      setUser(parsedUser);
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+        sessionStorage.removeItem("currentUser");
+      }
     }
     
     setLoading(false);
