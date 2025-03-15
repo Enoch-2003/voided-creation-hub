@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,8 +16,8 @@ import MentorPending from "./pages/MentorPending";
 import MentorApproved from "./pages/MentorApproved";
 import MentorDenied from "./pages/MentorDenied";
 import NotFound from "./pages/NotFound";
+import OutpassVerify from "./pages/OutpassVerify";
 import { Student, Mentor, UserRole } from "./lib/types";
-import storageSync from "./lib/storageSync";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,7 +34,7 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load user data from sessionStorage instead of localStorage
+    // Load user data from sessionStorage
     const loadUserData = () => {
       // Get user data from sessionStorage (tab-specific)
       const storedUser = sessionStorage.getItem("user");
@@ -48,7 +49,6 @@ const App = () => {
           // Handle JSON parse error by clearing invalid data
           sessionStorage.removeItem("user");
           sessionStorage.removeItem("userRole");
-          storageSync.logout(); // Use our new logout method
           setUser(null);
           setUserRole(null);
         }
@@ -62,28 +62,12 @@ const App = () => {
 
     // Initial load
     loadUserData();
-    
-    // Subscribe to changes in user data
-    const unsubscribeUser = storageSync.subscribe("user", (userData) => {
-      setUser(userData);
-    });
-    
-    const unsubscribeUserRole = storageSync.subscribe("userRole", (role) => {
-      if (role) {
-        setUserRole(role as UserRole);
-      } else {
-        setUserRole(null);
-      }
-    });
-    
-    return () => {
-      unsubscribeUser();
-      unsubscribeUserRole();
-    };
   }, []);
 
   const handleLogout = () => {
-    storageSync.logout(); // Use the new logout method
+    // Clear session storage
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("userRole");
     setUser(null);
     setUserRole(null);
   };
@@ -127,6 +111,9 @@ const App = () => {
                 userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
               ) : <Register />}
             />
+            
+            {/* QR Code Verification Page - Public Route */}
+            <Route path="/verify/:id" element={<OutpassVerify />} />
             
             {/* Student Routes - Protected */}
             <Route 

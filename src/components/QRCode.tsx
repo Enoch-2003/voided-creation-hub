@@ -2,10 +2,11 @@
 import { Button } from "@/components/ui/button";
 import { Outpass } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { Download, XCircle } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { Download, XCircle, AlertTriangle } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import QRCodeLib from "qrcode";
 import { jsPDF } from "jspdf";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface QRCodeProps {
   outpass: Outpass;
@@ -15,8 +16,14 @@ interface QRCodeProps {
 export function QRCode({ outpass, onClose }: QRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
+  const [isExpired, setIsExpired] = useState(false);
   
   useEffect(() => {
+    // Check if already scanned
+    if (outpass.scanTimestamp) {
+      setIsExpired(true);
+    }
+    
     if (canvasRef.current && outpass.qrCode) {
       // Generate QR code
       QRCodeLib.toCanvas(canvasRef.current, outpass.qrCode, {
@@ -26,16 +33,21 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
           dark: "#000000",
           light: "#FFFFFF",
         },
+      }).then(() => {
+        // Add logo to the center of the QR code
+        if (logoRef.current && logoRef.current.complete) {
+          addLogoToQRCode();
+        } else if (logoRef.current) {
+          logoRef.current.onload = addLogoToQRCode;
+        }
+        
+        // Apply blur and expired overlay if needed
+        if (outpass.scanTimestamp) {
+          addExpiredOverlay();
+        }
       });
-      
-      // Add logo to the center of the QR code
-      if (logoRef.current && logoRef.current.complete) {
-        addLogoToQRCode();
-      } else if (logoRef.current) {
-        logoRef.current.onload = addLogoToQRCode;
-      }
     }
-  }, [outpass.qrCode]);
+  }, [outpass.qrCode, outpass.scanTimestamp]);
   
   const addLogoToQRCode = () => {
     if (!canvasRef.current || !logoRef.current) return;
@@ -55,6 +67,29 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     
     // Draw the logo
     context.drawImage(logoRef.current, logoX, logoY, logoSize, logoSize);
+  };
+  
+  const addExpiredOverlay = () => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+    
+    // Add semi-transparent overlay
+    context.fillStyle = "rgba(255, 255, 255, 0.7)";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add "EXPIRED" text
+    context.font = "bold 28px Arial";
+    context.fillStyle = "rgba(255, 0, 0, 0.7)";
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.translate(canvas.width / 2, canvas.height / 2);
+    context.rotate(-Math.PI / 4); // Rotate -45 degrees
+    context.fillText("EXPIRED QR", 0, 0);
+    context.rotate(Math.PI / 4); // Rotate back
+    context.translate(-canvas.width / 2, -canvas.height / 2);
   };
   
   const handleDownload = () => {
@@ -91,6 +126,13 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 190);
     pdf.text(`QR Code ID: ${outpass.id}`, 20, 200);
     
+    // Add warning for expired QR codes
+    if (outpass.scanTimestamp) {
+      pdf.setTextColor(255, 0, 0);
+      pdf.text("THIS QR CODE HAS ALREADY BEEN USED AND IS NO LONGER VALID", 105, 210, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
+    }
+    
     // Add footer
     pdf.setFontSize(8);
     pdf.text("This outpass is valid only for the date and time mentioned above.", 105, 240, { align: "center" });
@@ -101,9 +143,57 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.save(`AmiPass-${outpass.id}.pdf`);
   };
   
+  // Determine verification URL for the QR code
+  const getVerificationUrl = () => {
+    // Get base URL from current window location
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/verify/${outpass.id}`;
+  };
+  
+  // Update QR code with the verification URL if not already set
+  useEffect(() => {
+    if (!outpass.qrCode && canvasRef.current) {
+      // Generate a real verification URL instead of placeholder
+      const verificationUrl = getVerificationUrl();
+      
+      // Update the outpass in localStorage
+      const storedOutpasses = localStorage.getItem("outpasses");
+      if (storedOutpasses) {
+        const outpasses = JSON.parse(storedOutpasses);
+        const updatedOutpasses = outpasses.map((op: Outpass) => {
+          if (op.id === outpass.id) {
+            return { ...op, qrCode: verificationUrl };
+          }
+          return op;
+        });
+        localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+      }
+      
+      // Generate QR code with the verification URL
+      QRCodeLib.toCanvas(canvasRef.current, verificationUrl, {
+        width: 240,
+        margin: 1,
+      }).then(() => {
+        if (logoRef.current && logoRef.current.complete) {
+          addLogoToQRCode();
+        }
+      });
+    }
+  }, [outpass.id, outpass.qrCode]);
+  
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-lg font-semibold mb-4">Your Outpass QR Code</h2>
+      
+      {isExpired && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>One-time use only</AlertTitle>
+          <AlertDescription>
+            This QR code has already been scanned and is no longer valid.
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="bg-white p-3 rounded-lg shadow-sm mb-4 relative">
         <canvas ref={canvasRef} className="w-60 h-60"></canvas>
@@ -114,6 +204,16 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
           className="hidden" // Hidden but used to load the image
         />
       </div>
+      
+      {!isExpired && (
+        <Alert className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Single-Use QR Code</AlertTitle>
+          <AlertDescription>
+            This QR code can only be scanned once. After scanning, it will become invalid.
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="space-y-2 w-full mb-4">
         <div className="flex justify-between px-2 py-1 bg-muted rounded text-sm">

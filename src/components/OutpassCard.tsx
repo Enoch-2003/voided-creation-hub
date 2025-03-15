@@ -15,6 +15,7 @@ interface OutpassCardProps {
   onApprove?: (id: string) => void;
   onDeny?: (id: string, reason: string) => void;
   showActions?: boolean;
+  onViewQR?: (outpass: Outpass) => void;
 }
 
 export function OutpassCard({ 
@@ -22,7 +23,8 @@ export function OutpassCard({
   userRole, 
   onApprove, 
   onDeny, 
-  showActions = false 
+  showActions = false,
+  onViewQR
 }: OutpassCardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -47,13 +49,15 @@ export function OutpassCard({
   };
   
   const handleViewQR = () => {
-    if (outpass.status === "approved" && outpass.qrCode) {
-      // In a real app, we would navigate to a QR code detail page
-      // For demo, we'll just show a toast with a simulated link
-      toast({
-        title: "QR Code Available",
-        description: "Scanning this QR code at the security gate will mark your exit."
-      });
+    if (outpass.status === "approved") {
+      if (onViewQR) {
+        onViewQR(outpass);
+      } else {
+        toast({
+          title: "QR Code Available",
+          description: "Scanning this QR code at the security gate will mark your exit."
+        });
+      }
     } else {
       toast({
         title: "No QR Code Available",

@@ -101,16 +101,11 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 <CardContent>
                   {latestActiveOutpass ? (
                     <div className="space-y-4">
-                      <OutpassCard outpass={latestActiveOutpass} userRole="student" />
-                      
-                      {latestActiveOutpass.status === "approved" && (
-                        <Button 
-                          onClick={() => handleViewQR(latestActiveOutpass)} 
-                          className="w-full"
-                        >
-                          View QR Code
-                        </Button>
-                      )}
+                      <OutpassCard 
+                        outpass={latestActiveOutpass} 
+                        userRole="student"
+                        onViewQR={handleViewQR}
+                      />
                     </div>
                   ) : (
                     <div className="text-center py-8">
@@ -154,6 +149,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                             key={outpass.id} 
                             outpass={outpass} 
                             userRole="student"
+                            onViewQR={handleViewQR}
                           />
                         ))
                     ) : (
