@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -99,10 +98,10 @@ export default function Login() {
       
       // Create a new student object without circular references
       const safeStudent = {
-        id: student.id || generateId(),
-        name: student.name,
-        email: student.email,
-        role: "student",
+        id: student.id || crypto.randomUUID(),
+        name: student.name || "Student",
+        email: student.email || "",
+        role: "student" as UserRole,
         enrollmentNumber: student.enrollmentNumber,
         section: student.section || "",
       };
@@ -111,21 +110,23 @@ export default function Login() {
       sessionStorage.removeItem("user");
       sessionStorage.removeItem("userRole");
       
-      // Save user data to sessionStorage
+      // Save user data to sessionStorage - this must happen before navigating
       sessionStorage.setItem("user", JSON.stringify(safeStudent));
       sessionStorage.setItem("userRole", "student");
       
       // Save user data using our sync method
       storageSync.setUser(safeStudent, "student");
       
-      // Show success toast
+      // Show success toast but don't wait for it
       toast({
         title: "Success!",
         description: "You have successfully logged in as a student.",
       });
       
-      // Redirect immediately
-      navigate("/student", { replace: true });
+      // Immediately redirect without waiting for state updates
+      setTimeout(() => {
+        navigate("/student", { replace: true });
+      }, 0);
     } catch (error) {
       console.error("Login error:", error);
       setIsLoading(false);
@@ -179,33 +180,39 @@ export default function Login() {
       
       // Create a new mentor object without circular references
       const safeMentor = {
-        id: mentor.id || generateId(),
-        name: mentor.name,
-        email: mentor.email,
-        role: "mentor",
+        id: mentor.id || crypto.randomUUID(),
+        name: mentor.name || "Mentor",
+        email: mentor.email || "",
+        role: "mentor" as UserRole,
         department: mentor.department || "",
         contactNumber: mentor.contactNumber || "",
+        branches: mentor.branches || [],
+        courses: mentor.courses || [],
+        sections: mentor.sections || [],
+        semesters: mentor.semesters || []
       };
       
       // Clear any existing session data first
       sessionStorage.removeItem("user");
       sessionStorage.removeItem("userRole");
       
-      // Save user data to sessionStorage
+      // Save user data to sessionStorage - this must happen before navigating
       sessionStorage.setItem("user", JSON.stringify(safeMentor));
       sessionStorage.setItem("userRole", "mentor");
       
       // Save user data using our sync method
       storageSync.setUser(safeMentor, "mentor");
       
-      // Show success toast
+      // Show success toast but don't wait for it
       toast({
         title: "Success!",
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Redirect immediately
-      navigate("/mentor", { replace: true });
+      // Immediately redirect without waiting for state updates
+      setTimeout(() => {
+        navigate("/mentor", { replace: true });
+      }, 0);
     } catch (error) {
       console.error("Login error:", error);
       setIsLoading(false);
@@ -215,11 +222,6 @@ export default function Login() {
         variant: "destructive",
       });
     }
-  };
-  
-  // Helper function to generate ID if missing
-  const generateId = () => {
-    return Math.random().toString(36).substring(2, 15);
   };
 
   return (

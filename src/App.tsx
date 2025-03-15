@@ -22,7 +22,7 @@ import { Student, Mentor, UserRole } from "./lib/types";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // Changed to false to avoid unnecessary refreshes
       staleTime: 1000 * 60 * 5, // 5 minutes
     },
   },
@@ -36,28 +36,46 @@ const App = () => {
   useEffect(() => {
     // Load user data from sessionStorage
     const loadUserData = () => {
-      // Get user data from sessionStorage (tab-specific)
-      const storedUser = sessionStorage.getItem("user");
-      const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
-      
-      if (storedUser && storedUserRole) {
-        try {
-          const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
-          setUserRole(storedUserRole);
-        } catch (error) {
-          // Handle JSON parse error by clearing invalid data
-          sessionStorage.removeItem("user");
-          sessionStorage.removeItem("userRole");
+      try {
+        // Get user data from sessionStorage (tab-specific)
+        const storedUser = sessionStorage.getItem("user");
+        const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
+        
+        if (storedUser && storedUserRole) {
+          try {
+            const parsedUser = JSON.parse(storedUser);
+            
+            // Ensure user object has required fields
+            if (parsedUser && parsedUser.id) {
+              setUser(parsedUser);
+              setUserRole(storedUserRole);
+            } else {
+              // Invalid user object
+              sessionStorage.removeItem("user");
+              sessionStorage.removeItem("userRole");
+              setUser(null);
+              setUserRole(null);
+            }
+          } catch (error) {
+            // Handle JSON parse error by clearing invalid data
+            console.error("Error parsing user data:", error);
+            sessionStorage.removeItem("user");
+            sessionStorage.removeItem("userRole");
+            setUser(null);
+            setUserRole(null);
+          }
+        } else {
           setUser(null);
           setUserRole(null);
         }
-      } else {
+        
+        setIsLoading(false);
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        setIsLoading(false);
         setUser(null);
         setUserRole(null);
       }
-      
-      setIsLoading(false);
     };
 
     // Initial load

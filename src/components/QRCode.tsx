@@ -230,7 +230,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
       )}
       
       {!isExpired && (
-        <Alert variant="warning" className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
+        <Alert className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Important: Single-Use QR Code</AlertTitle>
           <AlertDescription>
