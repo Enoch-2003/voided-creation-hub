@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Outpass } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -20,43 +21,51 @@ export default function OutpassVerify() {
     const fetchOutpass = () => {
       setLoading(true);
       
-      // Get all outpasses from localStorage
-      const storedOutpasses = localStorage.getItem("outpasses");
-      if (!storedOutpasses) {
-        setError("No outpass data found");
+      try {
+        // Get all outpasses from localStorage
+        const storedOutpasses = localStorage.getItem("outpasses");
+        if (!storedOutpasses) {
+          setError("No outpass data found");
+          setLoading(false);
+          return;
+        }
+        
+        const outpasses: Outpass[] = JSON.parse(storedOutpasses);
+        const foundOutpass = outpasses.find(op => op.id === id);
+        
+        if (!foundOutpass) {
+          setError("Outpass not found");
+          setLoading(false);
+          return;
+        }
+        
+        if (foundOutpass.status !== "approved") {
+          setError("This outpass has not been approved");
+          setLoading(false);
+          return;
+        }
+        
+        // If not already scanned, mark as scanned
+        if (!foundOutpass.scanTimestamp) {
+          // Mark as scanned and update localStorage
+          foundOutpass.scanTimestamp = new Date().toISOString();
+          localStorage.setItem("outpasses", JSON.stringify(
+            outpasses.map(op => op.id === id ? foundOutpass : op)
+          ));
+          
+          toast.success("Outpass verified successfully!");
+        } else {
+          toast.warning("This outpass has already been used");
+        }
+        
+        setOutpass(foundOutpass);
         setLoading(false);
-        return;
-      }
-      
-      const outpasses: Outpass[] = JSON.parse(storedOutpasses);
-      const foundOutpass = outpasses.find(op => op.id === id);
-      
-      if (!foundOutpass) {
-        setError("Outpass not found");
-        setLoading(false);
-        return;
-      }
-      
-      if (foundOutpass.status !== "approved") {
-        setError("This outpass has not been approved");
-        setLoading(false);
-        return;
-      }
-      
-      if (foundOutpass.scanTimestamp) {
-        setError("This outpass has already been used");
         setVerified(true);
+      } catch (error) {
+        console.error("Error verifying outpass:", error);
+        setError("An error occurred while verifying the outpass");
         setLoading(false);
-        return;
       }
-      
-      // Mark as scanned and update localStorage
-      foundOutpass.scanTimestamp = new Date().toISOString();
-      localStorage.setItem("outpasses", JSON.stringify(outpasses));
-      
-      setOutpass(foundOutpass);
-      setLoading(false);
-      setVerified(true);
     };
     
     if (id) {
@@ -69,6 +78,71 @@ export default function OutpassVerify() {
   
   const handleReturn = () => {
     window.close();
+  };
+  
+  const handleDownloadPDF = () => {
+    if (!outpass) return;
+    
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+    
+    // Add title
+    pdf.setFontSize(18);
+    pdf.text("AmiPass - Campus Exit Permit", 105, 20, { align: "center" });
+    
+    // Add Amity University logo as image if available
+    pdf.addImage("/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png", "PNG", 95, 30, 20, 20);
+    
+    // Add verification serial number
+    pdf.setFontSize(14);
+    pdf.text(`Verification Code: ${serialCode}`, 105, 60, { align: "center" });
+    
+    // Add verification timestamp
+    pdf.setFontSize(10);
+    pdf.text(`Verified on: ${new Date().toLocaleString()}`, 105, 70, { align: "center" });
+    
+    // Add a line separator
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(20, 80, 190, 80);
+    
+    // Student information
+    pdf.setFontSize(12);
+    pdf.text("Student Information", 20, 90);
+    
+    pdf.setFontSize(10);
+    pdf.text(`Name: ${outpass.studentName}`, 20, 100);
+    pdf.text(`Enrollment Number: ${outpass.enrollmentNumber}`, 20, 110);
+    pdf.text(`Section: ${outpass.studentSection || "N/A"}`, 20, 120);
+    
+    // Outpass details
+    pdf.setFontSize(12);
+    pdf.text("Outpass Details", 20, 140);
+    
+    pdf.setFontSize(10);
+    pdf.text(`Exit Date & Time: ${formatDateTime(outpass.exitDateTime)}`, 20, 150);
+    pdf.text(`Reason: ${outpass.reason}`, 20, 160);
+    pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 170);
+    pdf.text(`Approved On: ${formatDateTime(outpass.updatedAt)}`, 20, 180);
+    
+    // Add verification status
+    pdf.setFontSize(12);
+    if (outpass.scanTimestamp) {
+      pdf.setTextColor(0, 150, 0);
+      pdf.text("✓ This student is authorized to exit the campus", 105, 200, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
+    }
+    
+    // Add a note about one-time use
+    pdf.setFontSize(8);
+    pdf.text("This exit permit is valid only for the date and time mentioned above.", 105, 230, { align: "center" });
+    pdf.text("This slip has been automatically marked as used and cannot be presented again.", 105, 235, { align: "center" });
+    pdf.text("Please show this to the security personnel when exiting the campus.", 105, 240, { align: "center" });
+    
+    // Save the PDF
+    pdf.save(`AmiPass-Exit-Permit-${outpass.id}.pdf`);
   };
   
   if (loading) {
@@ -198,7 +272,15 @@ export default function OutpassVerify() {
             <div className="text-sm text-gray-500 mb-4">
               This slip has been automatically marked as used and cannot be presented again.
             </div>
-            <Button onClick={handleReturn}>Close</Button>
+            <div className="flex justify-center gap-3">
+              <Button onClick={handleDownloadPDF} className="gap-2">
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+              <Button onClick={handleReturn} variant="outline">
+                Close
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

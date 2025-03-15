@@ -145,7 +145,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
   
   // Determine verification URL for the QR code
   const getVerificationUrl = () => {
-    // Get base URL from current window location
+    // Use absolute URL with window.location.origin to ensure it works on mobile devices
     const baseUrl = window.location.origin;
     return `${baseUrl}/verify/${outpass.id}`;
   };

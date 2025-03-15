@@ -93,6 +93,11 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
+      
+      // Wait a bit before redirecting
+      setTimeout(() => {
+        navigate("/student", { replace: true });
+      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -149,6 +154,11 @@ export default function Login() {
       
       // Show animation then navigate
       setIsAuthSuccess(true);
+      
+      // Wait a bit before redirecting
+      setTimeout(() => {
+        navigate("/mentor", { replace: true });
+      }, 1500);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -159,22 +169,6 @@ export default function Login() {
     }
   };
 
-  // Handle redirection after successful animation display
-  useEffect(() => {
-    if (isAuthSuccess) {
-      const userRole = sessionStorage.getItem("userRole") as UserRole;
-      const redirectTimeout = setTimeout(() => {
-        if (userRole === "student") {
-          navigate("/student", { replace: true });
-        } else {
-          navigate("/mentor", { replace: true });
-        }
-      }, 1500); // Show animation for 1.5 seconds
-
-      return () => clearTimeout(redirectTimeout);
-    }
-  }, [isAuthSuccess, navigate]);
-  
   return (
     <div className="min-h-screen flex flex-col relative">
       <Navbar />

@@ -1,40 +1,38 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
 import { Mentor } from "@/lib/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import storageSync from "@/lib/storageSync";
 
-type MentorProfileEditProps = {
+interface MentorProfileEditProps {
+  mentor: Mentor;
   isOpen: boolean;
   onClose: () => void;
-  mentor: Mentor;
-  onUpdate: (updatedMentor: Mentor) => void;
-};
+  onUpdateProfile: (updatedMentor: Mentor) => void;
+}
 
-export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorProfileEditProps) {
-  const [mentorDepartment, setMentorDepartment] = useState(mentor.department);
-  const [mentorSections, setMentorSections] = useState<string[]>(mentor.sections);
-  const [mentorBranches, setMentorBranches] = useState<string[]>(mentor.branches);
-  const [mentorCourses, setMentorCourses] = useState<string[]>(mentor.courses);
-  const [mentorSemesters, setMentorSemesters] = useState<string[]>(mentor.semesters);
-  const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    // Reset form state when mentor data changes
-    setMentorDepartment(mentor.department);
-    setMentorSections(mentor.sections);
-    setMentorBranches(mentor.branches);
-    setMentorCourses(mentor.courses);
-    setMentorSemesters(mentor.semesters);
-  }, [mentor, isOpen]);
-
+export function MentorProfileEdit({ mentor, isOpen, onClose, onUpdateProfile }: MentorProfileEditProps) {
+  const [name, setName] = useState(mentor.name);
+  const [email, setEmail] = useState(mentor.email);
+  const [department, setDepartment] = useState(mentor.department);
+  const [sections, setSections] = useState<string[]>(mentor.sections || ["A"]);
+  const [branches, setBranches] = useState<string[]>(mentor.branches || ["Computer Science"]);
+  const [courses, setCourses] = useState<string[]>(mentor.courses || ["B.Tech"]);
+  const [semesters, setSemesters] = useState<string[]>(mentor.semesters || ["1"]);
+  
+  // Department options
+  const departmentOptions = [
+    "ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"
+  ];
+  
   const handleSectionToggle = (section: string) => {
-    setMentorSections(prev => 
+    setSections(prev => 
       prev.includes(section) 
         ? prev.filter(s => s !== section) 
         : [...prev, section]
@@ -42,7 +40,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
   };
   
   const handleBranchToggle = (branch: string) => {
-    setMentorBranches(prev => 
+    setBranches(prev => 
       prev.includes(branch) 
         ? prev.filter(b => b !== branch) 
         : [...prev, branch]
@@ -50,7 +48,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
   };
   
   const handleCourseToggle = (course: string) => {
-    setMentorCourses(prev => 
+    setCourses(prev => 
       prev.includes(course) 
         ? prev.filter(c => c !== course) 
         : [...prev, course]
@@ -58,90 +56,82 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
   };
   
   const handleSemesterToggle = (semester: string) => {
-    setMentorSemesters(prev => 
+    setSemesters(prev => 
       prev.includes(semester) 
         ? prev.filter(s => s !== semester) 
         : [...prev, semester]
     );
   };
-
-  const handleSubmit = () => {
-    if (mentorSections.length === 0) {
-      toast.error("Please select at least one section to mentor");
+  
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!name || !email || !department || sections.length === 0) {
+      toast.error("Please fill in all required fields and select at least one section");
       return;
     }
-
-    setIsLoading(true);
-
-    try {
-      // Create updated mentor with new values
-      const updatedMentor: Mentor = {
-        ...mentor,
-        department: mentorDepartment,
-        sections: mentorSections,
-        branches: mentorBranches,
-        courses: mentorCourses,
-        semesters: mentorSemesters,
-      };
-      
-      // Update in local storage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      const updatedUsers = users.map((user: any) => 
-        user.id === mentor.id ? updatedMentor : user
-      );
-      
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
-      
-      // Update current session user if this is the logged-in user
-      const currentUser = storageSync.getUser();
-      if (currentUser && currentUser.id === mentor.id) {
-        storageSync.setUser(updatedMentor);
-      }
-      
-      // Notify the parent component
-      onUpdate(updatedMentor);
-      
-      toast.success("Profile updated successfully");
-      onClose();
-    } catch (error) {
-      toast.error("An error occurred while updating profile");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+    
+    // Update mentor profile
+    const updatedMentor: Mentor = {
+      ...mentor,
+      name,
+      email,
+      department,
+      sections,
+      branches,
+      courses,
+      semesters,
+    };
+    
+    // Save to localStorage and update state
+    onUpdateProfile(updatedMentor);
+    
+    // Close dialog
+    onClose();
+    
+    // Show success toast
+    toast.success("Profile updated successfully!");
   };
-
-  // Department options based on the new requirements
-  const departmentOptions = [
-    "ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"
-  ];
-
-  // Branch options
-  const branchOptions = [
-    "Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"
-  ];
-
-  // Course options
-  const courseOptions = ["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc"];
-
-  // Section options
-  const sectionOptions = ["A", "B", "C"];
-
+  
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Mentor Profile</DialogTitle>
+          <DialogTitle>Edit Profile</DialogTitle>
+          <DialogDescription>
+            Update your profile information
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Department</Label>
+            <Label htmlFor="mentor-name">Full Name</Label>
+            <Input
+              id="mentor-name"
+              placeholder="Dr. Jane Smith"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="mentor-email">Email Address</Label>
+            <Input
+              id="mentor-email"
+              type="email"
+              placeholder="jane.smith@amity.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="mentor-department">Department</Label>
             <Select 
-              value={mentorDepartment} 
-              onValueChange={setMentorDepartment}
+              value={department} 
+              onValueChange={setDepartment}
             >
-              <SelectTrigger>
+              <SelectTrigger id="mentor-department">
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
@@ -155,15 +145,15 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
           <div className="space-y-2">
             <Label>Sections You Mentor</Label>
             <div className="grid grid-cols-3 gap-4 pt-1">
-              {sectionOptions.map(section => (
+              {["A", "B", "C"].map(section => (
                 <div key={section} className="flex items-center space-x-2">
                   <Checkbox 
-                    id={`edit-section-${section}`}
-                    checked={mentorSections.includes(section)}
+                    id={`section-${section}`}
+                    checked={sections.includes(section)}
                     onCheckedChange={() => handleSectionToggle(section)}
                   />
                   <label 
-                    htmlFor={`edit-section-${section}`}
+                    htmlFor={`section-${section}`}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     Section {section}
@@ -176,15 +166,15 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
           <div className="space-y-2">
             <Label>Branches You Handle</Label>
             <div className="grid grid-cols-2 gap-4 pt-1">
-              {branchOptions.map(branch => (
+              {["Computer Science", "Information Technology", "Electronics", "Mechanical", "Civil"].map(branch => (
                 <div key={branch} className="flex items-center space-x-2">
                   <Checkbox 
-                    id={`edit-branch-${branch}`}
-                    checked={mentorBranches.includes(branch)}
+                    id={`branch-${branch}`}
+                    checked={branches.includes(branch)}
                     onCheckedChange={() => handleBranchToggle(branch)}
                   />
                   <label 
-                    htmlFor={`edit-branch-${branch}`}
+                    htmlFor={`branch-${branch}`}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     {branch}
@@ -197,15 +187,15 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
           <div className="space-y-2">
             <Label>Courses You Teach</Label>
             <div className="grid grid-cols-3 gap-4 pt-1">
-              {courseOptions.map(course => (
+              {["B.Tech", "M.Tech", "BCA", "MCA", "B.Sc"].map(course => (
                 <div key={course} className="flex items-center space-x-2">
                   <Checkbox 
-                    id={`edit-course-${course}`}
-                    checked={mentorCourses.includes(course)}
+                    id={`course-${course}`}
+                    checked={courses.includes(course)}
                     onCheckedChange={() => handleCourseToggle(course)}
                   />
                   <label 
-                    htmlFor={`edit-course-${course}`}
+                    htmlFor={`course-${course}`}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     {course}
@@ -221,12 +211,12 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
               {Array.from({ length: 8 }, (_, i) => String(i + 1)).map(semester => (
                 <div key={semester} className="flex items-center space-x-2">
                   <Checkbox 
-                    id={`edit-semester-${semester}`}
-                    checked={mentorSemesters.includes(semester)}
+                    id={`semester-${semester}`}
+                    checked={semesters.includes(semester)}
                     onCheckedChange={() => handleSemesterToggle(semester)}
                   />
                   <label 
-                    htmlFor={`edit-semester-${semester}`}
+                    htmlFor={`semester-${semester}`}
                     className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
                     Sem {semester}
@@ -235,16 +225,14 @@ export function MentorProfileEdit({ isOpen, onClose, mentor, onUpdate }: MentorP
               ))}
             </div>
           </div>
-        </div>
-        
-        <div className="flex justify-end space-x-2 mt-4">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Updating..." : "Save Changes"}
-          </Button>
-        </div>
+          
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button type="submit">Save Changes</Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );
