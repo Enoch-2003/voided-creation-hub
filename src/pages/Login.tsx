@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,18 +29,28 @@ export default function Login() {
   // Check if user is already logged in
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole") as UserRole | null;
-    const user = sessionStorage.getItem("user");
+    const userJson = sessionStorage.getItem("user");
     
-    if (userRole && user) {
+    if (userRole && userJson) {
       try {
-        JSON.parse(user); // Validate JSON
-        if (userRole === "student") {
-          navigate("/student", { replace: true });
-        } else if (userRole === "mentor") {
-          navigate("/mentor", { replace: true });
+        const user = JSON.parse(userJson); // Validate JSON
+        
+        // Check if user object is valid (has at least an id property)
+        if (user && user.id) {
+          if (userRole === "student") {
+            navigate("/student", { replace: true });
+          } else if (userRole === "mentor") {
+            navigate("/mentor", { replace: true });
+          }
+        } else {
+          // Invalid user object
+          sessionStorage.removeItem("user");
+          sessionStorage.removeItem("userRole");
+          storageSync.logout();
         }
       } catch (error) {
         // Handle JSON parse error
+        console.error("Error parsing user data:", error);
         sessionStorage.removeItem("user");
         sessionStorage.removeItem("userRole");
         storageSync.logout();
@@ -63,7 +74,12 @@ export default function Login() {
     
     try {
       // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) {
+        throw new Error("No users found");
+      }
+      
+      const users = JSON.parse(usersJson);
       
       // Find student by enrollment number and password
       const student = users.find(
@@ -82,8 +98,27 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data using our new method
-      storageSync.setUser(student, "student");
+      // Create a new student object without circular references
+      const safeStudent = {
+        ...student,
+        // Add any necessary properties that might be missing
+        id: student.id || generateId(),
+        name: student.name,
+        email: student.email,
+        role: "student",
+        enrollmentNumber: student.enrollmentNumber,
+      };
+      
+      // Clear any existing session data first
+      sessionStorage.removeItem("user");
+      sessionStorage.removeItem("userRole");
+      
+      // Save user data to sessionStorage
+      sessionStorage.setItem("user", JSON.stringify(safeStudent));
+      sessionStorage.setItem("userRole", "student");
+      
+      // Save user data using our sync method
+      storageSync.setUser(safeStudent, "student");
       
       // Show success toast
       toast({
@@ -99,10 +134,11 @@ export default function Login() {
         navigate("/student", { replace: true });
       }, 1500);
     } catch (error) {
+      console.error("Login error:", error);
       setIsLoading(false);
       toast({
         title: "Login failed",
-        description: "Invalid credentials. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     }
@@ -124,7 +160,12 @@ export default function Login() {
     
     try {
       // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) {
+        throw new Error("No users found");
+      }
+      
+      const users = JSON.parse(usersJson);
       
       // Find mentor by email and password
       const mentor = users.find(
@@ -143,8 +184,26 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Save user data using our new method
-      storageSync.setUser(mentor, "mentor");
+      // Create a new mentor object without circular references
+      const safeMentor = {
+        ...mentor,
+        // Add any necessary properties that might be missing
+        id: mentor.id || generateId(),
+        name: mentor.name,
+        email: mentor.email,
+        role: "mentor",
+      };
+      
+      // Clear any existing session data first
+      sessionStorage.removeItem("user");
+      sessionStorage.removeItem("userRole");
+      
+      // Save user data to sessionStorage
+      sessionStorage.setItem("user", JSON.stringify(safeMentor));
+      sessionStorage.setItem("userRole", "mentor");
+      
+      // Save user data using our sync method
+      storageSync.setUser(safeMentor, "mentor");
       
       // Show success toast
       toast({
@@ -160,13 +219,19 @@ export default function Login() {
         navigate("/mentor", { replace: true });
       }, 1500);
     } catch (error) {
+      console.error("Login error:", error);
       setIsLoading(false);
       toast({
         title: "Login failed",
-        description: "Invalid credentials. Please try again.",
+        description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
     }
+  };
+  
+  // Helper function to generate ID if missing
+  const generateId = () => {
+    return Math.random().toString(36).substring(2, 15);
   };
 
   return (

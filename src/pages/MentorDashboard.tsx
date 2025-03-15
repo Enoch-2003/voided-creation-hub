@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,11 +21,10 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const { toast } = useToast();
   const { outpasses, updateOutpass } = useOutpasses();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<Mentor>(user);
   
-  // Filter outpasses by mentor's sections
   const filteredOutpasses = outpasses.filter((outpass) => {
-    // Check if the outpass has a studentSection property and if it's in the mentor's sections
     return outpass.studentSection && currentUser.sections.includes(outpass.studentSection);
   });
   
@@ -35,7 +33,6 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const deniedOutpasses = filteredOutpasses.filter(o => o.status === "denied");
   
   const handleApprove = (id: string) => {
-    // Find the outpass to update
     const outpassToUpdate = outpasses.find(o => o.id === id);
     
     if (outpassToUpdate) {
@@ -48,10 +45,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         updatedAt: new Date().toISOString()
       };
       
-      // Update in real-time using the hook
       updateOutpass(updatedOutpass);
       
-      // Show success toast
       toast({
         title: "Outpass approved",
         description: "Student has been notified and QR code generated.",
@@ -60,7 +55,6 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   };
   
   const handleDeny = (id: string, reason: string) => {
-    // Find the outpass to update
     const outpassToUpdate = outpasses.find(o => o.id === id);
     
     if (outpassToUpdate) {
@@ -73,10 +67,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         updatedAt: new Date().toISOString()
       };
       
-      // Update in real-time using the hook
       updateOutpass(updatedOutpass);
       
-      // Show success toast
       toast({
         title: "Outpass denied",
         description: "Student has been notified of the denial.",
@@ -351,12 +343,13 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         </div>
       </main>
       
-      <MentorProfileEdit
-        isOpen={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        mentor={currentUser}
-        onUpdate={handleProfileUpdate}
-      />
+      {showProfileEdit && (
+        <MentorProfileEdit
+          isOpen={showProfileEdit}
+          onClose={() => setShowProfileEdit(false)}
+          mentor={user}
+        />
+      )}
     </div>
   );
 }

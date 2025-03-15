@@ -22,6 +22,8 @@ export default function OutpassVerify() {
       setLoading(true);
       
       try {
+        console.log("Verifying outpass ID:", id);
+        
         // Get all outpasses from localStorage
         const storedOutpasses = localStorage.getItem("outpasses");
         if (!storedOutpasses) {
@@ -31,13 +33,18 @@ export default function OutpassVerify() {
         }
         
         const outpasses: Outpass[] = JSON.parse(storedOutpasses);
+        console.log("Found outpasses:", outpasses.length);
+        
         const foundOutpass = outpasses.find(op => op.id === id);
         
         if (!foundOutpass) {
+          console.error("Outpass not found with ID:", id);
           setError("Outpass not found");
           setLoading(false);
           return;
         }
+        
+        console.log("Found outpass:", foundOutpass);
         
         if (foundOutpass.status !== "approved") {
           setError("This outpass has not been approved");
@@ -47,6 +54,7 @@ export default function OutpassVerify() {
         
         // If not already scanned, mark as scanned
         if (!foundOutpass.scanTimestamp) {
+          console.log("Marking outpass as scanned");
           // Mark as scanned and update localStorage
           foundOutpass.scanTimestamp = new Date().toISOString();
           localStorage.setItem("outpasses", JSON.stringify(
@@ -55,6 +63,7 @@ export default function OutpassVerify() {
           
           toast.success("Outpass verified successfully!");
         } else {
+          console.log("Outpass already scanned at:", foundOutpass.scanTimestamp);
           toast.warning("This outpass has already been used");
         }
         

@@ -17,37 +17,60 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
   const [isExpired, setIsExpired] = useState(false);
+  const [verificationUrl, setVerificationUrl] = useState<string>("");
   
+  // Check if the QR code is already scanned/expired
   useEffect(() => {
-    // Check if already scanned
     if (outpass.scanTimestamp) {
       setIsExpired(true);
     }
+  }, [outpass.scanTimestamp]);
+  
+  // Generate the verification URL
+  useEffect(() => {
+    // Create the verification URL using the window location origin for absolute URL
+    // This ensures it works when scanned from any device
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/verify/${outpass.id}`;
+    setVerificationUrl(url);
     
-    if (canvasRef.current && outpass.qrCode) {
-      // Generate QR code
-      QRCodeLib.toCanvas(canvasRef.current, outpass.qrCode, {
-        width: 240,
-        margin: 1,
-        color: {
-          dark: "#000000",
-          light: "#FFFFFF",
-        },
-      }).then(() => {
-        // Add logo to the center of the QR code
-        if (logoRef.current && logoRef.current.complete) {
-          addLogoToQRCode();
-        } else if (logoRef.current) {
-          logoRef.current.onload = addLogoToQRCode;
-        }
-        
-        // Apply blur and expired overlay if needed
-        if (outpass.scanTimestamp) {
-          addExpiredOverlay();
-        }
-      });
-    }
-  }, [outpass.qrCode, outpass.scanTimestamp]);
+    // Log the URL for debugging
+    console.log("Verification URL:", url);
+  }, [outpass.id]);
+  
+  // Generate QR code once we have the verification URL
+  useEffect(() => {
+    if (!verificationUrl || !canvasRef.current) return;
+    
+    // Generate QR code with the verification URL
+    QRCodeLib.toCanvas(canvasRef.current, verificationUrl, {
+      width: 240,
+      margin: 1,
+      color: {
+        dark: "#000000",
+        light: "#FFFFFF",
+      },
+    }).then(() => {
+      // Add logo to the center of the QR code
+      if (logoRef.current && logoRef.current.complete) {
+        addLogoToQRCode();
+      } else if (logoRef.current) {
+        logoRef.current.onload = addLogoToQRCode;
+      }
+      
+      // Apply blur and expired overlay if needed
+      if (outpass.scanTimestamp) {
+        addExpiredOverlay();
+      }
+      
+      // Update the outpass QR code in localStorage if not already set
+      if (!outpass.qrCode) {
+        updateOutpassQRCode(verificationUrl);
+      }
+    }).catch(error => {
+      console.error("Error generating QR code:", error);
+    });
+  }, [verificationUrl, outpass.scanTimestamp, outpass.qrCode, outpass.id]);
   
   const addLogoToQRCode = () => {
     if (!canvasRef.current || !logoRef.current) return;
@@ -92,6 +115,21 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     context.translate(-canvas.width / 2, -canvas.height / 2);
   };
   
+  const updateOutpassQRCode = (url: string) => {
+    // Update the outpass in localStorage
+    const storedOutpasses = localStorage.getItem("outpasses");
+    if (storedOutpasses) {
+      const outpasses = JSON.parse(storedOutpasses);
+      const updatedOutpasses = outpasses.map((op: Outpass) => {
+        if (op.id === outpass.id) {
+          return { ...op, qrCode: url };
+        }
+        return op;
+      });
+      localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+    }
+  };
+  
   const handleDownload = () => {
     if (!canvasRef.current) return;
     
@@ -112,6 +150,11 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     
     // Add Amity University logo
     pdf.addImage("/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png", "PNG", 95, 95, 20, 20);
+    
+    // Add verification URL
+    pdf.setFontSize(8);
+    pdf.text("Scan this QR code or visit:", 105, 100, { align: "center" });
+    pdf.text(verificationUrl, 105, 105, { align: "center" });
     
     // Add outpass details
     pdf.setFontSize(12);
@@ -143,44 +186,6 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.save(`AmiPass-${outpass.id}.pdf`);
   };
   
-  // Determine verification URL for the QR code
-  const getVerificationUrl = () => {
-    // Use absolute URL with window.location.origin to ensure it works on mobile devices
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/verify/${outpass.id}`;
-  };
-  
-  // Update QR code with the verification URL if not already set
-  useEffect(() => {
-    if (!outpass.qrCode && canvasRef.current) {
-      // Generate a real verification URL instead of placeholder
-      const verificationUrl = getVerificationUrl();
-      
-      // Update the outpass in localStorage
-      const storedOutpasses = localStorage.getItem("outpasses");
-      if (storedOutpasses) {
-        const outpasses = JSON.parse(storedOutpasses);
-        const updatedOutpasses = outpasses.map((op: Outpass) => {
-          if (op.id === outpass.id) {
-            return { ...op, qrCode: verificationUrl };
-          }
-          return op;
-        });
-        localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-      }
-      
-      // Generate QR code with the verification URL
-      QRCodeLib.toCanvas(canvasRef.current, verificationUrl, {
-        width: 240,
-        margin: 1,
-      }).then(() => {
-        if (logoRef.current && logoRef.current.complete) {
-          addLogoToQRCode();
-        }
-      });
-    }
-  }, [outpass.id, outpass.qrCode]);
-  
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-lg font-semibold mb-4">Your Outpass QR Code</h2>
@@ -205,6 +210,21 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
         />
       </div>
       
+      {/* Verification link for manual access */}
+      {verificationUrl && !isExpired && (
+        <div className="text-xs text-center text-gray-500 mb-4">
+          <p>Can't scan? Open this link:</p>
+          <a 
+            href={verificationUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-600 underline break-all"
+          >
+            {verificationUrl}
+          </a>
+        </div>
+      )}
+      
       {!isExpired && (
         <Alert className="mb-4">
           <AlertTriangle className="h-4 w-4" />
@@ -215,6 +235,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
         </Alert>
       )}
       
+      {/* Outpass details summary */}
       <div className="space-y-2 w-full mb-4">
         <div className="flex justify-between px-2 py-1 bg-muted rounded text-sm">
           <span className="font-medium">Student:</span>
