@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Outpass } from "@/lib/types";
@@ -11,11 +11,13 @@ import { jsPDF } from "jspdf";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [outpass, setOutpass] = useState<Outpass | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [serialCode] = useState(`AMP-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [linkExpired, setLinkExpired] = useState(false);
   
   useEffect(() => {
     const fetchOutpass = () => {
@@ -52,6 +54,11 @@ export default function OutpassVerify() {
           return;
         }
         
+        // Set expired flag if already scanned
+        if (foundOutpass.scanTimestamp) {
+          setLinkExpired(true);
+        }
+        
         // If not already scanned, mark as scanned
         if (!foundOutpass.scanTimestamp) {
           console.log("Marking outpass as scanned");
@@ -84,6 +91,18 @@ export default function OutpassVerify() {
       setLoading(false);
     }
   }, [id]);
+  
+  // Automatically redirect to expire page if link is expired
+  useEffect(() => {
+    if (linkExpired && !loading) {
+      // Add a brief timeout to allow the toast to show
+      const timer = setTimeout(() => {
+        setError("This outpass link has already been used and is no longer valid");
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [linkExpired, loading]);
   
   const handleReturn = () => {
     window.close();
@@ -138,11 +157,9 @@ export default function OutpassVerify() {
     
     // Add verification status
     pdf.setFontSize(12);
-    if (outpass.scanTimestamp) {
-      pdf.setTextColor(0, 150, 0);
-      pdf.text("✓ This student is authorized to exit the campus", 105, 200, { align: "center" });
-      pdf.setTextColor(0, 0, 0);
-    }
+    pdf.setTextColor(0, 150, 0);
+    pdf.text("✓ This student is authorized to exit the campus", 105, 200, { align: "center" });
+    pdf.setTextColor(0, 0, 0);
     
     // Add a note about one-time use
     pdf.setFontSize(8);

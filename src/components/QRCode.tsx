@@ -35,7 +35,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     setVerificationUrl(url);
     
     // Log the URL for debugging
-    console.log("Verification URL:", url);
+    console.log("Generated verification URL:", url);
   }, [outpass.id]);
   
   // Generate QR code once we have the verification URL
@@ -174,6 +174,10 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
       pdf.setTextColor(255, 0, 0);
       pdf.text("THIS QR CODE HAS ALREADY BEEN USED AND IS NO LONGER VALID", 105, 210, { align: "center" });
       pdf.setTextColor(0, 0, 0);
+    } else {
+      pdf.setTextColor(255, 0, 0);
+      pdf.text("THIS QR CODE CAN ONLY BE USED ONCE", 105, 210, { align: "center" });
+      pdf.setTextColor(0, 0, 0);
     }
     
     // Add footer
@@ -226,11 +230,11 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
       )}
       
       {!isExpired && (
-        <Alert className="mb-4">
+        <Alert variant="warning" className="mb-4 bg-amber-50 text-amber-800 border-amber-200">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Single-Use QR Code</AlertTitle>
+          <AlertTitle>Important: Single-Use QR Code</AlertTitle>
           <AlertDescription>
-            This QR code can only be scanned once. After scanning, it will become invalid.
+            This QR code can only be scanned once. After scanning, it will become invalid and cannot be used again.
           </AlertDescription>
         </Alert>
       )}

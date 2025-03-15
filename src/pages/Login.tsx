@@ -16,7 +16,6 @@ export default function Login() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentId, setStudentId] = useState("");
@@ -100,13 +99,12 @@ export default function Login() {
       
       // Create a new student object without circular references
       const safeStudent = {
-        ...student,
-        // Add any necessary properties that might be missing
         id: student.id || generateId(),
         name: student.name,
         email: student.email,
         role: "student",
         enrollmentNumber: student.enrollmentNumber,
+        section: student.section || "",
       };
       
       // Clear any existing session data first
@@ -126,13 +124,8 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Show animation then navigate
-      setIsAuthSuccess(true);
-      
-      // Wait a bit before redirecting
-      setTimeout(() => {
-        navigate("/student", { replace: true });
-      }, 1500);
+      // Redirect immediately
+      navigate("/student", { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       setIsLoading(false);
@@ -186,12 +179,12 @@ export default function Login() {
       
       // Create a new mentor object without circular references
       const safeMentor = {
-        ...mentor,
-        // Add any necessary properties that might be missing
         id: mentor.id || generateId(),
         name: mentor.name,
         email: mentor.email,
         role: "mentor",
+        department: mentor.department || "",
+        contactNumber: mentor.contactNumber || "",
       };
       
       // Clear any existing session data first
@@ -211,13 +204,8 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Show animation then navigate
-      setIsAuthSuccess(true);
-      
-      // Wait a bit before redirecting
-      setTimeout(() => {
-        navigate("/mentor", { replace: true });
-      }, 1500);
+      // Redirect immediately
+      navigate("/mentor", { replace: true });
     } catch (error) {
       console.error("Login error:", error);
       setIsLoading(false);
@@ -237,27 +225,6 @@ export default function Login() {
   return (
     <div className="min-h-screen flex flex-col relative">
       <Navbar />
-      
-      {isAuthSuccess && (
-        <div className="fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50 animate-fade-in">
-          <div className="text-center">
-            <div className="mx-auto w-24 h-24 mb-4 relative">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-full h-full object-contain animate-pulse"
-              />
-            </div>
-            <div className="text-2xl font-bold font-display animate-fade-in mb-3">
-              Welcome to AmiPass
-            </div>
-            <div className="flex items-center justify-center animate-fade-in">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-              <span>Redirecting to dashboard...</span>
-            </div>
-          </div>
-        </div>
-      )}
       
       <main className="flex-1 flex items-center justify-center">
         <div className="w-full max-w-md p-6 sm:p-8 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
@@ -291,7 +258,7 @@ export default function Login() {
                     placeholder="e.g., CS20220001"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
-                    disabled={isLoading || isAuthSuccess}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -307,11 +274,11 @@ export default function Login() {
                     type="password"
                     value={studentPassword}
                     onChange={(e) => setStudentPassword(e.target.value)}
-                    disabled={isLoading || isAuthSuccess}
+                    disabled={isLoading}
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading || isAuthSuccess}>
+                <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -334,7 +301,7 @@ export default function Login() {
                     placeholder="name@amity.edu"
                     value={mentorEmail}
                     onChange={(e) => setMentorEmail(e.target.value)}
-                    disabled={isLoading || isAuthSuccess}
+                    disabled={isLoading}
                   />
                 </div>
                 
@@ -350,11 +317,11 @@ export default function Login() {
                     type="password"
                     value={mentorPassword}
                     onChange={(e) => setMentorPassword(e.target.value)}
-                    disabled={isLoading || isAuthSuccess}
+                    disabled={isLoading}
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading || isAuthSuccess}>
+                <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
