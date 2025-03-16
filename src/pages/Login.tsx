@@ -8,8 +8,17 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Navbar } from "@/components/Navbar";
 import { UserRole } from "@/lib/types";
-import { Loader2, ChevronLeft } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Loader2, ChevronLeft, KeyRound } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import storageSync from "@/lib/storageSync";
 
 export default function Login() {
@@ -29,7 +38,11 @@ export default function Login() {
   // Forgot password states
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   // Check if user is already logged in
   useEffect(() => {
@@ -38,27 +51,22 @@ export default function Login() {
     
     if (userRole && userJson) {
       try {
-        const user = JSON.parse(userJson); // Validate JSON
+        const user = JSON.parse(userJson);
         
-        // Check if user object is valid (has at least an id property)
         if (user && user.id) {
           if (userRole === "student") {
-            navigate("/student", { replace: true });
+            navigate("/student");
           } else if (userRole === "mentor") {
-            navigate("/mentor", { replace: true });
+            navigate("/mentor");
           }
         } else {
-          // Invalid user object
           sessionStorage.removeItem("user");
           sessionStorage.removeItem("userRole");
-          storageSync.logout();
         }
       } catch (error) {
-        // Handle JSON parse error
         console.error("Error parsing user data:", error);
         sessionStorage.removeItem("user");
         sessionStorage.removeItem("userRole");
-        storageSync.logout();
       }
     }
   }, [navigate]);
@@ -103,7 +111,7 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Create a complete student object without circular references
+      // Create a student object without password
       const safeStudent = {
         id: student.id || crypto.randomUUID(),
         name: student.name || "Student",
@@ -119,15 +127,14 @@ export default function Login() {
         section: student.section || "",
       };
       
-      // Clear any existing session data first
-      sessionStorage.removeItem("user");
-      sessionStorage.removeItem("userRole");
+      // First clear session storage
+      sessionStorage.clear();
       
       // Save user data to sessionStorage
       sessionStorage.setItem("user", JSON.stringify(safeStudent));
       sessionStorage.setItem("userRole", "student");
       
-      // Save user data using our sync method
+      // Save to sync storage
       storageSync.setUser(safeStudent, "student");
       
       // Show success toast
@@ -136,16 +143,16 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Direct navigation without animation or setTimeout
-      navigate("/student", { replace: true });
+      navigate("/student");
     } catch (error) {
       console.error("Login error:", error);
-      setIsLoading(false);
       toast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -189,7 +196,7 @@ export default function Login() {
         localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
-      // Create a complete mentor object without circular references
+      // Create a mentor object without password
       const safeMentor = {
         id: mentor.id || crypto.randomUUID(),
         name: mentor.name || "Mentor",
@@ -203,15 +210,14 @@ export default function Login() {
         semesters: mentor.semesters || []
       };
       
-      // Clear any existing session data first
-      sessionStorage.removeItem("user");
-      sessionStorage.removeItem("userRole");
+      // First clear session storage
+      sessionStorage.clear();
       
       // Save user data to sessionStorage
       sessionStorage.setItem("user", JSON.stringify(safeMentor));
       sessionStorage.setItem("userRole", "mentor");
       
-      // Save user data using our sync method
+      // Save to sync storage
       storageSync.setUser(safeMentor, "mentor");
       
       // Show success toast
@@ -220,16 +226,29 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Direct navigation without animation or setTimeout
-      navigate("/mentor", { replace: true });
+      navigate("/mentor");
     } catch (error) {
       console.error("Login error:", error);
-      setIsLoading(false);
       toast({
         title: "Login failed",
         description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const findUserByEmail = (email: string) => {
+    try {
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) return null;
+      
+      const users = JSON.parse(usersJson);
+      return users.find((user: any) => user.email === email) || null;
+    } catch (error) {
+      console.error("Error finding user:", error);
+      return null;
     }
   };
 
@@ -248,46 +267,17 @@ export default function Login() {
     }
 
     try {
-      // Get all users from localStorage
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) {
-        throw new Error("No users found");
-      }
-      
-      const users = JSON.parse(usersJson);
-      
       // Find user by email
-      const user = users.find((user: any) => user.email === resetEmail);
+      const user = findUserByEmail(resetEmail);
       
       if (!user) {
         throw new Error("No account found with this email address");
       }
 
-      // In a real application, we would send a reset email here
-      // For this demo, we'll reset the password to a default value
-      
-      // Update the user's password in localStorage
-      const updatedUsers = users.map((u: any) => {
-        if (u.email === resetEmail) {
-          return {
-            ...u,
-            password: "password123" // Default reset password
-          };
-        }
-        return u;
-      });
-      
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
-      
-      // Close dialog and show success message
+      // If user found, open the reset password dialog
       setIsResetOpen(false);
-      setResetEmail("");
+      setIsResetPasswordOpen(true);
       
-      toast({
-        title: "Password Reset Successful",
-        description: "Your password has been reset to 'password123'",
-        variant: "default",
-      });
     } catch (error) {
       console.error("Password reset error:", error);
       toast({
@@ -298,6 +288,91 @@ export default function Login() {
     }
     
     setResetLoading(false);
+  };
+
+  const handlePasswordReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetLoading(true);
+
+    if (!newPassword || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      setResetLoading(false);
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      setResetLoading(false);
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      setResetLoading(false);
+      return;
+    }
+
+    try {
+      // Get all users from localStorage
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) {
+        throw new Error("No users found");
+      }
+      
+      const users = JSON.parse(usersJson);
+      
+      // Find user by email and update password
+      const updatedUsers = users.map((u: any) => {
+        if (u.email === resetEmail) {
+          return {
+            ...u,
+            password: newPassword
+          };
+        }
+        return u;
+      });
+      
+      localStorage.setItem("users", JSON.stringify(updatedUsers));
+      
+      // Close dialog and show success message
+      setResetSuccess(true);
+      
+    } catch (error) {
+      console.error("Password reset error:", error);
+      toast({
+        title: "Password Reset Failed",
+        description: error instanceof Error ? error.message : "An error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setIsResetPasswordOpen(false);
+    }
+    
+    setResetLoading(false);
+  };
+
+  const handleResetComplete = () => {
+    setResetSuccess(false);
+    setIsResetPasswordOpen(false);
+    setNewPassword("");
+    setConfirmPassword("");
+    setResetEmail("");
+    
+    toast({
+      title: "Password Reset Successful",
+      description: "Your password has been updated. You can now log in with your new password.",
+    });
   };
 
   return (
@@ -365,7 +440,7 @@ export default function Login() {
                         <DialogHeader>
                           <DialogTitle>Reset your password</DialogTitle>
                           <DialogDescription>
-                            Enter your email address and we'll send you a password reset link.
+                            Enter your email address to reset your password
                           </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleForgotPassword} className="space-y-4 pt-4">
@@ -385,10 +460,10 @@ export default function Login() {
                               {resetLoading ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Resetting...
+                                  Verifying...
                                 </>
                               ) : (
-                                "Reset Password"
+                                "Continue"
                               )}
                             </Button>
                           </DialogFooter>
@@ -445,7 +520,7 @@ export default function Login() {
                         <DialogHeader>
                           <DialogTitle>Reset your password</DialogTitle>
                           <DialogDescription>
-                            Enter your email address and we'll send you a password reset link.
+                            Enter your email address to reset your password
                           </DialogDescription>
                         </DialogHeader>
                         <form onSubmit={handleForgotPassword} className="space-y-4 pt-4">
@@ -465,10 +540,10 @@ export default function Login() {
                               {resetLoading ? (
                                 <>
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Resetting...
+                                  Verifying...
                                 </>
                               ) : (
-                                "Reset Password"
+                                "Continue"
                               )}
                             </Button>
                           </DialogFooter>
@@ -509,6 +584,81 @@ export default function Login() {
           </div>
         </div>
       </main>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isResetPasswordOpen} onOpenChange={(open) => {
+        if (!open && !resetSuccess) setIsResetPasswordOpen(false);
+      }}>
+        <DialogContent>
+          {!resetSuccess ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <KeyRound className="h-5 w-5" />
+                  Reset Password
+                </DialogTitle>
+                <DialogDescription>
+                  Enter your new password below
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handlePasswordReset} className="space-y-4 pt-2">
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      placeholder="Enter new password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={resetLoading}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="Confirm new password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={resetLoading}
+                    />
+                  </div>
+                </div>
+                
+                <DialogFooter>
+                  <Button type="submit" disabled={resetLoading}>
+                    {resetLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      "Reset Password"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </>
+          ) : (
+            <AlertDialog open={resetSuccess} onOpenChange={setResetSuccess}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Password Reset Successful</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Your password has been successfully updated. You can now log in with your new password.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction onClick={handleResetComplete}>Continue</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

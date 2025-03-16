@@ -19,11 +19,13 @@ import NotFound from "./pages/NotFound";
 import OutpassVerify from "./pages/OutpassVerify";
 import { Student, Mentor, UserRole } from "./lib/types";
 
+// Create query client that doesn't refetch on window focus
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: false, // Don't retry failed requests
     },
   },
 });
@@ -38,8 +40,8 @@ const App = () => {
     const loadUserData = () => {
       try {
         // Get user data from sessionStorage (tab-specific)
-        const storedUser = sessionStorage.getItem("user");
         const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
+        const storedUser = sessionStorage.getItem("user");
         
         if (storedUser && storedUserRole) {
           try {
@@ -51,6 +53,7 @@ const App = () => {
               setUserRole(storedUserRole);
             } else {
               // Invalid user object
+              console.error("Invalid user object found in session storage");
               sessionStorage.removeItem("user");
               sessionStorage.removeItem("userRole");
               setUser(null);
@@ -85,8 +88,7 @@ const App = () => {
 
   const handleLogout = () => {
     // Clear session storage
-    sessionStorage.removeItem("user");
-    sessionStorage.removeItem("userRole");
+    sessionStorage.clear();
     setUser(null);
     setUserRole(null);
   };
