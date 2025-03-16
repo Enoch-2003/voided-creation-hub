@@ -44,46 +44,19 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  // Check if user is already logged in only on initial mount
-  useEffect(() => {
-    const userRole = sessionStorage.getItem("userRole") as UserRole | null;
-    const userJson = sessionStorage.getItem("user");
-    
-    if (userRole && userJson) {
-      try {
-        const user = JSON.parse(userJson);
-        
-        if (user && user.id) {
-          if (userRole === "student") {
-            navigate("/student");
-          } else if (userRole === "mentor") {
-            navigate("/mentor");
-          }
-        } else {
-          sessionStorage.removeItem("user");
-          sessionStorage.removeItem("userRole");
-        }
-      } catch (error) {
-        console.error("Error parsing user data:", error);
-        sessionStorage.removeItem("user");
-        sessionStorage.removeItem("userRole");
-      }
-    }
-  }, [navigate]);
-
   // Handle successful authentication and navigation
   useEffect(() => {
     if (isAuthSuccess) {
       const userRole = sessionStorage.getItem("userRole") as UserRole;
       
-      // Slight delay to allow for UI transition
+      // Short delay for transition effect
       const timer = setTimeout(() => {
         if (userRole === "student") {
-          navigate("/student");
+          navigate("/student", { replace: true });
         } else if (userRole === "mentor") {
-          navigate("/mentor");
+          navigate("/mentor", { replace: true });
         }
-      }, 100);
+      }, 800);
       
       return () => clearTimeout(timer);
     }
@@ -161,7 +134,7 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      // Set authentication success state instead of direct navigation
+      // Set authentication success state
       setIsAuthSuccess(true);
     } catch (error) {
       console.error("Login error:", error);
@@ -246,7 +219,7 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      // Set authentication success state instead of direct navigation
+      // Set authentication success state
       setIsAuthSuccess(true);
     } catch (error) {
       console.error("Login error:", error);
