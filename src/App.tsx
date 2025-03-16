@@ -34,9 +34,10 @@ const App = () => {
   const [user, setUser] = useState<Student | Mentor | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
+  // Load user data only once on initial mount
   useEffect(() => {
-    // Load user data from sessionStorage
     const loadUserData = () => {
       try {
         // Get user data from sessionStorage (tab-specific)
@@ -74,9 +75,11 @@ const App = () => {
         
         // Always set loading to false, regardless of result
         setIsLoading(false);
+        setIsInitialized(true);
       } catch (error) {
         console.error("Error loading user data:", error);
         setIsLoading(false);
+        setIsInitialized(true);
         setUser(null);
         setUserRole(null);
       }
@@ -116,89 +119,91 @@ const App = () => {
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            
-            {/* Public Routes - redirect if already logged in */}
-            <Route 
-              path="/login" 
-              element={userRole && user ? (
-                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
-              ) : <Login />}
-            />
-            <Route 
-              path="/register" 
-              element={userRole && user ? (
-                userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
-              ) : <Register />}
-            />
-            
-            {/* QR Code Verification Page - Public Route */}
-            <Route path="/verify/:id" element={<OutpassVerify />} />
-            
-            {/* Student Routes - Protected */}
-            <Route 
-              path="/student" 
-              element={
-                userRole === "student" && user ? 
-                <StudentDashboard user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/student/outpasses" 
-              element={
-                userRole === "student" && user ? 
-                <StudentOutpasses user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/student/request" 
-              element={
-                userRole === "student" && user ? 
-                <StudentRequest user={user as Student} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            
-            {/* Mentor Routes - Protected */}
-            <Route 
-              path="/mentor" 
-              element={
-                userRole === "mentor" && user ? 
-                <MentorDashboard user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/mentor/pending" 
-              element={
-                userRole === "mentor" && user ? 
-                <MentorPending user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/mentor/approved" 
-              element={
-                userRole === "mentor" && user ? 
-                <MentorApproved user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            <Route 
-              path="/mentor/denied" 
-              element={
-                userRole === "mentor" && user ? 
-                <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : 
-                <Navigate to="/login" replace />
-              } 
-            />
-            
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          {isInitialized && (
+            <Routes>
+              <Route path="/" element={<Index />} />
+              
+              {/* Public Routes - redirect if already logged in */}
+              <Route 
+                path="/login" 
+                element={userRole && user ? (
+                  userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+                ) : <Login />}
+              />
+              <Route 
+                path="/register" 
+                element={userRole && user ? (
+                  userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+                ) : <Register />}
+              />
+              
+              {/* QR Code Verification Page - Public Route */}
+              <Route path="/verify/:id" element={<OutpassVerify />} />
+              
+              {/* Student Routes - Protected */}
+              <Route 
+                path="/student" 
+                element={
+                  userRole === "student" && user ? 
+                  <StudentDashboard user={user as Student} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              <Route 
+                path="/student/outpasses" 
+                element={
+                  userRole === "student" && user ? 
+                  <StudentOutpasses user={user as Student} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              <Route 
+                path="/student/request" 
+                element={
+                  userRole === "student" && user ? 
+                  <StudentRequest user={user as Student} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              
+              {/* Mentor Routes - Protected */}
+              <Route 
+                path="/mentor" 
+                element={
+                  userRole === "mentor" && user ? 
+                  <MentorDashboard user={user as Mentor} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              <Route 
+                path="/mentor/pending" 
+                element={
+                  userRole === "mentor" && user ? 
+                  <MentorPending user={user as Mentor} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              <Route 
+                path="/mentor/approved" 
+                element={
+                  userRole === "mentor" && user ? 
+                  <MentorApproved user={user as Mentor} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              <Route 
+                path="/mentor/denied" 
+                element={
+                  userRole === "mentor" && user ? 
+                  <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+              
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          )}
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>

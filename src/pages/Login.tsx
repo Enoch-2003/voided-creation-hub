@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +25,7 @@ export default function Login() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentId, setStudentId] = useState("");
@@ -44,7 +44,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  // Check if user is already logged in
+  // Check if user is already logged in only on initial mount
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole") as UserRole | null;
     const userJson = sessionStorage.getItem("user");
@@ -70,6 +70,24 @@ export default function Login() {
       }
     }
   }, [navigate]);
+
+  // Handle successful authentication and navigation
+  useEffect(() => {
+    if (isAuthSuccess) {
+      const userRole = sessionStorage.getItem("userRole") as UserRole;
+      
+      // Slight delay to allow for UI transition
+      const timer = setTimeout(() => {
+        if (userRole === "student") {
+          navigate("/student");
+        } else if (userRole === "mentor") {
+          navigate("/mentor");
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthSuccess, navigate]);
   
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +161,8 @@ export default function Login() {
         description: "You have successfully logged in as a student.",
       });
       
-      navigate("/student");
+      // Set authentication success state instead of direct navigation
+      setIsAuthSuccess(true);
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -151,6 +170,7 @@ export default function Login() {
         description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
+      setIsAuthSuccess(false);
     } finally {
       setIsLoading(false);
     }
@@ -226,7 +246,8 @@ export default function Login() {
         description: "You have successfully logged in as a mentor.",
       });
       
-      navigate("/mentor");
+      // Set authentication success state instead of direct navigation
+      setIsAuthSuccess(true);
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -234,6 +255,7 @@ export default function Login() {
         description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
         variant: "destructive",
       });
+      setIsAuthSuccess(false);
     } finally {
       setIsLoading(false);
     }
@@ -374,6 +396,23 @@ export default function Login() {
       description: "Your password has been updated. You can now log in with your new password.",
     });
   };
+
+  if (isAuthSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 mb-4 relative">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain animate-pulse"
+            />
+          </div>
+          <div className="text-xl font-semibold text-gray-700">Logging in...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col relative">
