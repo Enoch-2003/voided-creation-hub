@@ -22,7 +22,7 @@ import { Student, Mentor, UserRole } from "./lib/types";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchOnWindowFocus: false, // Changed to false to avoid unnecessary refreshes
+      refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
     },
   },
@@ -69,6 +69,7 @@ const App = () => {
           setUserRole(null);
         }
         
+        // Always set loading to false, regardless of result
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading user data:", error);

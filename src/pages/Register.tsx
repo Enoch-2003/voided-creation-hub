@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,14 +10,13 @@ import { generateId } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import { UserRole, Student, Mentor } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronLeft } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
-  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentName, setStudentName] = useState("");
@@ -142,9 +140,9 @@ export default function Register() {
       const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       localStorage.setItem("users", JSON.stringify([...existingUsers, studentUser]));
       
-      // Also store in current user
-      localStorage.setItem("user", JSON.stringify(studentUser));
-      localStorage.setItem("userRole", "student");
+      // Also store in sessionStorage for immediate login
+      sessionStorage.setItem("user", JSON.stringify(studentUser));
+      sessionStorage.setItem("userRole", "student");
       
       // Initialize outpass data if not exists
       if (!localStorage.getItem("outpasses")) {
@@ -156,10 +154,7 @@ export default function Register() {
         description: "Your student account has been created",
       });
       
-      // Show animation before redirect
-      setIsAuthSuccess(true);
-      
-      // Navigate immediately - the animation will overlay during navigation
+      // Direct navigation to student dashboard
       navigate("/student", { replace: true });
     } catch (error) {
       setIsLoading(false);
@@ -223,9 +218,9 @@ export default function Register() {
       const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       localStorage.setItem("users", JSON.stringify([...existingUsers, mentorUser]));
       
-      // Also store in current user
-      localStorage.setItem("user", JSON.stringify(mentorUser));
-      localStorage.setItem("userRole", "mentor");
+      // Also store in sessionStorage for immediate login
+      sessionStorage.setItem("user", JSON.stringify(mentorUser));
+      sessionStorage.setItem("userRole", "mentor");
       
       // Initialize outpass data if not exists
       if (!localStorage.getItem("outpasses")) {
@@ -237,10 +232,7 @@ export default function Register() {
         description: "Your mentor account has been created",
       });
       
-      // Show animation before redirect
-      setIsAuthSuccess(true);
-      
-      // Navigate immediately - the animation will overlay during navigation
+      // Direct navigation to mentor dashboard
       navigate("/mentor", { replace: true });
     } catch (error) {
       setIsLoading(false);
@@ -256,41 +248,32 @@ export default function Register() {
     <div className="min-h-screen flex flex-col relative">
       <Navbar />
       
-      {isAuthSuccess && (
-        <div className="fixed inset-0 flex items-center justify-center bg-white/80 backdrop-blur-sm z-50 animate-fade-in">
-          <div className="text-center">
-            <div className="mx-auto w-24 h-24 mb-4 relative animate-pulse">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="text-2xl font-bold font-display animate-fade-in mb-3">
-              Welcome to AmiPass
-            </div>
-            <div className="flex items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-              <span>Setting up your account...</span>
-            </div>
-          </div>
-        </div>
-      )}
-      
       <main className="flex-1 py-16 px-4">
         <div className="max-w-2xl mx-auto bg-white/80 backdrop-blur-sm rounded-xl shadow-lg p-6 sm:p-8">
-          <div className="text-center mb-6">
-            <div className="mx-auto w-16 h-16 mb-4 relative">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-full h-full object-contain"
-              />
+          <div className="flex items-center mb-6">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mr-2"
+              onClick={() => navigate("/")}
+              aria-label="Back to home"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div className="text-center flex-grow">
+              <div className="mx-auto w-16 h-16 mb-4 relative">
+                <img
+                  src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+                  alt="Amity University"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h1 className="text-2xl font-bold font-display">Create an AmiPass Account</h1>
+              <p className="text-muted-foreground">
+                Register for the campus outpass management system
+              </p>
             </div>
-            <h1 className="text-2xl font-bold font-display">Create an AmiPass Account</h1>
-            <p className="text-muted-foreground">
-              Register for the campus outpass management system
-            </p>
+            <div className="w-8"></div>
           </div>
           
           <Tabs defaultValue="student" value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole)}>
@@ -565,7 +548,6 @@ export default function Register() {
                   </div>
                 </div>
                 
-                {/* New fields for branches, courses, and semesters */}
                 <div className="space-y-2">
                   <Label>Branches You Handle</Label>
                   <div className="grid grid-cols-2 gap-4 pt-1">
