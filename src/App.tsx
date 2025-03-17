@@ -49,10 +49,13 @@ const App = () => {
   // Initialize local storage on app start
   useEffect(() => {
     initializeLocalStorage();
+    setIsInitialized(true);
   }, []);
 
   // Load user data only once on initial mount
   useEffect(() => {
+    if (!isInitialized) return;
+    
     const loadUserData = () => {
       try {
         // Get user data from sessionStorage (tab-specific)
@@ -90,11 +93,9 @@ const App = () => {
         
         // Always set loading to false, regardless of result
         setIsLoading(false);
-        setIsInitialized(true);
       } catch (error) {
         console.error("Error loading user data:", error);
         setIsLoading(false);
-        setIsInitialized(true);
         setUser(null);
         setUserRole(null);
       }
@@ -102,13 +103,16 @@ const App = () => {
 
     // Initial load
     loadUserData();
-  }, []);
+  }, [isInitialized]);
 
   const handleLogout = () => {
     // Clear session storage
     sessionStorage.clear();
     setUser(null);
     setUserRole(null);
+    
+    // Force reload to clear any cached states
+    window.location.href = "/";
   };
 
   if (isLoading) {

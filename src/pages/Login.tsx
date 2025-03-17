@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -45,28 +44,38 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
-  // Handle successful authentication and navigation
+  // Handle successful authentication and navigation with page reload
   useEffect(() => {
     if (isAuthSuccess) {
       const userRole = sessionStorage.getItem("userRole") as UserRole;
       
-      // Short delay for transition effect
+      // Short delay for transition effect before reloading
       const timer = setTimeout(() => {
-        if (userRole === "student") {
-          navigate("/student", { replace: true });
-        } else if (userRole === "mentor") {
-          navigate("/mentor", { replace: true });
-        }
+        // Set a flag in sessionStorage to indicate where to navigate after reload
+        sessionStorage.setItem("redirectAfterReload", userRole === "student" ? "/student" : "/mentor");
+        
+        // Force a full page reload
+        window.location.reload();
       }, 800);
       
       return () => clearTimeout(timer);
     }
-  }, [isAuthSuccess, navigate]);
+  }, [isAuthSuccess]);
 
-  // Check if user is already authenticated
+  // Check if user is already authenticated or if there's a pending redirect
   useEffect(() => {
     const userRole = sessionStorage.getItem("userRole") as UserRole;
     const user = sessionStorage.getItem("user");
+    const redirectPath = sessionStorage.getItem("redirectAfterReload");
+    
+    if (redirectPath) {
+      // Clear the redirect flag
+      sessionStorage.removeItem("redirectAfterReload");
+      
+      // Navigate to the saved path
+      window.location.href = redirectPath;
+      return;
+    }
     
     if (user && userRole) {
       // User is already authenticated, redirect immediately
@@ -432,7 +441,7 @@ export default function Login() {
                 Access your campus outpass system
               </p>
             </div>
-            <div className="w-8"></div> {/* Empty div for balance */}
+            <div className="w-8"></div>
           </div>
           
           <Tabs defaultValue="student" value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole)}>
