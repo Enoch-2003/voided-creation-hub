@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -61,6 +62,21 @@ export default function Login() {
       return () => clearTimeout(timer);
     }
   }, [isAuthSuccess, navigate]);
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const userRole = sessionStorage.getItem("userRole") as UserRole;
+    const user = sessionStorage.getItem("user");
+    
+    if (user && userRole) {
+      // User is already authenticated, redirect immediately
+      if (userRole === "student") {
+        navigate("/student", { replace: true });
+      } else if (userRole === "mentor") {
+        navigate("/mentor", { replace: true });
+      }
+    }
+  }, [navigate]);
   
   const handleStudentLogin = async (e: React.FormEvent) => {
     e.preventDefault();
