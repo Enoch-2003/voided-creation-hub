@@ -11,6 +11,7 @@ import { QRCode } from "@/components/QRCode";
 import { Student, Outpass } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useOutpasses } from "@/hooks/useOutpasses";
 
 interface StudentDashboardProps {
   user: Student;
@@ -19,22 +20,19 @@ interface StudentDashboardProps {
 
 export default function StudentDashboard({ user, onLogout }: StudentDashboardProps) {
   const navigate = useNavigate();
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
   const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
   const [showQRDialog, setShowQRDialog] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Use the outpasses hook for real-time data
+  const { outpasses, isLoading } = useOutpasses();
 
   useEffect(() => {
-    // Load outpasses from localStorage
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (storedOutpasses) {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      // Filter outpasses for the current student
-      const studentOutpasses = allOutpasses.filter(
-        (outpass: Outpass) => outpass.studentId === user.id
-      );
-      setOutpasses(studentOutpasses);
+    // Check if user data is complete
+    if (user && user.id) {
+      setIsInitialized(true);
     }
-  }, [user.id]);
+  }, [user]);
 
   // Get active (pending or approved but not yet used) outpasses
   const activeOutpasses = outpasses.filter(
@@ -64,6 +62,24 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   const handleViewAll = () => {
     navigate("/student/outpasses");
   };
+
+  // Show loading state while initializing
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 mb-4 relative animate-pulse">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="text-xl font-semibold text-gray-700">Loading dashboard...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

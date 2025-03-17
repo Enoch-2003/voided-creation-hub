@@ -30,11 +30,26 @@ const queryClient = new QueryClient({
   },
 });
 
+// Initialize localStorage with empty users and outpasses arrays if they don't exist
+const initializeLocalStorage = () => {
+  if (!localStorage.getItem("users")) {
+    localStorage.setItem("users", JSON.stringify([]));
+  }
+  if (!localStorage.getItem("outpasses")) {
+    localStorage.setItem("outpasses", JSON.stringify([]));
+  }
+};
+
 const App = () => {
   const [user, setUser] = useState<Student | Mentor | null>(null);
   const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  // Initialize local storage on app start
+  useEffect(() => {
+    initializeLocalStorage();
+  }, []);
 
   // Load user data only once on initial mount
   useEffect(() => {
