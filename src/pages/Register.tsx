@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ export default function Register() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
   // Student form state
   const [studentName, setStudentName] = useState("");
@@ -38,17 +40,62 @@ export default function Register() {
   const [mentorDepartment, setMentorDepartment] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
   const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
-  const [mentorSections, setMentorSections] = useState<string[]>(["A"]);
   
   // Mentor additional dynamic fields
   const [mentorBranches, setMentorBranches] = useState<string[]>(["Computer Science"]);
   const [mentorCourses, setMentorCourses] = useState<string[]>(["B.Tech"]);
-  const [mentorSemesters, setMentorSemesters] = useState<string[]>(["1"]);
+  const [mentorSemesters, setMentorSemesters] = useState<string[]>([]);
+  const [mentorSections, setMentorSections] = useState<string[]>([]);
+  const [mentorSemesterInput, setMentorSemesterInput] = useState("");
+  const [mentorSectionInput, setMentorSectionInput] = useState("");
   
   // Department options based on the new requirements
   const departmentOptions = [
     "ASET", "ABS", "AIB", "AIBP", "AIP", "ALS", "AIBA", "ASCo", "ASFT", "AIS"
   ];
+
+  // Handle successful authentication and navigation with page reload
+  useEffect(() => {
+    if (isAuthSuccess) {
+      const userRole = sessionStorage.getItem("userRole") as UserRole;
+      
+      // Short delay for transition effect before reloading
+      const timer = setTimeout(() => {
+        // Set a flag in sessionStorage to indicate where to navigate after reload
+        sessionStorage.setItem("redirectAfterReload", userRole === "student" ? "/student" : "/mentor");
+        
+        // Force a full page reload
+        window.location.reload();
+      }, 800);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthSuccess]);
+
+  // Check if user is already authenticated or if there's a pending redirect
+  useEffect(() => {
+    const userRole = sessionStorage.getItem("userRole") as UserRole;
+    const user = sessionStorage.getItem("user");
+    const redirectPath = sessionStorage.getItem("redirectAfterReload");
+    
+    if (redirectPath) {
+      // Clear the redirect flag
+      sessionStorage.removeItem("redirectAfterReload");
+      
+      // Navigate to the saved path
+      window.location.href = redirectPath;
+      return;
+    }
+    
+    if (user && userRole) {
+      // User is already authenticated, redirect immediately
+      if (userRole === "student") {
+        navigate("/student", { replace: true });
+      } else if (userRole === "mentor") {
+        navigate("/mentor", { replace: true });
+      }
+    }
+  }, [navigate]);
   
   const handleSectionToggle = (section: string) => {
     setMentorSections(prev => 
@@ -73,13 +120,27 @@ export default function Register() {
         : [...prev, course]
     );
   };
-  
-  const handleSemesterToggle = (semester: string) => {
-    setMentorSemesters(prev => 
-      prev.includes(semester) 
-        ? prev.filter(s => s !== semester) 
-        : [...prev, semester]
-    );
+
+  const handleAddMentorSection = () => {
+    if (mentorSectionInput && !mentorSections.includes(mentorSectionInput)) {
+      setMentorSections([...mentorSections, mentorSectionInput]);
+      setMentorSectionInput("");
+    }
+  };
+
+  const handleAddMentorSemester = () => {
+    if (mentorSemesterInput && !mentorSemesters.includes(mentorSemesterInput)) {
+      setMentorSemesters([...mentorSemesters, mentorSemesterInput]);
+      setMentorSemesterInput("");
+    }
+  };
+
+  const removeMentorSection = (section: string) => {
+    setMentorSections(mentorSections.filter(s => s !== section));
+  };
+
+  const removeMentorSemester = (semester: string) => {
+    setMentorSemesters(mentorSemesters.filter(s => s !== semester));
   };
   
   const handleStudentRegister = (e: React.FormEvent) => {
@@ -154,8 +215,8 @@ export default function Register() {
         description: "Your student account has been created",
       });
       
-      // Direct navigation to student dashboard
-      navigate("/student", { replace: true });
+      // Set authentication success
+      setIsAuthSuccess(true);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -170,10 +231,10 @@ export default function Register() {
     e.preventDefault();
     
     // Validate fields
-    if (!mentorName || !mentorEmail || !mentorDepartment || !mentorPassword || !mentorConfirmPassword || mentorSections.length === 0) {
+    if (!mentorName || !mentorEmail || !mentorDepartment || !mentorPassword || !mentorConfirmPassword || mentorSections.length === 0 || mentorSemesters.length === 0) {
       toast({
         title: "Error",
-        description: "Please fill in all fields and select at least one section",
+        description: "Please fill in all fields and add at least one section and semester",
         variant: "destructive",
       });
       return;
@@ -232,8 +293,8 @@ export default function Register() {
         description: "Your mentor account has been created",
       });
       
-      // Direct navigation to mentor dashboard
-      navigate("/mentor", { replace: true });
+      // Set authentication success
+      setIsAuthSuccess(true);
     } catch (error) {
       setIsLoading(false);
       toast({
@@ -243,6 +304,23 @@ export default function Register() {
       });
     }
   };
+
+  if (isAuthSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="text-center">
+          <div className="mx-auto w-20 h-20 mb-4 relative">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain animate-pulse"
+            />
+          </div>
+          <div className="text-xl font-semibold text-gray-700">Creating your account...</div>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -407,40 +485,24 @@ export default function Register() {
                   
                   <div className="space-y-2">
                     <Label htmlFor="student-semester">Semester</Label>
-                    <Select 
-                      value={studentSemester} 
-                      onValueChange={setStudentSemester}
+                    <Input
+                      id="student-semester"
+                      placeholder="e.g., 1"
+                      value={studentSemester}
+                      onChange={(e) => setStudentSemester(e.target.value)}
                       disabled={isLoading}
-                    >
-                      <SelectTrigger id="student-semester">
-                        <SelectValue placeholder="Select semester" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 8 }, (_, i) => (
-                          <SelectItem key={i + 1} value={String(i + 1)}>
-                            Semester {i + 1}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="student-section">Section</Label>
-                    <Select 
-                      value={studentSection} 
-                      onValueChange={setStudentSection}
+                    <Input
+                      id="student-section"
+                      placeholder="e.g., A"
+                      value={studentSection}
+                      onChange={(e) => setStudentSection(e.target.value)}
                       disabled={isLoading}
-                    >
-                      <SelectTrigger id="student-section">
-                        <SelectValue placeholder="Select section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="A">Section A</SelectItem>
-                        <SelectItem value="B">Section B</SelectItem>
-                        <SelectItem value="C">Section C</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    />
                   </div>
                 </div>
                 
@@ -529,22 +591,79 @@ export default function Register() {
                 
                 <div className="space-y-2">
                   <Label>Sections You Mentor</Label>
-                  <div className="grid grid-cols-3 gap-4 pt-1">
-                    {["A", "B", "C"].map(section => (
-                      <div key={section} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`section-${section}`}
-                          checked={mentorSections.includes(section)}
-                          onCheckedChange={() => handleSectionToggle(section)}
-                        />
-                        <label 
-                          htmlFor={`section-${section}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Section {section}
-                        </label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter section (e.g., A)"
+                        value={mentorSectionInput}
+                        onChange={(e) => setMentorSectionInput(e.target.value)}
+                        disabled={isLoading}
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleAddMentorSection} 
+                        disabled={isLoading || !mentorSectionInput}
+                        className="whitespace-nowrap"
+                      >
+                        Add Section
+                      </Button>
+                    </div>
+                    
+                    {mentorSections.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {mentorSections.map(section => (
+                          <div key={section} className="bg-muted rounded-md px-3 py-1 text-sm flex items-center gap-1">
+                            <span>Section {section}</span>
+                            <button 
+                              type="button" 
+                              onClick={() => removeMentorSection(section)}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Semesters You Handle</Label>
+                  <div className="grid grid-cols-1 gap-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Enter semester (e.g., 1)"
+                        value={mentorSemesterInput}
+                        onChange={(e) => setMentorSemesterInput(e.target.value)}
+                        disabled={isLoading}
+                      />
+                      <Button 
+                        type="button" 
+                        onClick={handleAddMentorSemester} 
+                        disabled={isLoading || !mentorSemesterInput}
+                        className="whitespace-nowrap"
+                      >
+                        Add Semester
+                      </Button>
+                    </div>
+                    
+                    {mentorSemesters.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {mentorSemesters.map(semester => (
+                          <div key={semester} className="bg-muted rounded-md px-3 py-1 text-sm flex items-center gap-1">
+                            <span>Semester {semester}</span>
+                            <button 
+                              type="button" 
+                              onClick={() => removeMentorSemester(semester)}
+                              className="text-muted-foreground hover:text-destructive transition-colors ml-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -584,27 +703,6 @@ export default function Register() {
                           className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
                           {course}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Semesters You Handle</Label>
-                  <div className="grid grid-cols-4 gap-4 pt-1">
-                    {Array.from({ length: 8 }, (_, i) => String(i + 1)).map(semester => (
-                      <div key={semester} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`semester-${semester}`}
-                          checked={mentorSemesters.includes(semester)}
-                          onCheckedChange={() => handleSemesterToggle(semester)}
-                        />
-                        <label 
-                          htmlFor={`semester-${semester}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          Sem {semester}
                         </label>
                       </div>
                     ))}
