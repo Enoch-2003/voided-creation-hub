@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,13 +33,11 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     }
   }, [user]);
 
-  // Get active (pending or approved but not yet used) outpasses
+  // Get active outpasses - now including approved ones that haven't been scanned yet
   const activeOutpasses = outpasses.filter(
     (outpass) =>
       outpass.status === "pending" ||
-      (outpass.status === "approved" &&
-        new Date(outpass.exitDateTime) > new Date() &&
-        !outpass.scanTimestamp)
+      (outpass.status === "approved" && !outpass.scanTimestamp)
   );
 
   // Get the latest active outpass

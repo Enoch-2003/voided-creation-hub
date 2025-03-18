@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { useParams, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Outpass } from "@/lib/types";
+import { Outpass, SerialCodeLog } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 import { toast } from "sonner";
 import { AlertCircle, CheckCircle2, Download } from "lucide-react";
@@ -16,7 +15,7 @@ export default function OutpassVerify() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
-  const [serialCode] = useState(`AMP-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [serialCode, setSerialCode] = useState<string>("");
   const [linkExpired, setLinkExpired] = useState(false);
   
   useEffect(() => {
@@ -59,6 +58,32 @@ export default function OutpassVerify() {
           setLinkExpired(true);
         }
         
+        // Get latest serial code prefix from logs
+        const serialCodeLogs = localStorage.getItem("serialCodeLogs");
+        let prefix = "XYZ";
+        
+        if (serialCodeLogs) {
+          const logs: SerialCodeLog[] = JSON.parse(serialCodeLogs);
+          if (logs.length > 0) {
+            // Get the most recent log
+            const latestLog = logs.sort((a, b) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )[0];
+            prefix = latestLog.prefix;
+          }
+        }
+        
+        // Set the serial code using the latest prefix or use the existing one if already set
+        if (foundOutpass.serialCode) {
+          setSerialCode(foundOutpass.serialCode);
+        } else {
+          const newSerialCode = `AUMP-${prefix}-${foundOutpass.id.substring(0, 6).toUpperCase()}`;
+          setSerialCode(newSerialCode);
+          
+          // Update outpass serialCode if not already set
+          foundOutpass.serialCode = newSerialCode;
+        }
+        
         // If not already scanned, mark as scanned
         if (!foundOutpass.scanTimestamp) {
           console.log("Marking outpass as scanned");
@@ -92,7 +117,6 @@ export default function OutpassVerify() {
     }
   }, [id]);
   
-  // Automatically redirect to expire page if link is expired
   useEffect(() => {
     if (linkExpired && !loading) {
       // Add a brief timeout to allow the toast to show
