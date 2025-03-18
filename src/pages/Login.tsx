@@ -23,7 +23,7 @@ import storageSync from "@/lib/storageSync";
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<UserRole>("student");
+  const [activeTab, setActiveTab] = useState<UserRole | "admin">("student");
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthSuccess, setIsAuthSuccess] = useState(false);
   
@@ -34,6 +34,10 @@ export default function Login() {
   // Mentor form state
   const [mentorEmail, setMentorEmail] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
+  
+  // Admin form state
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   // Forgot password states
   const [isResetOpen, setIsResetOpen] = useState(false);
@@ -47,12 +51,16 @@ export default function Login() {
   // Handle successful authentication and navigation with page reload
   useEffect(() => {
     if (isAuthSuccess) {
-      const userRole = sessionStorage.getItem("userRole") as UserRole;
+      const userRole = sessionStorage.getItem("userRole") as UserRole | "admin";
       
       // Short delay for transition effect before reloading
       const timer = setTimeout(() => {
         // Set a flag in sessionStorage to indicate where to navigate after reload
-        sessionStorage.setItem("redirectAfterReload", userRole === "student" ? "/student" : "/mentor");
+        if (userRole === "admin") {
+          sessionStorage.setItem("redirectAfterReload", "/admin");
+        } else {
+          sessionStorage.setItem("redirectAfterReload", userRole === "student" ? "/student" : "/mentor");
+        }
         
         // Force a full page reload
         window.location.reload();
@@ -64,7 +72,7 @@ export default function Login() {
 
   // Check if user is already authenticated or if there's a pending redirect
   useEffect(() => {
-    const userRole = sessionStorage.getItem("userRole") as UserRole;
+    const userRole = sessionStorage.getItem("userRole") as UserRole | "admin";
     const user = sessionStorage.getItem("user");
     const redirectPath = sessionStorage.getItem("redirectAfterReload");
     
@@ -83,6 +91,8 @@ export default function Login() {
         navigate("/student", { replace: true });
       } else if (userRole === "mentor") {
         navigate("/mentor", { replace: true });
+      } else if (userRole === "admin") {
+        navigate("/admin", { replace: true });
       }
     }
   }, [navigate]);
@@ -246,6 +256,64 @@ export default function Login() {
       
       // Set authentication success state
       setIsAuthSuccess(true);
+    } catch (error) {
+      console.error("Login error:", error);
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Invalid credentials. Please try again.",
+        variant: "destructive",
+      });
+      setIsAuthSuccess(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!adminUsername || !adminPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Verify admin credentials
+      if (adminUsername === "AUMP" && adminPassword === "AmityGwalior") {
+        // Create admin object
+        const adminUser = {
+          id: "admin-123",
+          name: "Amity University, Madhya Pradesh",
+          role: "admin",
+        };
+        
+        // First clear session storage
+        sessionStorage.clear();
+        
+        // Save user data to sessionStorage
+        sessionStorage.setItem("user", JSON.stringify(adminUser));
+        sessionStorage.setItem("userRole", "admin");
+        
+        // Save to sync storage for consistency
+        storageSync.setUser(adminUser, "admin");
+        
+        // Show success toast
+        toast({
+          title: "Success!",
+          description: "You have successfully logged in as an administrator.",
+        });
+        
+        // Set authentication success state
+        setIsAuthSuccess(true);
+      } else {
+        throw new Error("Invalid admin credentials");
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -444,10 +512,11 @@ export default function Login() {
             <div className="w-8"></div>
           </div>
           
-          <Tabs defaultValue="student" value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole)}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+          <Tabs defaultValue="student" value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole | "admin")}>
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="student">Student</TabsTrigger>
               <TabsTrigger value="mentor">Mentor</TabsTrigger>
+              <TabsTrigger value="admin">Admin</TabsTrigger>
             </TabsList>
             
             <TabsContent value="student">
@@ -609,15 +678,56 @@ export default function Login() {
                 </Button>
               </form>
             </TabsContent>
+
+            <TabsContent value="admin">
+              <form onSubmit={handleAdminLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="admin-username">Username</Label>
+                  <Input
+                    id="admin-username"
+                    type="text"
+                    placeholder="Enter admin username"
+                    value={adminUsername}
+                    onChange={(e) => setAdminUsername(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="admin-password">Password</Label>
+                  <Input
+                    id="admin-password"
+                    type="password"
+                    placeholder="Enter admin password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Logging in...
+                    </>
+                  ) : (
+                    "Login as Admin"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
           </Tabs>
           
           <div className="mt-6 text-center text-sm">
-            <p className="text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:underline">
-                Register
-              </Link>
-            </p>
+            {activeTab !== "admin" && (
+              <p className="text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-blue-600 hover:underline">
+                  Register
+                </Link>
+              </p>
+            )}
           </div>
         </div>
       </main>

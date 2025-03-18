@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import StudentDashboard from "./pages/StudentDashboard";
 import MentorDashboard from "./pages/MentorDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import StudentOutpasses from "./pages/StudentOutpasses";
 import StudentRequest from "./pages/StudentRequest";
 import MentorPending from "./pages/MentorPending";
@@ -41,8 +42,8 @@ const initializeLocalStorage = () => {
 };
 
 const App = () => {
-  const [user, setUser] = useState<Student | Mentor | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [user, setUser] = useState<Student | Mentor | any | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | "admin" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
@@ -59,7 +60,7 @@ const App = () => {
     const loadUserData = () => {
       try {
         // Get user data from sessionStorage (tab-specific)
-        const storedUserRole = sessionStorage.getItem("userRole") as UserRole | null;
+        const storedUserRole = sessionStorage.getItem("userRole") as UserRole | "admin" | null;
         const storedUser = sessionStorage.getItem("user");
         
         if (storedUser && storedUserRole) {
@@ -146,13 +147,17 @@ const App = () => {
               <Route 
                 path="/login" 
                 element={userRole && user ? (
-                  userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+                  userRole === "student" ? <Navigate to="/student" replace /> : 
+                  userRole === "mentor" ? <Navigate to="/mentor" replace /> :
+                  <Navigate to="/admin" replace />
                 ) : <Login />}
               />
               <Route 
                 path="/register" 
                 element={userRole && user ? (
-                  userRole === "student" ? <Navigate to="/student" replace /> : <Navigate to="/mentor" replace />
+                  userRole === "student" ? <Navigate to="/student" replace /> : 
+                  userRole === "mentor" ? <Navigate to="/mentor" replace /> :
+                  <Navigate to="/admin" replace />
                 ) : <Register />}
               />
               
@@ -215,6 +220,16 @@ const App = () => {
                 element={
                   userRole === "mentor" && user ? 
                   <MentorDenied user={user as Mentor} onLogout={handleLogout} /> : 
+                  <Navigate to="/login" replace />
+                } 
+              />
+
+              {/* Admin Routes - Protected */}
+              <Route 
+                path="/admin" 
+                element={
+                  userRole === "admin" && user ? 
+                  <AdminDashboard user={user} onLogout={handleLogout} /> : 
                   <Navigate to="/login" replace />
                 } 
               />

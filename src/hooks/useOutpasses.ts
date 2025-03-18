@@ -11,8 +11,8 @@ import { toast } from 'sonner';
 export function useOutpasses() {
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<Student | Mentor | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | null>(null);
+  const [currentUser, setCurrentUser] = useState<Student | Mentor | any | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | "admin" | null>(null);
   const [tabId, setTabId] = useState<string>('');
 
   // Load initial data and subscribe to changes
@@ -35,7 +35,7 @@ export function useOutpasses() {
     
     // Get session-specific user data
     const userData = storageSync.getUser();
-    const userRoleData = storageSync.getUserRole() as UserRole | null;
+    const userRoleData = storageSync.getUserRole() as UserRole | "admin" | null;
     
     setCurrentUser(userData);
     setUserRole(userRoleData);
@@ -99,6 +99,9 @@ export function useOutpasses() {
       const mentor = currentUser as Mentor;
       // Show outpasses for sections that the mentor manages
       return outpass.studentSection && mentor.sections.includes(outpass.studentSection);
+    } else if (userRole === 'admin') {
+      // Admin can see all outpasses
+      return true;
     }
     
     return false;
@@ -149,7 +152,7 @@ export function useOutpasses() {
   }, [outpasses, tabId]);
 
   // Function to update the user
-  const updateUser = useCallback((updatedUser: Student | Mentor) => {
+  const updateUser = useCallback((updatedUser: Student | Mentor | any) => {
     setCurrentUser(updatedUser);
     
     // Notify other tabs about the user update via broadcast channel

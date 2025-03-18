@@ -5,7 +5,7 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  role: UserRole | 'admin';
   password?: string; // Added for login authentication
 }
 
@@ -28,6 +28,10 @@ export interface Mentor extends User {
   courses: string[];
   semesters: string[];
   sections: string[];
+}
+
+export interface Admin extends User {
+  role: 'admin';
 }
 
 export type OutpassStatus = 'pending' | 'approved' | 'denied';
