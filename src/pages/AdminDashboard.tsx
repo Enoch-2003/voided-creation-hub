@@ -6,15 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Outpass, Admin } from "@/lib/types";
-import { Search, Filter, RefreshCw, Eye } from "lucide-react";
-import { formatDateTime } from "@/lib/utils";
+import { Outpass, Admin, SerialCodeLog } from "@/lib/types";
+import { Search, Filter, RefreshCw, Eye, Save, History } from "lucide-react";
+import { formatDateTime, generateId } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import storageSync from "@/lib/storageSync";
 import { useOutpasses } from "@/hooks/useOutpasses";
+import { toast } from "sonner";
 
 interface AdminDashboardProps {
   user: Admin;
@@ -31,6 +32,32 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [filteredOutpasses, setFilteredOutpasses] = useState<Outpass[]>([]);
   const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
+  // Serial code management
+  const [serialCodePrefix, setSerialCodePrefix] = useState("XYZ");
+  const [serialCodeLogs, setSerialCodeLogs] = useState<SerialCodeLog[]>([]);
+  const [isSerialCodeDialogOpen, setIsSerialCodeDialogOpen] = useState(false);
+  const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  
+  // Initialize serial code settings
+  useEffect(() => {
+    // Load existing serial code settings or set default
+    const savedSettings = localStorage.getItem("serialCodeSettings");
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setSerialCodePrefix(settings.prefix || "XYZ");
+    } else {
+      // Set default settings
+      const defaultSettings = { prefix: "XYZ" };
+      localStorage.setItem("serialCodeSettings", JSON.stringify(defaultSettings));
+    }
+    
+    // Load serial code logs
+    const savedLogs = localStorage.getItem("serialCodeLogs");
+    if (savedLogs) {
+      setSerialCodeLogs(JSON.parse(savedLogs));
+    }
+  }, []);
   
   // Filter and search outpasses
   useEffect(() => {
@@ -52,14 +79,15 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       });
     }
     
-    // Search by student name or mentor name
+    // Search by student name or mentor name or serial code
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
         outpass => 
           outpass.studentName.toLowerCase().includes(term) || 
           (outpass.mentorName && outpass.mentorName.toLowerCase().includes(term)) ||
-          outpass.enrollmentNumber.toLowerCase().includes(term)
+          outpass.enrollmentNumber.toLowerCase().includes(term) ||
+          (outpass.serialCode && outpass.serialCode.toLowerCase().includes(term))
       );
     }
     
@@ -72,6 +100,33 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const handleViewOutpass = (outpass: Outpass) => {
     setSelectedOutpass(outpass);
     setIsDialogOpen(true);
+  };
+  
+  const handleUpdateSerialCode = () => {
+    // Validate the prefix
+    if (!serialCodePrefix) {
+      toast.error("Please enter a valid prefix");
+      return;
+    }
+    
+    // Update serial code settings
+    const settings = { prefix: serialCodePrefix };
+    localStorage.setItem("serialCodeSettings", JSON.stringify(settings));
+    
+    // Log the change
+    const newLog: SerialCodeLog = {
+      id: generateId(),
+      prefix: serialCodePrefix,
+      createdAt: new Date().toISOString(),
+      createdBy: user.name
+    };
+    
+    const updatedLogs = [...serialCodeLogs, newLog];
+    setSerialCodeLogs(updatedLogs);
+    localStorage.setItem("serialCodeLogs", JSON.stringify(updatedLogs));
+    
+    toast.success("Serial code prefix updated successfully");
+    setIsSerialCodeDialogOpen(false);
   };
   
   const getStatusColor = (status: string) => {
@@ -96,6 +151,22 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
             </p>
           </div>
           <div className="flex items-center gap-2 mt-4 md:mt-0">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={() => setIsSerialCodeDialogOpen(true)}
+            >
+              <Save className="h-4 w-4" />
+              Manage Serial Code
+            </Button>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2" 
+              onClick={() => setIsHistoryDialogOpen(true)}
+            >
+              <History className="h-4 w-4" />
+              View Prefix History
+            </Button>
             <div className="inline-flex bg-yellow-50 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
               <span>{filteredOutpasses.length} Outpasses</span>
             </div>
@@ -116,7 +187,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search by name or ID..."
+                  placeholder="Search by name, ID or serial code..."
                   className="pl-8"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -157,6 +228,29 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           </CardContent>
         </Card>
 
+        {/* Current Serial Code Info */}
+        <Card className="mb-8">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg">Current Serial Code Settings</CardTitle>
+            <CardDescription>
+              This prefix will be used for all new outpass serial codes in the format AUMP-{serialCodePrefix}-XXXXXX
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-medium">Current Prefix: </span>
+                <Badge variant="outline" className="font-mono text-lg ml-2 bg-blue-50">
+                  {serialCodePrefix}
+                </Badge>
+              </div>
+              <Button variant="outline" onClick={() => setIsSerialCodeDialogOpen(true)}>
+                Change Prefix
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Outpasses Table */}
         <Card>
           <CardHeader className="pb-3">
@@ -179,7 +273,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ID</TableHead>
+                      <TableHead>Serial Code</TableHead>
                       <TableHead>Student</TableHead>
                       <TableHead>Exit Date & Time</TableHead>
                       <TableHead>Reason</TableHead>
@@ -192,7 +286,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     {filteredOutpasses.map((outpass) => (
                       <TableRow key={outpass.id} className="cursor-pointer hover:bg-muted/60">
                         <TableCell className="font-mono text-xs">
-                          {outpass.id.substring(0, 8)}...
+                          {outpass.serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`}
                         </TableCell>
                         <TableCell>
                           <div>
@@ -260,6 +354,13 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                 </div>
               </div>
               
+              <div>
+                <h4 className="text-sm font-medium text-muted-foreground">Serial Code</h4>
+                <p className="font-mono font-medium">
+                  {selectedOutpass.serialCode || `AUMP-XYZ-${selectedOutpass.id.substring(0, 6).toUpperCase()}`}
+                </p>
+              </div>
+              
               <Separator />
               
               <div>
@@ -305,6 +406,93 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Serial Code Management Dialog */}
+      <Dialog open={isSerialCodeDialogOpen} onOpenChange={setIsSerialCodeDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Serial Code Prefix</DialogTitle>
+            <DialogDescription>
+              Set a new prefix for outpass serial codes. The format will be AUMP-[PREFIX]-XXXXXX
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="serialPrefix">Serial Code Prefix</Label>
+              <Input
+                id="serialPrefix"
+                placeholder="Enter prefix (e.g. XYZ, ABC, 123)"
+                value={serialCodePrefix}
+                onChange={(e) => setSerialCodePrefix(e.target.value.toUpperCase())}
+                maxLength={5}
+                className="font-mono"
+              />
+              <p className="text-xs text-muted-foreground">
+                This prefix will be used for all new outpass serial codes.
+              </p>
+            </div>
+            
+            <div className="bg-muted p-3 rounded-md">
+              <h4 className="text-sm font-medium">Preview:</h4>
+              <p className="font-mono mt-1">AUMP-{serialCodePrefix}-123ABC</p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsSerialCodeDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateSerialCode}>
+              Update Prefix
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Serial Code History Dialog */}
+      <Dialog open={isHistoryDialogOpen} onOpenChange={setIsHistoryDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Serial Code Prefix History</DialogTitle>
+            <DialogDescription>
+              Record of all prefix changes made by administrators
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="max-h-96 overflow-y-auto">
+            {serialCodeLogs.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No history records found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {[...serialCodeLogs].reverse().map((log) => (
+                  <div key={log.id} className="border rounded-md p-3">
+                    <div className="flex justify-between items-start">
+                      <Badge variant="outline" className="font-mono">
+                        {log.prefix}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateTime(log.createdAt)}
+                      </span>
+                    </div>
+                    <p className="text-sm mt-2">
+                      Updated by: {log.createdBy}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setIsHistoryDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Layout>

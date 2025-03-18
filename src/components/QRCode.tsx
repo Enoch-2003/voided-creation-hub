@@ -167,7 +167,10 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.text(`Reason: ${outpass.reason}`, 20, 170);
     pdf.text(`Status: Approved`, 20, 180);
     pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 190);
-    pdf.text(`QR Code ID: ${outpass.id}`, 20, 200);
+    
+    // Add Serial Code
+    const serialCode = outpass.serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`;
+    pdf.text(`Serial Code: ${serialCode}`, 20, 200);
     
     // Add warning for expired QR codes
     if (outpass.scanTimestamp) {
@@ -259,6 +262,11 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
         <div className="flex justify-between px-2 py-1 bg-muted rounded text-sm">
           <span className="font-medium">Status:</span>
           <span className="text-green-600 font-medium">Approved</span>
+        </div>
+        
+        <div className="flex justify-between px-2 py-1 bg-muted rounded text-sm">
+          <span className="font-medium">Serial Code:</span>
+          <span className="font-mono">{outpass.serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`}</span>
         </div>
       </div>
       

@@ -36,6 +36,13 @@ export interface Admin extends User {
 
 export type OutpassStatus = 'pending' | 'approved' | 'denied';
 
+export interface SerialCodeLog {
+  id: string;
+  prefix: string;
+  createdAt: string;
+  createdBy: string;
+}
+
 export interface Outpass {
   id: string;
   studentId: string;
@@ -52,4 +59,5 @@ export interface Outpass {
   scanTimestamp?: string;
   denyReason?: string;
   studentSection?: string; // Added to match students with mentors
+  serialCode?: string; // Full serial code including prefix
 }
