@@ -33,11 +33,18 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     }
   }, [user]);
 
-  // Get active outpasses - now including approved ones that haven't been scanned yet
+  // Get active outpasses - only pending or approved but not scanned yet
   const activeOutpasses = outpasses.filter(
     (outpass) =>
       outpass.status === "pending" ||
       (outpass.status === "approved" && !outpass.scanTimestamp)
+  );
+
+  // Get recent outpasses - only those that are not active (either approved and scanned, or denied)
+  const recentOutpasses = outpasses.filter(
+    (outpass) =>
+      (outpass.status === "approved" && outpass.scanTimestamp) ||
+      outpass.status === "denied"
   );
 
   // Get the latest active outpass
@@ -138,7 +145,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                     <div>
                       <CardTitle>Recent Outpasses</CardTitle>
                       <CardDescription>
-                        Your recently approved or denied outpasses
+                        Your recently used or denied outpasses
                       </CardDescription>
                     </div>
                     
@@ -150,9 +157,8 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 
                 <CardContent>
                   <div className="space-y-4">
-                    {outpasses.length > 0 ? (
-                      outpasses
-                        .filter(outpass => outpass.status !== "pending")
+                    {recentOutpasses.length > 0 ? (
+                      recentOutpasses
                         .sort((a, b) => 
                           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
                         )

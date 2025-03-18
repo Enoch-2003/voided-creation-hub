@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -73,11 +74,13 @@ export default function OutpassVerify() {
           }
         }
         
-        // Set the serial code using the latest prefix or use the existing one if already set
+        // Set the serial code using the latest prefix with numeric digits or use the existing one if already set
         if (foundOutpass.serialCode) {
           setSerialCode(foundOutpass.serialCode);
         } else {
-          const newSerialCode = `AUMP-${prefix}-${foundOutpass.id.substring(0, 6).toUpperCase()}`;
+          // Generate a 6-digit random number instead of using alphanumeric ID
+          const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+          const newSerialCode = `AUMP-${prefix}-${randomDigits}`;
           setSerialCode(newSerialCode);
           
           // Update outpass serialCode if not already set
