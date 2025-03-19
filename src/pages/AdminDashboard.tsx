@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Outpass, Admin, SerialCodeLog } from "@/lib/types";
-import { Search, Filter, RefreshCw, Eye, Save, History } from "lucide-react";
+import { Search, Filter, RefreshCw, Eye, Save, History, CalendarIcon, Archive } from "lucide-react";
 import { formatDateTime, generateId } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import storageSync from "@/lib/storageSync";
 import { useOutpasses } from "@/hooks/useOutpasses";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface AdminDashboardProps {
   user: Admin;
@@ -33,12 +34,15 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [filteredOutpasses, setFilteredOutpasses] = useState<Outpass[]>([]);
   const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("today");
   
   // Serial code management
   const [serialCodePrefix, setSerialCodePrefix] = useState("XYZ");
   const [serialCodeLogs, setSerialCodeLogs] = useState<SerialCodeLog[]>([]);
   const [isSerialCodeDialogOpen, setIsSerialCodeDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
+  const [prefixSearchDate, setPrefixSearchDate] = useState("");
+  const [filteredPrefixLogs, setFilteredPrefixLogs] = useState<SerialCodeLog[]>([]);
   
   // Initialize serial code settings
   useEffect(() => {
@@ -56,15 +60,42 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     // Load serial code logs
     const savedLogs = localStorage.getItem("serialCodeLogs");
     if (savedLogs) {
-      setSerialCodeLogs(JSON.parse(savedLogs));
+      const logs = JSON.parse(savedLogs);
+      setSerialCodeLogs(logs);
+      setFilteredPrefixLogs(logs);
     }
   }, []);
+  
+  // Filter logs when the search date changes
+  useEffect(() => {
+    if (!prefixSearchDate) {
+      setFilteredPrefixLogs(serialCodeLogs);
+      return;
+    }
+    
+    const searchDate = new Date(prefixSearchDate).toDateString();
+    const filtered = serialCodeLogs.filter(log => {
+      const logDate = new Date(log.createdAt).toDateString();
+      return logDate === searchDate;
+    });
+    
+    setFilteredPrefixLogs(filtered);
+  }, [prefixSearchDate, serialCodeLogs]);
   
   // Filter and search outpasses
   useEffect(() => {
     if (!allOutpasses) return;
 
     let result = [...allOutpasses];
+    
+    // Filter for today's outpasses when on Today tab
+    if (activeTab === "today") {
+      const today = new Date().toDateString();
+      result = result.filter(outpass => {
+        const outpassDate = new Date(outpass.createdAt).toDateString();
+        return outpassDate === today;
+      });
+    }
     
     // Filter by status
     if (filterType !== "all") {
@@ -96,7 +127,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     
     setFilteredOutpasses(result);
-  }, [allOutpasses, searchTerm, filterType, dateFilter]);
+  }, [allOutpasses, searchTerm, filterType, dateFilter, activeTab]);
   
   const handleViewOutpass = (outpass: Outpass) => {
     setSelectedOutpass(outpass);
@@ -141,6 +172,14 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     }
   };
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Reset other filters when changing tabs
+    setDateFilter("");
+    setFilterType("all");
+    setSearchTerm("");
+  };
+
   return (
     <Layout user={user} onLogout={onLogout}>
       <div className="container mx-auto px-4 py-8">
@@ -174,12 +213,19 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           </div>
         </div>
 
+        <Tabs defaultValue="today" value={activeTab} onValueChange={handleTabChange} className="mb-8">
+          <TabsList>
+            <TabsTrigger value="today">Today's Outpasses</TabsTrigger>
+            <TabsTrigger value="all">All Outpass History</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         {/* Filter and Search Section */}
         <Card className="mb-8">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Filter Outpasses</CardTitle>
             <CardDescription>
-              Search and filter through all outpasses in the system
+              Search and filter through {activeTab === "today" ? "today's" : "all"} outpasses in the system
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -255,9 +301,13 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         {/* Outpasses Table */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">All Outpasses</CardTitle>
+            <CardTitle className="text-lg">
+              {activeTab === "today" ? "Today's Outpasses" : "All Outpass History"}
+            </CardTitle>
             <CardDescription>
-              Real-time list of all outpasses in the system
+              {activeTab === "today" 
+                ? "Real-time list of outpasses created today" 
+                : "Complete history of all outpasses created in the system"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -438,7 +488,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
             
             <div className="bg-muted p-3 rounded-md">
               <h4 className="text-sm font-medium">Preview:</h4>
-              <p className="font-mono mt-1">AUMP-{serialCodePrefix}-123ABC</p>
+              <p className="font-mono mt-1">AUMP-{serialCodePrefix}-123456</p>
             </div>
           </div>
           
@@ -463,14 +513,39 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
             </DialogDescription>
           </DialogHeader>
           
+          <div className="space-y-4 mb-4">
+            <div className="space-y-2">
+              <Label htmlFor="prefixSearchDate">Filter by Date</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="prefixSearchDate"
+                  type="date"
+                  value={prefixSearchDate}
+                  onChange={(e) => setPrefixSearchDate(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => setPrefixSearchDate("")}
+                  disabled={!prefixSearchDate}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+          
           <div className="max-h-96 overflow-y-auto">
-            {serialCodeLogs.length === 0 ? (
+            {filteredPrefixLogs.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-muted-foreground">No history records found</p>
+                <p className="text-muted-foreground">
+                  {prefixSearchDate ? "No records found for the selected date" : "No history records found"}
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {[...serialCodeLogs].reverse().map((log) => (
+                {[...filteredPrefixLogs].reverse().map((log) => (
                   <div key={log.id} className="border rounded-md p-3">
                     <div className="flex justify-between items-start">
                       <Badge variant="outline" className="font-mono">

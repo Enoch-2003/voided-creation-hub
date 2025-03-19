@@ -11,7 +11,9 @@ import { generateId } from "@/lib/utils";
 import { Navbar } from "@/components/Navbar";
 import { UserRole, Student, Mentor } from "@/lib/types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, ChevronLeft } from "lucide-react";
+import { Loader2, ChevronLeft, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -19,6 +21,11 @@ export default function Register() {
   const [activeTab, setActiveTab] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthSuccess, setIsAuthSuccess] = useState(false);
+  
+  // Error dialogs
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogTitle, setErrorDialogTitle] = useState("");
+  const [errorDialogMessage, setErrorDialogMessage] = useState("");
   
   // Student form state
   const [studentName, setStudentName] = useState("");
@@ -143,6 +150,23 @@ export default function Register() {
     setMentorSemesters(mentorSemesters.filter(s => s !== semester));
   };
   
+  // Function to check if enrollment number is already registered
+  const isEnrollmentRegistered = (enrollmentNumber: string): boolean => {
+    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+    return existingUsers.some((user: any) => 
+      user.role === "student" && 
+      user.enrollmentNumber.toLowerCase() === enrollmentNumber.toLowerCase()
+    );
+  };
+  
+  // Function to check if email is already registered
+  const isEmailRegistered = (email: string): boolean => {
+    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+    return existingUsers.some((user: any) => 
+      user.email.toLowerCase() === email.toLowerCase()
+    );
+  };
+  
   const handleStudentRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -174,6 +198,22 @@ export default function Register() {
         description: "Password must be at least 6 characters",
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Check if enrollment number is already registered
+    if (isEnrollmentRegistered(studentEnrollment)) {
+      setErrorDialogTitle("Enrollment Number Already Registered");
+      setErrorDialogMessage("This enrollment number is already registered. Please use a different enrollment number or login to your existing account.");
+      setShowErrorDialog(true);
+      return;
+    }
+    
+    // Check if email is already registered
+    if (isEmailRegistered(studentEmail)) {
+      setErrorDialogTitle("Email Already Registered");
+      setErrorDialogMessage("This email is already registered. Please use a different email or login to your existing account.");
+      setShowErrorDialog(true);
       return;
     }
     
@@ -255,6 +295,14 @@ export default function Register() {
         description: "Password must be at least 6 characters",
         variant: "destructive",
       });
+      return;
+    }
+    
+    // Check if email is already registered
+    if (isEmailRegistered(mentorEmail)) {
+      setErrorDialogTitle("Email Already Registered");
+      setErrorDialogMessage("This email is already registered. Please use a different email or login to your existing account.");
+      setShowErrorDialog(true);
       return;
     }
     
@@ -361,6 +409,14 @@ export default function Register() {
             </TabsList>
             
             <TabsContent value="student">
+              <Alert className="mb-6 bg-yellow-50 border-yellow-200">
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <AlertTitle className="text-yellow-800">Important Note</AlertTitle>
+                <AlertDescription className="text-yellow-700">
+                  Please enter your details carefully and verify before submitting. Your information cannot be modified after registration.
+                </AlertDescription>
+              </Alert>
+              
               <form onSubmit={handleStudentRegister} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -760,6 +816,26 @@ export default function Register() {
           </div>
         </div>
       </main>
+
+      {/* Error Dialog */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              {errorDialogTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {errorDialogMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setShowErrorDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

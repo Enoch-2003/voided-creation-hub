@@ -2,214 +2,152 @@
 import { useState, useEffect } from "react";
 import { useParams, Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Outpass, SerialCodeLog } from "@/lib/types";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { formatDateTime } from "@/lib/utils";
+import { Outpass } from "@/lib/types";
+import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { AlertCircle, CheckCircle2, Download } from "lucide-react";
-import { jsPDF } from "jspdf";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  
   const [outpass, setOutpass] = useState<Outpass | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [verified, setVerified] = useState(false);
   const [serialCode, setSerialCode] = useState<string>("");
-  const [linkExpired, setLinkExpired] = useState(false);
   
   useEffect(() => {
-    const fetchOutpass = () => {
-      setLoading(true);
-      
-      try {
-        console.log("Verifying outpass ID:", id);
-        
-        // Get all outpasses from localStorage
-        const storedOutpasses = localStorage.getItem("outpasses");
-        if (!storedOutpasses) {
-          setError("No outpass data found");
-          setLoading(false);
-          return;
-        }
-        
-        const outpasses: Outpass[] = JSON.parse(storedOutpasses);
-        console.log("Found outpasses:", outpasses.length);
-        
-        const foundOutpass = outpasses.find(op => op.id === id);
-        
-        if (!foundOutpass) {
-          console.error("Outpass not found with ID:", id);
-          setError("Outpass not found");
-          setLoading(false);
-          return;
-        }
-        
-        console.log("Found outpass:", foundOutpass);
-        
-        if (foundOutpass.status !== "approved") {
-          setError("This outpass has not been approved");
-          setLoading(false);
-          return;
-        }
-        
-        // Set expired flag if already scanned
-        if (foundOutpass.scanTimestamp) {
-          setLinkExpired(true);
-        }
-        
-        // Get latest serial code prefix from logs
-        const serialCodeLogs = localStorage.getItem("serialCodeLogs");
-        let prefix = "XYZ";
-        
-        if (serialCodeLogs) {
-          const logs: SerialCodeLog[] = JSON.parse(serialCodeLogs);
-          if (logs.length > 0) {
-            // Get the most recent log
-            const latestLog = logs.sort((a, b) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            )[0];
-            prefix = latestLog.prefix;
-          }
-        }
-        
-        // Set the serial code using the latest prefix with numeric digits or use the existing one if already set
-        if (foundOutpass.serialCode) {
-          setSerialCode(foundOutpass.serialCode);
-        } else {
-          // Generate a 6-digit random number instead of using alphanumeric ID
-          const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
-          const newSerialCode = `AUMP-${prefix}-${randomDigits}`;
-          setSerialCode(newSerialCode);
-          
-          // Update outpass serialCode if not already set
-          foundOutpass.serialCode = newSerialCode;
-        }
-        
-        // If not already scanned, mark as scanned
-        if (!foundOutpass.scanTimestamp) {
-          console.log("Marking outpass as scanned");
-          // Mark as scanned and update localStorage
-          foundOutpass.scanTimestamp = new Date().toISOString();
-          localStorage.setItem("outpasses", JSON.stringify(
-            outpasses.map(op => op.id === id ? foundOutpass : op)
-          ));
-          
-          toast.success("Outpass verified successfully!");
-        } else {
-          console.log("Outpass already scanned at:", foundOutpass.scanTimestamp);
-          toast.warning("This outpass has already been used");
-        }
-        
-        setOutpass(foundOutpass);
-        setLoading(false);
-        setVerified(true);
-      } catch (error) {
-        console.error("Error verifying outpass:", error);
-        setError("An error occurred while verifying the outpass");
-        setLoading(false);
-      }
-    };
+    if (!id) {
+      setError("Invalid outpass ID");
+      setIsLoading(false);
+      return;
+    }
     
-    if (id) {
-      fetchOutpass();
-    } else {
-      setError("Invalid QR code");
-      setLoading(false);
+    // Load outpasses from localStorage
+    const storedOutpasses = localStorage.getItem("outpasses");
+    if (!storedOutpasses) {
+      setError("No outpasses found in the system");
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      // Parse outpasses and find the one with matching ID
+      const allOutpasses = JSON.parse(storedOutpasses);
+      const foundOutpass = allOutpasses.find((o: Outpass) => o.id === id);
+      
+      if (!foundOutpass) {
+        setError("Outpass not found");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Check if the outpass is approved
+      if (foundOutpass.status !== "approved") {
+        setError("This outpass has not been approved");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Get the serial code prefix from settings
+      let prefix = "XYZ"; // Default prefix
+      
+      // Try to get the most recent prefix from logs
+      const serialCodeLogs = localStorage.getItem("serialCodeLogs");
+      if (serialCodeLogs) {
+        try {
+          const logs = JSON.parse(serialCodeLogs);
+          if (logs && logs.length > 0) {
+            // Sort logs by creation date (descending) and take the first one
+            const sortedLogs = logs.sort((a: any, b: any) => 
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+            
+            if (sortedLogs.length > 0 && sortedLogs[0].prefix) {
+              prefix = sortedLogs[0].prefix;
+            }
+          }
+        } catch (error) {
+          console.error("Error parsing serial code logs:", error);
+        }
+      }
+      
+      // Set the serial code using the latest prefix with numeric digits or use the existing one if already set
+      if (foundOutpass.serialCode) {
+        setSerialCode(foundOutpass.serialCode);
+      } else {
+        // Generate a 6-digit random number instead of using alphanumeric ID
+        const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+        const newSerialCode = `AUMP-${prefix}-${randomDigits}`;
+        setSerialCode(newSerialCode);
+        
+        // Update outpass serialCode if not already set
+        const updatedOutpasses = allOutpasses.map((o: Outpass) => {
+          if (o.id === id) {
+            return {
+              ...o,
+              serialCode: newSerialCode
+            };
+          }
+          return o;
+        });
+        
+        // Save back to localStorage
+        localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+      }
+      
+      // Set isVerified based on whether it has been scanned before
+      setIsVerified(!!foundOutpass.scanTimestamp);
+      
+      // If the outpass hasn't been scanned yet, mark it as scanned
+      if (!foundOutpass.scanTimestamp) {
+        // Save the scan timestamp
+        const scanTimestamp = new Date().toISOString();
+        
+        // Update in local storage
+        const updatedOutpasses = allOutpasses.map((o: Outpass) => {
+          if (o.id === id) {
+            return {
+              ...o,
+              scanTimestamp
+            };
+          }
+          return o;
+        });
+        
+        // Save back to localStorage
+        localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+        
+        // Update foundOutpass with the scan timestamp
+        foundOutpass.scanTimestamp = scanTimestamp;
+      }
+      
+      // Set the outpass data
+      setOutpass(foundOutpass);
+      setIsLoading(false);
+    } catch (error) {
+      console.error(error);
+      setError("Error loading outpass data");
+      setIsLoading(false);
     }
   }, [id]);
   
-  useEffect(() => {
-    if (linkExpired && !loading) {
-      // Add a brief timeout to allow the toast to show
-      const timer = setTimeout(() => {
-        setError("This outpass link has already been used and is no longer valid");
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [linkExpired, loading]);
-  
-  const handleReturn = () => {
-    window.close();
+  const handleCopyToClipboard = () => {
+    navigator.clipboard.writeText(serialCode);
+    toast.success("Serial code copied to clipboard");
   };
   
-  const handleDownloadPDF = () => {
-    if (!outpass) return;
-    
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    
-    // Add title
-    pdf.setFontSize(18);
-    pdf.text("AmiPass - Campus Exit Permit", 105, 20, { align: "center" });
-    
-    // Add Amity University logo as image if available
-    pdf.addImage("/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png", "PNG", 95, 30, 20, 20);
-    
-    // Add verification serial number
-    pdf.setFontSize(14);
-    pdf.text(`Verification Code: ${serialCode}`, 105, 60, { align: "center" });
-    
-    // Add verification timestamp
-    pdf.setFontSize(10);
-    pdf.text(`Verified on: ${new Date().toLocaleString()}`, 105, 70, { align: "center" });
-    
-    // Add a line separator
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(20, 80, 190, 80);
-    
-    // Student information
-    pdf.setFontSize(12);
-    pdf.text("Student Information", 20, 90);
-    
-    pdf.setFontSize(10);
-    pdf.text(`Name: ${outpass.studentName}`, 20, 100);
-    pdf.text(`Enrollment Number: ${outpass.enrollmentNumber}`, 20, 110);
-    pdf.text(`Section: ${outpass.studentSection || "N/A"}`, 20, 120);
-    
-    // Outpass details
-    pdf.setFontSize(12);
-    pdf.text("Outpass Details", 20, 140);
-    
-    pdf.setFontSize(10);
-    pdf.text(`Exit Date & Time: ${formatDateTime(outpass.exitDateTime)}`, 20, 150);
-    pdf.text(`Reason: ${outpass.reason}`, 20, 160);
-    pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 170);
-    pdf.text(`Approved On: ${formatDateTime(outpass.updatedAt)}`, 20, 180);
-    
-    // Add verification status
-    pdf.setFontSize(12);
-    pdf.setTextColor(0, 150, 0);
-    pdf.text("✓ This student is authorized to exit the campus", 105, 200, { align: "center" });
-    pdf.setTextColor(0, 0, 0);
-    
-    // Add a note about one-time use
-    pdf.setFontSize(8);
-    pdf.text("This exit permit is valid only for the date and time mentioned above.", 105, 230, { align: "center" });
-    pdf.text("This slip has been automatically marked as used and cannot be presented again.", 105, 235, { align: "center" });
-    pdf.text("Please show this to the security personnel when exiting the campus.", 105, 240, { align: "center" });
-    
-    // Save the PDF
-    pdf.save(`AmiPass-Exit-Permit-${outpass.id}.pdf`);
-  };
-  
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="mx-auto w-20 h-20 mb-4">
-            <img
-              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-              alt="Amity University"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div className="text-xl font-semibold text-gray-700">Verifying outpass...</div>
+          <Clock className="h-16 w-16 mx-auto text-blue-500 animate-pulse mb-4" />
+          <h2 className="text-xl font-medium text-gray-900">Verifying outpass...</h2>
+          <p className="mt-2 text-gray-500">Please wait while we check your outpass</p>
         </div>
       </div>
     );
@@ -218,29 +156,18 @@ export default function OutpassVerify() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="pb-4 text-center">
-            <div className="mx-auto w-16 h-16 mb-4">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <CardTitle className="text-xl text-red-600">Verification Failed</CardTitle>
-            <CardDescription>
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <AlertCircle className="h-5 w-5 text-red-500" />
-                <span>{error}</span>
-              </div>
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center">
-            <Button onClick={handleReturn} className="mt-4">
-              Close
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="max-w-md w-full mx-auto text-center p-6">
+          <XCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
+          <h2 className="text-xl font-medium text-gray-900">Verification Failed</h2>
+          <p className="mt-2 text-gray-500">{error}</p>
+          <Button 
+            variant="outline" 
+            className="mt-6"
+            onClick={() => navigate("/")}
+          >
+            Return to Home
+          </Button>
+        </div>
       </div>
     );
   }
@@ -251,92 +178,115 @@ export default function OutpassVerify() {
   
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-2xl">
-        <CardHeader className="pb-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-12 h-12 object-contain"
-              />
+      <div className="max-w-md w-full mx-auto">
+        <div className="text-center mb-6">
+          <div className="mx-auto w-20 h-20 mb-4 relative">
+            <img
+              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
+              alt="Amity University"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <h1 className="text-2xl font-bold">AmiPass Verification</h1>
+          {isVerified ? (
+            <Badge className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 border-blue-200">
+              Previously Verified
+            </Badge>
+          ) : (
+            <Badge className="mt-2 px-3 py-1 bg-green-100 text-green-800 border-green-200">
+              Verified Now
+            </Badge>
+          )}
+        </div>
+        
+        <Card className="shadow-lg">
+          <CardHeader className="pb-3">
+            <div className="flex justify-between items-start">
               <div>
-                <CardTitle>AmiPass Exit Permit</CardTitle>
-                <CardDescription>Campus Exit Verification Slip</CardDescription>
+                <CardTitle>Exit Permit</CardTitle>
+                <CardDescription>
+                  This outpass has been verified and is valid
+                </CardDescription>
               </div>
+              <CheckCircle className="h-7 w-7 text-green-500" />
             </div>
-            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
-              <CheckCircle2 className="h-4 w-4" />
-              Verified
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 bg-gray-50">
-            <div className="text-center mb-2">
-              <div className="text-sm text-gray-500">Verification Serial Code</div>
-              <div className="text-lg font-mono font-bold">{serialCode}</div>
-            </div>
-            
-            <div className="text-sm text-center text-gray-500">
-              Verified on {new Date().toLocaleString()}<br />
-              This slip is for one-time use only
-            </div>
-          </div>
+          </CardHeader>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <h3 className="font-semibold text-gray-700">Student Information</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-gray-500">Name:</div>
-                <div className="font-medium">{outpass.studentName}</div>
-                
-                <div className="text-gray-500">Enrollment #:</div>
-                <div className="font-medium">{outpass.enrollmentNumber}</div>
-                
-                <div className="text-gray-500">Section:</div>
-                <div className="font-medium">{outpass.studentSection || "N/A"}</div>
+          <CardContent className="pb-2 space-y-6">
+            <div className="space-y-1">
+              <div className="font-medium text-sm text-muted-foreground">Serial Code</div>
+              <div className="flex justify-between items-center">
+                <div className="font-mono font-bold">{serialCode}</div>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={handleCopyToClipboard}
+                  className="h-8 w-8"
+                >
+                  <ClipboardCopy className="h-4 w-4" />
+                </Button>
               </div>
             </div>
             
-            <div className="space-y-3">
-              <h3 className="font-semibold text-gray-700">Outpass Details</h3>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="text-gray-500">Exit Time:</div>
-                <div className="font-medium">{formatDateTime(outpass.exitDateTime)}</div>
-                
-                <div className="text-gray-500">Reason:</div>
-                <div className="font-medium">{outpass.reason}</div>
-                
-                <div className="text-gray-500">Mentor:</div>
-                <div className="font-medium">{outpass.mentorName || "N/A"}</div>
-                
-                <div className="text-gray-500">Approved On:</div>
-                <div className="font-medium">{formatDateTime(outpass.updatedAt)}</div>
+            <Separator />
+            
+            <div className="space-y-1">
+              <div className="font-medium text-sm text-muted-foreground">Student Details</div>
+              <div className="font-bold">{outpass.studentName}</div>
+              <div className="text-sm">{outpass.enrollmentNumber}</div>
+              {outpass.studentSection && (
+                <div className="text-sm">Section: {outpass.studentSection}</div>
+              )}
+            </div>
+            
+            <div className="space-y-1">
+              <div className="font-medium text-sm text-muted-foreground">Exit Details</div>
+              <div>
+                <span className="font-medium">Date & Time: </span>
+                <span>{formatDateTime(outpass.exitDateTime)}</span>
+              </div>
+              <div>
+                <span className="font-medium">Reason: </span>
+                <span>{outpass.reason}</span>
               </div>
             </div>
-          </div>
+            
+            <div className="space-y-1">
+              <div className="font-medium text-sm text-muted-foreground">Approval Details</div>
+              <div>
+                <span className="font-medium">Approved by: </span>
+                <span>{outpass.mentorName}</span>
+              </div>
+              <div>
+                <span className="font-medium">Approved on: </span>
+                <span>{formatDateTime(outpass.updatedAt)}</span>
+              </div>
+            </div>
+            
+            <div className="space-y-1 pb-3">
+              <div className="font-medium text-sm text-muted-foreground">Verification Details</div>
+              <div>
+                <span className="font-medium">Verified on: </span>
+                <span>{formatDateTime(outpass.scanTimestamp || new Date().toISOString())}</span>
+              </div>
+            </div>
+          </CardContent>
           
-          <div className="border-t pt-4 text-center">
-            <div className="text-green-600 font-medium mb-2 flex items-center justify-center gap-1">
-              <CheckCircle2 className="h-5 w-5" />
-              This student is authorized to exit the campus
+          <CardFooter className="pt-3 border-t flex justify-between items-center">
+            <div className="flex items-center text-sm text-muted-foreground">
+              <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
+              Valid for this exit only
             </div>
-            <div className="text-sm text-gray-500 mb-4">
-              This slip has been automatically marked as used and cannot be presented again.
-            </div>
-            <div className="flex justify-center gap-3">
-              <Button onClick={handleDownloadPDF} className="gap-2">
-                <Download className="h-4 w-4" />
-                Download PDF
-              </Button>
-              <Button onClick={handleReturn} variant="outline">
-                Close
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/")}
+              size="sm"
+            >
+              Done
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -5,9 +5,11 @@ import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, X } from "lucide-react";
+import { Clock, X, Search, User, FileText } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useOutpasses } from "@/hooks/useOutpasses";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MentorPendingProps {
   user: Mentor;
@@ -16,17 +18,10 @@ interface MentorPendingProps {
 
 export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   const { toast } = useToast();
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { outpasses, updateOutpass } = useOutpasses();
   
-  useEffect(() => {
-    // Load outpasses from localStorage
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (storedOutpasses) {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      setOutpasses(allOutpasses);
-    }
-  }, []);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState<"name" | "enrollment" | "all">("all");
   
   // Filter outpasses by mentor's sections
   const sectionFilteredOutpasses = outpasses.filter((outpass) => {
@@ -38,37 +33,39 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   
   // Apply search filter if query exists
   const filteredOutpasses = searchQuery 
-    ? pendingOutpasses.filter(o => 
-        o.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.enrollmentNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        o.reason.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? pendingOutpasses.filter(o => {
+        const query = searchQuery.toLowerCase();
+        if (searchType === "name") {
+          return o.studentName.toLowerCase().includes(query);
+        } else if (searchType === "enrollment") {
+          return o.enrollmentNumber.toLowerCase().includes(query);
+        } else {
+          return (
+            o.studentName.toLowerCase().includes(query) ||
+            o.enrollmentNumber.toLowerCase().includes(query) ||
+            o.reason.toLowerCase().includes(query)
+          );
+        }
+      })
     : pendingOutpasses;
   
   const handleApprove = (id: string) => {
-    // Get current outpasses
-    const currentOutpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
+    // Find the outpass to approve
+    const outpassToUpdate = outpasses.find(o => o.id === id);
+    if (!outpassToUpdate) return;
     
-    // Find and update the outpass
-    const updatedOutpasses = currentOutpasses.map((outpass: Outpass) => {
-      if (outpass.id === id) {
-        return {
-          ...outpass,
-          status: "approved",
-          mentorId: user.id,
-          mentorName: user.name,
-          qrCode: generateQRCode(outpass.id),
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return outpass;
-    });
+    // Update the outpass
+    const updatedOutpass = {
+      ...outpassToUpdate,
+      status: "approved",
+      mentorId: user.id,
+      mentorName: user.name,
+      qrCode: generateQRCode(outpassToUpdate.id),
+      updatedAt: new Date().toISOString()
+    };
     
-    // Save back to localStorage
-    localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-    
-    // Update local state
-    setOutpasses(updatedOutpasses);
+    // Update outpass using the hook
+    updateOutpass(updatedOutpass);
     
     // Show success toast
     toast({
@@ -78,29 +75,22 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   };
   
   const handleDeny = (id: string, reason: string) => {
-    // Get current outpasses
-    const currentOutpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
+    // Find the outpass to deny
+    const outpassToUpdate = outpasses.find(o => o.id === id);
+    if (!outpassToUpdate) return;
     
-    // Find and update the outpass
-    const updatedOutpasses = currentOutpasses.map((outpass: Outpass) => {
-      if (outpass.id === id) {
-        return {
-          ...outpass,
-          status: "denied",
-          mentorId: user.id,
-          mentorName: user.name,
-          denyReason: reason,
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return outpass;
-    });
+    // Update the outpass
+    const updatedOutpass = {
+      ...outpassToUpdate,
+      status: "denied",
+      mentorId: user.id,
+      mentorName: user.name,
+      denyReason: reason,
+      updatedAt: new Date().toISOString()
+    };
     
-    // Save back to localStorage
-    localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-    
-    // Update local state
-    setOutpasses(updatedOutpasses);
+    // Update outpass using the hook
+    updateOutpass(updatedOutpass);
     
     // Show success toast
     toast({
@@ -122,25 +112,40 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
         </div>
         
         <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between">
-          <div className="relative max-w-sm w-full">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, enrollment no, or reason..."
-              className="pl-3 pr-10"
+              placeholder="Search pending requests..."
+              className="pl-9 pr-10"
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-full"
-              onClick={() => setSearchQuery("")}
-              disabled={!searchQuery}
-            >
-              {searchQuery && <X className="h-4 w-4" />}
-            </Button>
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           
-          <div className="flex items-center gap-2">
+          <Tabs 
+            defaultValue="all" 
+            value={searchType} 
+            onValueChange={(value) => setSearchType(value as "name" | "enrollment" | "all")}
+            className="w-full max-w-xs"
+          >
+            <TabsList className="grid grid-cols-3 w-full">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="name">Student Name</TabsTrigger>
+              <TabsTrigger value="enrollment">Enrollment</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          <div className="flex items-center">
             <span className="text-sm text-muted-foreground">
               Showing {filteredOutpasses.length} of {pendingOutpasses.length} pending requests
             </span>
