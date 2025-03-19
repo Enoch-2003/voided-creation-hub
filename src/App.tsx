@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Index from "@/pages/Index";
@@ -79,23 +80,7 @@ function App() {
               <Navigate to="/not-found" />
             )
           ) : (
-            <Login
-              onLogin={(loggedInUser: User | Student | Mentor | Admin, role: string) => {
-                setIsAuthenticated(true);
-                setUserRole(role);
-                setUser(loggedInUser);
-                
-                if (role === "student") {
-                  navigate("/student");
-                } else if (role === "mentor") {
-                  navigate("/mentor");
-                } else if (role === "admin") {
-                  navigate("/admin");
-                } else {
-                  navigate("/not-found");
-                }
-              }}
-            />
+            <Login />
           )
         }
       />

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LogOut, Menu, X, UserCog } from "lucide-react";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { UserRole } from "@/lib/types";
 
 interface NavbarProps {
-  userRole?: UserRole;
+  userRole?: UserRole | "admin";
   userName?: string;
   onLogout?: () => void;
 }

@@ -1,11 +1,11 @@
 
-export type UserRole = 'student' | 'mentor';
+export type UserRole = 'student' | 'mentor' | 'admin';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: UserRole | 'admin';
+  role: UserRole;
   password?: string; // Added for login authentication
 }
 
