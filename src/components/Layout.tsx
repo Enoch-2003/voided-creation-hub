@@ -1,7 +1,7 @@
 
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Mentor, Student } from "@/lib/types";
+import { Admin, Mentor, Student } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { 
   HomeIcon, 
@@ -16,7 +16,7 @@ import {
 
 interface LayoutProps {
   children: ReactNode;
-  user: Student | Mentor | any;
+  user: Student | Mentor | Admin;
   onLogout: () => void;
 }
 

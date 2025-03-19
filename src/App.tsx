@@ -51,7 +51,11 @@ function App() {
       setIsAuthenticated(false);
       setUserRole(null);
       setUser(null);
-      navigate('/login');
+      // Only redirect to login if not already on login, register, index, or outpass verification pages
+      const nonAuthRoutes = ['/login', '/register', '/', '/outpass/verify'];
+      if (!nonAuthRoutes.some(route => window.location.pathname.startsWith(route))) {
+        navigate('/login');
+      }
     }
   }, [navigate]);
 
