@@ -10,7 +10,8 @@ import {
   LogOutIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon
+  ClockIcon,
+  UserCog
 } from "lucide-react";
 
 interface LayoutProps {
@@ -41,6 +42,7 @@ export function Layout({ children, user, onLogout }: LayoutProps) {
     } else if (user.role === "admin") {
       return [
         { name: "Dashboard", href: "/admin", icon: HomeIcon },
+        { name: "Edit Student Profile", href: "/admin/student/edit", icon: UserCog },
       ];
     }
     

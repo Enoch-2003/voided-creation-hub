@@ -328,6 +328,12 @@ class StorageSyncService {
         if (itemKey === key) {
           channel.postMessage({ type: 'update', key: itemKey });
         }
+        
+        // Special handling for users data - notify about user updates
+        if (itemKey === 'users') {
+          const userChannel = new BroadcastChannel('amipass_users_changed');
+          userChannel.postMessage({ type: 'update', timestamp: Date.now() });
+        }
       };
     }
   }
@@ -364,5 +370,7 @@ const storageSync = new StorageSyncService();
 
 // Set up real-time sync for outpasses
 storageSync.setupRealtimeSync('outpasses');
+// Set up real-time sync for users
+storageSync.setupRealtimeSync('users');
 
 export default storageSync;

@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { UserRole } from "@/lib/types";
@@ -26,7 +25,6 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
@@ -55,7 +53,6 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             </span>
           </Link>
 
-          {/* Desktop Menu */}
           <nav className="hidden md:flex items-center space-x-1">
             {!userRole ? (
               <>
@@ -76,6 +73,18 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
                 </Button>
                 <Button variant="ghost" asChild>
                   <Link to="/student/request">New Request</Link>
+                </Button>
+              </>
+            ) : userRole === "admin" ? (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/admin">Dashboard</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link to="/admin/student/edit">
+                    <UserCog className="h-4 w-4 mr-1" />
+                    Edit Student Profile
+                  </Link>
                 </Button>
               </>
             ) : (
@@ -113,7 +122,6 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
             )}
           </nav>
 
-          {/* Mobile Menu Button */}
           <Button
             variant="ghost"
             size="icon"
@@ -129,7 +137,6 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-md shadow-lg border-t mt-4 animate-fade-in">
           <nav className="container mx-auto px-4 py-6 flex flex-col space-y-4">
@@ -152,6 +159,18 @@ export function Navbar({ userRole, userName, onLogout }: NavbarProps) {
                 </Button>
                 <Button variant="ghost" className="justify-start" asChild>
                   <Link to="/student/request">New Request</Link>
+                </Button>
+              </>
+            ) : userRole === "admin" ? (
+              <>
+                <Button variant="ghost" className="justify-start" asChild>
+                  <Link to="/admin">Dashboard</Link>
+                </Button>
+                <Button variant="ghost" className="justify-start" asChild>
+                  <Link to="/admin/student/edit">
+                    <UserCog className="h-4 w-4 mr-2" />
+                    Edit Student Profile
+                  </Link>
                 </Button>
               </>
             ) : (
