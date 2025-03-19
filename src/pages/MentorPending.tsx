@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
-import { Mentor, Outpass } from "@/lib/types";
+import { Mentor, Outpass, OutpassStatus } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, X, Search, User, FileText } from "lucide-react";
@@ -54,10 +54,10 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
     const outpassToUpdate = outpasses.find(o => o.id === id);
     if (!outpassToUpdate) return;
     
-    // Update the outpass
-    const updatedOutpass = {
+    // Update the outpass with explicit OutpassStatus type
+    const updatedOutpass: Outpass = {
       ...outpassToUpdate,
-      status: "approved",
+      status: "approved" as OutpassStatus,
       mentorId: user.id,
       mentorName: user.name,
       qrCode: generateQRCode(outpassToUpdate.id),
@@ -79,10 +79,10 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
     const outpassToUpdate = outpasses.find(o => o.id === id);
     if (!outpassToUpdate) return;
     
-    // Update the outpass
-    const updatedOutpass = {
+    // Update the outpass with explicit OutpassStatus type
+    const updatedOutpass: Outpass = {
       ...outpassToUpdate,
-      status: "denied",
+      status: "denied" as OutpassStatus,
       mentorId: user.id,
       mentorName: user.name,
       denyReason: reason,
