@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Outpass, Student, Mentor, UserRole } from '@/lib/types';
 import storageSync from '@/lib/storageSync';
@@ -33,6 +32,15 @@ export function useOutpasses() {
       setIsLoading(false);
     });
     
+    // Subscribe to users changes to get updated user data
+    const userUnsubscribe = storageSync.subscribe('users', () => {
+      // Get the latest user data
+      const userData = storageSync.getUser();
+      if (userData) {
+        setCurrentUser(userData);
+      }
+    });
+    
     // Get session-specific user data
     const userData = storageSync.getUser();
     const userRoleData = storageSync.getUserRole() as UserRole | "admin" | null;
@@ -56,9 +64,13 @@ export function useOutpasses() {
         if (event.data && event.data.userId) {
           const currentTabUser = storageSync.getUser();
           if (currentTabUser && currentTabUser.id === event.data.userId) {
-            // Get the latest user data
-            const updatedUser = storageSync.getUser();
+            // Get the latest user data from the updated users array
+            const users = storageSync.getItem<any[]>('users') || [];
+            const updatedUser = users.find(u => u.id === event.data.userId);
+            
             if (updatedUser) {
+              // Update session storage with the latest user data
+              sessionStorage.setItem('user', JSON.stringify(updatedUser));
               setCurrentUser(updatedUser);
             }
           }
@@ -68,12 +80,16 @@ export function useOutpasses() {
     
     // Monitor for changes to the current user data
     const checkUserChanges = () => {
-      const latestUser = storageSync.getUser();
-      if (latestUser && currentUser && latestUser.id === currentUser.id) {
-        // Update if any properties have changed
-        if (JSON.stringify(latestUser) !== JSON.stringify(currentUser)) {
-          setCurrentUser(latestUser);
-        }
+      if (!currentUser || !currentUser.id) return;
+      
+      // Check for updates in the users array
+      const users = storageSync.getItem<any[]>('users') || [];
+      const latestUserData = users.find(u => u.id === currentUser.id);
+      
+      if (latestUserData && JSON.stringify(latestUserData) !== JSON.stringify(currentUser)) {
+        // Update session storage with the latest user data
+        sessionStorage.setItem('user', JSON.stringify(latestUserData));
+        setCurrentUser(latestUserData);
       }
     };
     
@@ -82,6 +98,7 @@ export function useOutpasses() {
     
     return () => {
       unsubscribe();
+      userUnsubscribe();
       if (userChangeChannel) {
         userChangeChannel.close();
       }

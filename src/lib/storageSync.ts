@@ -90,6 +90,16 @@ class StorageSyncService {
     localStorage.setItem('user_' + this.tabId, JSON.stringify(userData));
     localStorage.setItem('userRole_' + this.tabId, userRole);
     
+    // Update users array in localStorage if it exists
+    const users = this.getItem<any[]>('users') || [];
+    const existingUserIndex = users.findIndex(u => u.id === userData.id);
+    
+    if (existingUserIndex >= 0) {
+      // Update existing user
+      users[existingUserIndex] = userData;
+      this.setItem('users', users);
+    }
+    
     // Update active tabs registry
     this.activeUserRoles[this.tabId] = userRole;
     localStorage.setItem('amipass_active_tabs', JSON.stringify(this.activeUserRoles));
@@ -106,7 +116,8 @@ class StorageSyncService {
     // Broadcast update about user change for outpass filtering
     if (window.BroadcastChannel) {
       const channel = new BroadcastChannel('amipass_user_changed');
-      channel.postMessage({ tabId: this.tabId, userRole });
+      channel.postMessage({ tabId: this.tabId, userRole, userId: userData.id });
+      channel.close();
     }
   }
   

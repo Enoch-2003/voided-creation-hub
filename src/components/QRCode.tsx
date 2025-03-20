@@ -31,7 +31,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     // Create the verification URL using the window location origin for absolute URL
     // This ensures it works when scanned from any device
     const baseUrl = window.location.origin;
-    const url = `${baseUrl}/verify/${outpass.id}`;
+    const url = `${baseUrl}/outpass/verify/${outpass.id}`;
     setVerificationUrl(url);
     
     // Log the URL for debugging
