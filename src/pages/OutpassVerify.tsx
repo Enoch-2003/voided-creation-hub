@@ -10,6 +10,7 @@ import { Outpass } from "@/lib/types";
 import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,7 @@ export default function OutpassVerify() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [serialCode, setSerialCode] = useState<string>("");
+  const [showExpiredDialog, setShowExpiredDialog] = useState(false);
   
   useEffect(() => {
     if (!id) {
@@ -50,6 +52,15 @@ export default function OutpassVerify() {
       // Check if the outpass is approved
       if (foundOutpass.status !== "approved") {
         setError("This outpass has not been approved");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Check if the outpass has already been scanned/verified
+      // If it has been scanned before and has a scanTimestamp, show expired dialog
+      if (foundOutpass.scanTimestamp) {
+        setShowExpiredDialog(true);
+        setOutpass(foundOutpass);
         setIsLoading(false);
         return;
       }
@@ -204,7 +215,15 @@ export default function OutpassVerify() {
     toast.success("Verification PDF downloaded successfully");
   };
   
+  // Handler for the "Close" button to go back to the student dashboard
   const handleNavigateToStudent = () => {
+    // Navigate to student dashboard, preserving the user session
+    navigate("/student");
+  };
+  
+  // When the user closes the expired dialog
+  const handleExpiredDialogClose = () => {
+    setShowExpiredDialog(false);
     navigate("/student");
   };
   
@@ -230,9 +249,9 @@ export default function OutpassVerify() {
           <Button 
             variant="outline" 
             className="mt-6"
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/student")}
           >
-            Return to Home
+            Return to Dashboard
           </Button>
         </div>
       </div>
@@ -240,7 +259,39 @@ export default function OutpassVerify() {
   }
   
   if (!outpass) {
-    return <Navigate to="/" />;
+    return <Navigate to="/student" />;
+  }
+  
+  // Show the expired dialog if the outpass has already been scanned/verified
+  if (showExpiredDialog) {
+    return (
+      <Dialog open={showExpiredDialog} onOpenChange={setShowExpiredDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Outpass Already Verified</DialogTitle>
+            <DialogDescription>
+              This outpass has already been verified and cannot be used again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center p-4">
+            <XCircle className="h-16 w-16 text-red-500 mb-4" />
+            <p className="text-center mb-2"><strong>Verification Status:</strong> Expired after scan</p>
+            <p className="text-center text-sm text-muted-foreground">
+              This outpass was first verified on: {formatDateTime(outpass.scanTimestamp || "")}
+            </p>
+          </div>
+          <DialogFooter className="flex sm:justify-between">
+            <Button variant="outline" onClick={handleExpiredDialogClose}>
+              Return to Dashboard
+            </Button>
+            <Button onClick={handleDownloadPDF}>
+              <Download className="h-4 w-4 mr-1" />
+              Download PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
   }
   
   return (

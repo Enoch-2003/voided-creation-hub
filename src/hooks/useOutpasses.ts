@@ -84,9 +84,15 @@ export function useOutpasses() {
               // Update session storage with the latest user data
               sessionStorage.setItem('user', JSON.stringify(updatedUser));
               setCurrentUser(updatedUser);
-              // Show notification if run from student dashboard
-              if (userRole === 'student') {
-                toast.info("Your profile information has been updated by an administrator");
+              
+              // Force synchronize the state with the updated user data
+              if (event.data.forceUpdate) {
+                // Show notification if run from student dashboard
+                if (userRole === 'student') {
+                  toast.info("Your profile information has been updated by an administrator", {
+                    description: "Reload the page if you don't see the changes"
+                  });
+                }
               }
             }
           }
@@ -114,8 +120,8 @@ export function useOutpasses() {
       }
     };
     
-    // Check for user changes more frequently (every 1 second)
-    const userCheckInterval = setInterval(checkUserChanges, 1000);
+    // Check for user changes more frequently (every 500ms)
+    const userCheckInterval = setInterval(checkUserChanges, 500);
     
     return () => {
       unsubscribe();
@@ -191,24 +197,39 @@ export function useOutpasses() {
 
   // Function to update the user
   const updateUser = useCallback((updatedUser: Student | Mentor | any) => {
+    // Set local state
     setCurrentUser(updatedUser);
     
     // Update users array in localStorage
     const users = storageSync.getItem<any[]>('users') || [];
-    const updatedUsers = users.map(user => 
-      user.id === updatedUser.id ? updatedUser : user
-    );
+    const existingUserIndex = users.findIndex(user => user.id === updatedUser.id);
+    
+    let updatedUsers;
+    if (existingUserIndex >= 0) {
+      // Update existing user
+      updatedUsers = [...users];
+      updatedUsers[existingUserIndex] = updatedUser;
+    } else {
+      // Add user if not found
+      updatedUsers = [...users, updatedUser];
+    }
+    
+    // Update localStorage with the updated users array
     storageSync.setItem('users', updatedUsers);
     
     // Update session storage for this tab
-    sessionStorage.setItem('user', JSON.stringify(updatedUser));
+    if (updatedUser.id === storageSync.getUser()?.id) {
+      sessionStorage.setItem('user', JSON.stringify(updatedUser));
+    }
     
     // Notify other tabs about the user update via broadcast channel
     if (typeof BroadcastChannel !== 'undefined') {
       const userChangeChannel = new BroadcastChannel('amipass_user_changed');
-      userChangeChannel.postMessage({ userId: updatedUser.id });
+      userChangeChannel.postMessage({ userId: updatedUser.id, forceUpdate: true });
       userChangeChannel.close();
     }
+    
+    return updatedUser;
   }, []);
 
   return {

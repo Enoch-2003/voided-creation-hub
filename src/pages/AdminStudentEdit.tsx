@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +14,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useOutpasses } from "@/hooks/useOutpasses";
 
 interface AdminStudentEditProps {
   user: Admin;
@@ -39,6 +41,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [updateInProgress, setUpdateInProgress] = useState(false);
+  const { updateUser } = useOutpasses();
 
   // Load all students
   useEffect(() => {
@@ -146,47 +149,52 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
       ...data
     };
 
-    // Update in storage
-    const users = storageSync.getItem<any[]>('users') || [];
-    const updatedUsers = users.map(user => 
-      user.id === updatedStudent.id ? updatedStudent : user
-    );
-    
-    // Save updated users to trigger the broadcast channel
-    storageSync.setItem('users', updatedUsers);
-    
-    // Also update outpasses with this student's information
-    const outpasses = storageSync.getItem<any[]>('outpasses') || [];
-    const updatedOutpasses = outpasses.map(outpass => {
-      if (outpass.studentId === updatedStudent.id) {
-        return {
-          ...outpass,
-          studentName: updatedStudent.name,
-          studentSection: updatedStudent.section
-        };
+    try {
+      // Use the updateUser function from useOutpasses to ensure proper cross-tab communication
+      updateUser(updatedStudent);
+      
+      // Also update outpasses with this student's information
+      const outpasses = storageSync.getItem<any[]>('outpasses') || [];
+      const updatedOutpasses = outpasses.map(outpass => {
+        if (outpass.studentId === updatedStudent.id) {
+          return {
+            ...outpass,
+            studentName: updatedStudent.name,
+            studentSection: updatedStudent.section
+          };
+        }
+        return outpass;
+      });
+      
+      // Save updated outpasses
+      storageSync.setItem('outpasses', updatedOutpasses);
+      
+      // Broadcast explicitly to ensure real-time updates
+      if (typeof BroadcastChannel !== 'undefined') {
+        // Send specific update for this user
+        const userChannel = new BroadcastChannel('amipass_user_changed');
+        userChannel.postMessage({ userId: updatedStudent.id, forceUpdate: true });
+        userChannel.close();
+        
+        // Also send general update for outpasses
+        const outpassChannel = new BroadcastChannel('amity-outpass-outpasses');
+        outpassChannel.postMessage({ type: 'update', key: 'outpasses' });
+        outpassChannel.close();
       }
-      return outpass;
-    });
-    
-    // Save updated outpasses
-    storageSync.setItem('outpasses', updatedOutpasses);
-    
-    // Use broadcast channel to notify other tabs about the user update
-    if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel('amipass_user_changed');
-      channel.postMessage({ userId: updatedStudent.id });
-      channel.close();
+      
+      setSelectedStudent(updatedStudent);
+      
+      // Show success message
+      toast.success("Student profile updated successfully", {
+        description: "All dashboard instances with this student's data will be updated in real-time."
+      });
+    } catch (error) {
+      console.error('Error updating student:', error);
+      toast.error("Failed to update student profile");
+    } finally {
+      setUpdateInProgress(false);
+      setIsEditing(false);
     }
-    
-    setSelectedStudent(updatedStudent);
-    setUpdateInProgress(false);
-    
-    // Show success message
-    toast.success("Student profile updated successfully", {
-      description: "All dashboard instances with this student's data will be updated in real-time."
-    });
-    
-    setIsEditing(false);
   };
 
   return (
@@ -323,6 +331,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                             <Select 
                               onValueChange={field.onChange} 
                               defaultValue={field.value}
+                              value={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -378,6 +387,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                             <Select 
                               onValueChange={field.onChange} 
                               defaultValue={field.value}
+                              value={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger>
