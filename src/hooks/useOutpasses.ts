@@ -90,7 +90,7 @@ export function useOutpasses() {
                 // Show notification if run from student dashboard
                 if (userRole === 'student') {
                   toast.info("Your profile information has been updated by an administrator", {
-                    description: "The changes are now visible in your dashboard"
+                    description: "Reload the page if you don't see the changes"
                   });
                 }
               }
@@ -115,15 +115,13 @@ export function useOutpasses() {
         
         // Show notification if run from student dashboard
         if (userRole === 'student') {
-          toast.info("Your profile information has been updated by an administrator", {
-            description: "The changes are now visible in your dashboard"
-          });
+          toast.info("Your profile information has been updated by an administrator");
         }
       }
     };
     
-    // Check for user changes more frequently (every 300ms)
-    const userCheckInterval = setInterval(checkUserChanges, 300);
+    // Check for user changes more frequently (every 500ms)
+    const userCheckInterval = setInterval(checkUserChanges, 500);
     
     return () => {
       unsubscribe();

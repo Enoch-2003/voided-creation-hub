@@ -73,7 +73,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                 department: updatedStudent.department,
                 course: updatedStudent.course,
                 branch: updatedStudent.branch,
-                semester: updatedStudent.semester.toString(), // Convert to string
+                semester: updatedStudent.semester,
                 section: updatedStudent.section,
               });
             }
@@ -83,7 +83,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
     });
     
     return () => unsubscribe();
-  }, [selectedStudent, isEditing]);
+  }, [selectedStudent]);
 
   // Set up form with react-hook-form and zod validation
   const form = useForm<z.infer<typeof studentProfileSchema>>({
@@ -99,7 +99,6 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
       semester: "",
       section: "",
     },
-    mode: "onChange" // Enable onChange validation mode
   });
 
   // Search for students by enrollment number
@@ -127,7 +126,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
         department: foundStudent.department,
         course: foundStudent.course,
         branch: foundStudent.branch,
-        semester: foundStudent.semester.toString(), // Convert to string
+        semester: foundStudent.semester,
         section: foundStudent.section,
       });
     } else {
@@ -147,15 +146,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
     // Update student data
     const updatedStudent: Student = {
       ...selectedStudent,
-      name: data.name,
-      email: data.email,
-      contactNumber: data.contactNumber,
-      guardianNumber: data.guardianNumber,
-      department: data.department,
-      course: data.course,
-      branch: data.branch,
-      semester: data.semester,
-      section: data.section
+      ...data
     };
 
     try {
