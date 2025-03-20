@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Navigate, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle, Download } f
 import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import storageSync from "@/lib/storageSync";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -217,14 +218,31 @@ export default function OutpassVerify() {
   
   // Handler for the "Close" button to go back to the student dashboard
   const handleNavigateToStudent = () => {
-    // Navigate to student dashboard, preserving the user session
-    navigate("/student");
+    // Check if the user is logged in first
+    const currentUser = storageSync.getUser();
+    const currentUserRole = storageSync.getUserRole();
+    
+    if (currentUser && currentUserRole === 'student') {
+      navigate("/student");
+    } else {
+      // If we can't confirm they're logged in, try to go back to previous page
+      window.history.back();
+    }
   };
   
   // When the user closes the expired dialog
   const handleExpiredDialogClose = () => {
     setShowExpiredDialog(false);
-    navigate("/student");
+    // Check if the user is logged in first
+    const currentUser = storageSync.getUser();
+    const currentUserRole = storageSync.getUserRole();
+    
+    if (currentUser && currentUserRole === 'student') {
+      navigate("/student");
+    } else {
+      // If we can't confirm they're logged in, try to go back to previous page
+      window.history.back();
+    }
   };
   
   if (isLoading) {
@@ -249,9 +267,9 @@ export default function OutpassVerify() {
           <Button 
             variant="outline" 
             className="mt-6"
-            onClick={() => navigate("/student")}
+            onClick={() => window.history.back()}
           >
-            Return to Dashboard
+            Go Back
           </Button>
         </div>
       </div>
@@ -259,7 +277,22 @@ export default function OutpassVerify() {
   }
   
   if (!outpass) {
-    return <Navigate to="/student" />;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="max-w-md w-full mx-auto text-center p-6">
+          <XCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
+          <h2 className="text-xl font-medium text-gray-900">Outpass Not Found</h2>
+          <p className="mt-2 text-gray-500">The requested outpass could not be found</p>
+          <Button 
+            variant="outline" 
+            className="mt-6"
+            onClick={() => window.history.back()}
+          >
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
   }
   
   // Show the expired dialog if the outpass has already been scanned/verified
