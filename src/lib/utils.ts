@@ -30,6 +30,35 @@ export function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
 }
 
+// Function to check if enrollment number is already registered
+export function isEnrollmentRegistered(enrollmentNumber: string): boolean {
+  try {
+    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+    return existingUsers.some((user: any) => 
+      user.role === "student" && 
+      user.enrollmentNumber && 
+      user.enrollmentNumber.toLowerCase() === enrollmentNumber.toLowerCase()
+    );
+  } catch (error) {
+    console.error("Error checking enrollment:", error);
+    return false;
+  }
+}
+
+// Function to check if email is already registered
+export function isEmailRegistered(email: string): boolean {
+  try {
+    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+    return existingUsers.some((user: any) => 
+      user.email && 
+      user.email.toLowerCase() === email.toLowerCase()
+    );
+  } catch (error) {
+    console.error("Error checking email:", error);
+    return false;
+  }
+}
+
 // Mock function to generate QR code data (for demo purposes)
 export function generateQRCode(outpassId: string): string {
   return `https://amipass.com/verify/${outpassId}`;

@@ -15,6 +15,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           className
         )}
         ref={ref}
+        // Added autoComplete attribute to improve form behavior
+        autoComplete={type === "password" ? "current-password" : type === "email" ? "email" : "on"}
         {...props}
       />
     )

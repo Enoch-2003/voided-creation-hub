@@ -115,7 +115,8 @@ export default function Login() {
       // Get all users from localStorage
       const usersJson = localStorage.getItem("users");
       if (!usersJson) {
-        throw new Error("No users found");
+        localStorage.setItem("users", JSON.stringify([]));
+        throw new Error("No users found. Please register first.");
       }
       
       const users = JSON.parse(usersJson);
@@ -124,12 +125,12 @@ export default function Login() {
       const student = users.find(
         (user: any) => 
           user.role === "student" && 
-          user.enrollmentNumber === studentId && 
+          user.enrollmentNumber.toLowerCase() === studentId.toLowerCase() && 
           user.password === studentPassword
       );
       
       if (!student) {
-        throw new Error("Invalid credentials");
+        throw new Error("Invalid credentials. Please check your enrollment number and password.");
       }
       
       // Initialize outpass data if not exists
@@ -202,7 +203,8 @@ export default function Login() {
       // Get all users from localStorage
       const usersJson = localStorage.getItem("users");
       if (!usersJson) {
-        throw new Error("No users found");
+        localStorage.setItem("users", JSON.stringify([]));
+        throw new Error("No users found. Please register first.");
       }
       
       const users = JSON.parse(usersJson);
@@ -211,12 +213,12 @@ export default function Login() {
       const mentor = users.find(
         (user: any) => 
           user.role === "mentor" && 
-          user.email === mentorEmail && 
+          user.email.toLowerCase() === mentorEmail.toLowerCase() && 
           user.password === mentorPassword
       );
       
       if (!mentor) {
-        throw new Error("Invalid credentials");
+        throw new Error("Invalid credentials. Please check your email and password.");
       }
       
       // Initialize outpass data if not exists
@@ -809,3 +811,4 @@ export default function Login() {
     </div>
   );
 }
+

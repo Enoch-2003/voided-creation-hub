@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -152,19 +151,31 @@ export default function Register() {
   
   // Function to check if enrollment number is already registered
   const isEnrollmentRegistered = (enrollmentNumber: string): boolean => {
-    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
-    return existingUsers.some((user: any) => 
-      user.role === "student" && 
-      user.enrollmentNumber.toLowerCase() === enrollmentNumber.toLowerCase()
-    );
+    try {
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      return existingUsers.some((user: any) => 
+        user.role === "student" && 
+        user.enrollmentNumber && 
+        user.enrollmentNumber.toLowerCase() === enrollmentNumber.toLowerCase()
+      );
+    } catch (error) {
+      console.error("Error checking enrollment:", error);
+      return false;
+    }
   };
   
   // Function to check if email is already registered
   const isEmailRegistered = (email: string): boolean => {
-    const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
-    return existingUsers.some((user: any) => 
-      user.email.toLowerCase() === email.toLowerCase()
-    );
+    try {
+      const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
+      return existingUsers.some((user: any) => 
+        user.email && 
+        user.email.toLowerCase() === email.toLowerCase()
+      );
+    } catch (error) {
+      console.error("Error checking email:", error);
+      return false;
+    }
   };
   
   const handleStudentRegister = (e: React.FormEvent) => {
@@ -221,7 +232,7 @@ export default function Register() {
     
     try {
       // Create student user
-      const studentUser: Student = {
+      const studentUser: Student & { password: string } = {
         id: generateId(),
         name: studentName,
         email: studentEmail,
@@ -241,8 +252,12 @@ export default function Register() {
       const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       localStorage.setItem("users", JSON.stringify([...existingUsers, studentUser]));
       
+      // Create a safe student object without password for session storage
+      const safeStudent = { ...studentUser };
+      delete (safeStudent as any).password;
+      
       // Also store in sessionStorage for immediate login
-      sessionStorage.setItem("user", JSON.stringify(studentUser));
+      sessionStorage.setItem("user", JSON.stringify(safeStudent));
       sessionStorage.setItem("userRole", "student");
       
       // Initialize outpass data if not exists
@@ -259,6 +274,7 @@ export default function Register() {
       setIsAuthSuccess(true);
     } catch (error) {
       setIsLoading(false);
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: "An error occurred during registration",
@@ -310,7 +326,7 @@ export default function Register() {
     
     try {
       // Create mentor user with dynamic values
-      const mentorUser: Mentor = {
+      const mentorUser: Mentor & { password: string } = {
         id: generateId(),
         name: mentorName,
         email: mentorEmail,
@@ -327,8 +343,12 @@ export default function Register() {
       const existingUsers = JSON.parse(localStorage.getItem("users") || "[]");
       localStorage.setItem("users", JSON.stringify([...existingUsers, mentorUser]));
       
+      // Create a safe mentor object without password for session storage
+      const safeMentor = { ...mentorUser };
+      delete (safeMentor as any).password;
+      
       // Also store in sessionStorage for immediate login
-      sessionStorage.setItem("user", JSON.stringify(mentorUser));
+      sessionStorage.setItem("user", JSON.stringify(safeMentor));
       sessionStorage.setItem("userRole", "mentor");
       
       // Initialize outpass data if not exists
@@ -345,6 +365,7 @@ export default function Register() {
       setIsAuthSuccess(true);
     } catch (error) {
       setIsLoading(false);
+      console.error("Registration error:", error);
       toast({
         title: "Registration failed",
         description: "An error occurred during registration",

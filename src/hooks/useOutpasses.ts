@@ -43,8 +43,11 @@ export function useOutpasses() {
         const updatedUser = users.find(u => u.id === currentSessionUser.id);
         if (updatedUser) {
           // Update session storage and state with the latest user data
-          sessionStorage.setItem('user', JSON.stringify(updatedUser));
-          setCurrentUser(updatedUser);
+          const safeUser = { ...updatedUser };
+          delete (safeUser as any).password;
+          
+          sessionStorage.setItem('user', JSON.stringify(safeUser));
+          setCurrentUser(safeUser);
           // Show notification if run from student dashboard
           if (userRole === 'student') {
             toast.info("Your profile information has been updated by an administrator");
@@ -81,9 +84,13 @@ export function useOutpasses() {
             const updatedUser = users.find(u => u.id === event.data.userId);
             
             if (updatedUser) {
+              // Create a safe user object without password
+              const safeUser = { ...updatedUser };
+              delete (safeUser as any).password;
+              
               // Update session storage with the latest user data
-              sessionStorage.setItem('user', JSON.stringify(updatedUser));
-              setCurrentUser(updatedUser);
+              sessionStorage.setItem('user', JSON.stringify(safeUser));
+              setCurrentUser(safeUser);
               
               // Force synchronize the state with the updated user data
               if (event.data.forceUpdate) {
@@ -109,9 +116,13 @@ export function useOutpasses() {
       const latestUserData = users.find(u => u.id === currentUser.id);
       
       if (latestUserData && JSON.stringify(latestUserData) !== JSON.stringify(currentUser)) {
+        // Create a safe user object without password
+        const safeUser = { ...latestUserData };
+        delete (safeUser as any).password;
+        
         // Update session storage with the latest user data
-        sessionStorage.setItem('user', JSON.stringify(latestUserData));
-        setCurrentUser(latestUserData);
+        sessionStorage.setItem('user', JSON.stringify(safeUser));
+        setCurrentUser(safeUser);
         
         // Show notification if run from student dashboard
         if (userRole === 'student') {
@@ -208,9 +219,16 @@ export function useOutpasses() {
     
     let updatedUsers;
     if (existingUserIndex >= 0) {
+      // Preserve the password if it exists
+      const existingPassword = users[existingUserIndex].password;
+      
       // Update existing user
       updatedUsers = [...users];
-      updatedUsers[existingUserIndex] = updatedUser;
+      updatedUsers[existingUserIndex] = {
+        ...updatedUser,
+        // Preserve the password if it exists in the original user
+        password: existingPassword || updatedUser.password
+      };
     } else {
       // Add user if not found
       updatedUsers = [...users, updatedUser];
@@ -219,9 +237,13 @@ export function useOutpasses() {
     // Update localStorage with the updated users array
     storageSync.setItem('users', updatedUsers);
     
+    // Create a safe user object without password
+    const safeUser = { ...updatedUser };
+    delete (safeUser as any).password;
+    
     // Update session storage for this tab
     if (updatedUser.id === storageSync.getUser()?.id) {
-      sessionStorage.setItem('user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('user', JSON.stringify(safeUser));
     }
     
     // Notify other tabs about the user update via broadcast channel
@@ -231,7 +253,7 @@ export function useOutpasses() {
       userChangeChannel.close();
     }
     
-    return updatedUser;
+    return safeUser;
   }, []);
 
   return {
