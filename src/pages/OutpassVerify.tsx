@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { formatDateTime } from "@/lib/utils";
 import { Outpass } from "@/lib/types";
-import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react";
+import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
+import { jsPDF } from "jspdf";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -139,6 +140,72 @@ export default function OutpassVerify() {
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(serialCode);
     toast.success("Serial code copied to clipboard");
+  };
+  
+  // Handler for downloading the outpass as PDF
+  const handleDownloadPDF = () => {
+    if (!outpass) return;
+    
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+    
+    // Add title
+    pdf.setFontSize(18);
+    pdf.text("AmiPass - Campus Exit Permit", 105, 20, { align: "center" });
+    
+    // Add verification info
+    pdf.setFontSize(14);
+    pdf.text(`Verification Status: ${isVerified ? 'Verified' : 'Newly Verified'}`, 105, 30, { align: "center" });
+    pdf.text(`Verification Time: ${formatDateTime(outpass.scanTimestamp || new Date().toISOString())}`, 105, 38, { align: "center" });
+    
+    // Add line separator
+    pdf.setDrawColor(200, 200, 200);
+    pdf.line(20, 45, 190, 45);
+    
+    // Add outpass details
+    pdf.setFontSize(12);
+    pdf.text("Exit Permit Details", 20, 55);
+    
+    pdf.setFontSize(10);
+    pdf.text(`Student Name: ${outpass.studentName}`, 20, 65);
+    pdf.text(`Enrollment Number: ${outpass.enrollmentNumber}`, 20, 73);
+    pdf.text(`Section: ${outpass.studentSection || 'N/A'}`, 20, 81);
+    pdf.text(`Exit Date & Time: ${formatDateTime(outpass.exitDateTime)}`, 20, 89);
+    pdf.text(`Reason: ${outpass.reason}`, 20, 97);
+    pdf.text(`Serial Code: ${serialCode}`, 20, 105);
+    
+    // Add approval details
+    pdf.setFontSize(12);
+    pdf.text("Approval Information", 20, 120);
+    
+    pdf.setFontSize(10);
+    pdf.text(`Status: Approved`, 20, 130);
+    pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 138);
+    pdf.text(`Approved On: ${formatDateTime(outpass.updatedAt)}`, 20, 146);
+    
+    // Add verification note
+    pdf.setFontSize(8);
+    pdf.setTextColor(255, 0, 0);
+    pdf.text("THIS OUTPASS IS VALID FOR ONE-TIME USE ONLY", 105, 170, { align: "center" });
+    pdf.setTextColor(0, 0, 0);
+    
+    // Add footer
+    pdf.setFontSize(8);
+    pdf.text("This outpass has been verified by the AmiPass system.", 105, 220, { align: "center" });
+    pdf.text("Please show this to the security personnel when exiting the campus.", 105, 225, { align: "center" });
+    pdf.text(`Generated on: ${new Date().toLocaleString()}`, 105, 230, { align: "center" });
+    
+    // Save the PDF
+    pdf.save(`AmiPass-Verification-${outpass.id}.pdf`);
+    
+    toast.success("Verification PDF downloaded successfully");
+  };
+  
+  const handleNavigateToStudent = () => {
+    navigate("/student");
   };
   
   if (isLoading) {
@@ -272,18 +339,31 @@ export default function OutpassVerify() {
             </div>
           </CardContent>
           
-          <CardFooter className="pt-3 border-t flex justify-between items-center">
-            <div className="flex items-center text-sm text-muted-foreground">
+          <CardFooter className="pt-3 border-t flex flex-col sm:flex-row gap-2">
+            <div className="flex items-center text-sm text-muted-foreground mb-2 sm:mb-0 sm:mr-auto">
               <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
               Valid for this exit only
             </div>
-            <Button 
-              variant="outline" 
-              onClick={() => navigate("/")}
-              size="sm"
-            >
-              Done
-            </Button>
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button 
+                variant="default" 
+                onClick={handleDownloadPDF}
+                size="sm"
+                className="sm:mr-2 flex-1 sm:flex-none"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Download PDF
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                onClick={handleNavigateToStudent}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                Close
+              </Button>
+            </div>
           </CardFooter>
         </Card>
       </div>

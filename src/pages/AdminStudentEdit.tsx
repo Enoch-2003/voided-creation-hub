@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +38,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
   const [allStudents, setAllStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [updateInProgress, setUpdateInProgress] = useState(false);
 
   // Load all students
   useEffect(() => {
@@ -47,7 +47,40 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
     // Filter to only include students
     const students = users.filter(user => user.role === 'student') as Student[];
     setAllStudents(students);
-  }, []);
+    
+    // Subscribe to users changes to keep the list updated
+    const unsubscribe = storageSync.subscribe('users', (updatedUsers) => {
+      if (Array.isArray(updatedUsers)) {
+        const students = updatedUsers.filter(user => user.role === 'student') as Student[];
+        setAllStudents(students);
+        
+        // Update selected student if it's in the list
+        if (selectedStudent) {
+          const updatedStudent = students.find(s => s.id === selectedStudent.id);
+          if (updatedStudent) {
+            setSelectedStudent(updatedStudent);
+            
+            // Update form if editing
+            if (isEditing) {
+              form.reset({
+                name: updatedStudent.name,
+                email: updatedStudent.email,
+                contactNumber: updatedStudent.contactNumber,
+                guardianNumber: updatedStudent.guardianNumber,
+                department: updatedStudent.department,
+                course: updatedStudent.course,
+                branch: updatedStudent.branch,
+                semester: updatedStudent.semester,
+                section: updatedStudent.section,
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [selectedStudent]);
 
   // Set up form with react-hook-form and zod validation
   const form = useForm<z.infer<typeof studentProfileSchema>>({
@@ -104,6 +137,8 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
   // Handle form submission for updating student profile
   const onSubmit = (data: z.infer<typeof studentProfileSchema>) => {
     if (!selectedStudent) return;
+    
+    setUpdateInProgress(true);
 
     // Update student data
     const updatedStudent: Student = {
@@ -117,9 +152,8 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
       user.id === updatedStudent.id ? updatedStudent : user
     );
     
+    // Save updated users to trigger the broadcast channel
     storageSync.setItem('users', updatedUsers);
-    setAllStudents(updatedUsers.filter(user => user.role === 'student') as Student[]);
-    setSelectedStudent(updatedStudent);
     
     // Also update outpasses with this student's information
     const outpasses = storageSync.getItem<any[]>('outpasses') || [];
@@ -134,9 +168,24 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
       return outpass;
     });
     
+    // Save updated outpasses
     storageSync.setItem('outpasses', updatedOutpasses);
     
-    toast.success("Student profile updated successfully");
+    // Use broadcast channel to notify other tabs about the user update
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel('amipass_user_changed');
+      channel.postMessage({ userId: updatedStudent.id });
+      channel.close();
+    }
+    
+    setSelectedStudent(updatedStudent);
+    setUpdateInProgress(false);
+    
+    // Show success message
+    toast.success("Student profile updated successfully", {
+      description: "All dashboard instances with this student's data will be updated in real-time."
+    });
+    
     setIsEditing(false);
   };
 
@@ -197,6 +246,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                 <Button 
                   onClick={() => setIsEditing(!isEditing)}
                   variant={isEditing ? "outline" : "default"}
+                  disabled={updateInProgress}
                 >
                   {isEditing ? "Cancel Editing" : "Edit Profile"}
                 </Button>
@@ -364,9 +414,9 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                     
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Warning</AlertTitle>
+                      <AlertTitle>Real-time updates</AlertTitle>
                       <AlertDescription>
-                        Changes to student profile will be reflected immediately across the system
+                        Changes will be reflected immediately in student dashboards across all active tabs
                       </AlertDescription>
                     </Alert>
                     
@@ -375,12 +425,16 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                         type="button" 
                         variant="outline" 
                         onClick={() => setIsEditing(false)}
+                        disabled={updateInProgress}
                       >
                         Cancel
                       </Button>
-                      <Button type="submit">
+                      <Button 
+                        type="submit" 
+                        disabled={updateInProgress}
+                      >
                         <Save className="mr-2 h-4 w-4" />
-                        Save Changes
+                        {updateInProgress ? "Saving Changes..." : "Save Changes"}
                       </Button>
                     </div>
                   </form>

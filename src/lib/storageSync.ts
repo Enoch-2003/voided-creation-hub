@@ -1,3 +1,4 @@
+
 /**
  * Storage Sync Service
  * 
@@ -39,7 +40,7 @@ class StorageSyncService {
     window.addEventListener('storage', this.handleStorageChange);
     
     // Initialize the last updated timestamps for commonly used keys
-    const keysToTrack = ['outpasses', 'user', 'userRole'];
+    const keysToTrack = ['outpasses', 'user', 'userRole', 'users'];
     keysToTrack.forEach(key => {
       this.storageLastUpdated[key] = Date.now();
     });
@@ -98,6 +99,9 @@ class StorageSyncService {
       // Update existing user
       users[existingUserIndex] = userData;
       this.setItem('users', users);
+    } else {
+      // Add user if not found
+      this.setItem('users', [...users, userData]);
     }
     
     // Update active tabs registry
@@ -111,6 +115,10 @@ class StorageSyncService {
     
     if (this.listeners['userRole']) {
       this.listeners['userRole'].forEach(callback => callback(userRole));
+    }
+    
+    if (this.listeners['users']) {
+      this.listeners['users'].forEach(callback => this.getItem<any[]>('users'));
     }
     
     // Broadcast update about user change for outpass filtering
@@ -207,6 +215,13 @@ class StorageSyncService {
       // Also notify listeners in the current tab
       if (this.listeners[key]) {
         this.listeners[key].forEach(callback => callback(data));
+      }
+      
+      // Special broadcast for users updates
+      if (key === 'users' && window.BroadcastChannel) {
+        const channel = new BroadcastChannel('amipass_users_changed');
+        channel.postMessage({ timestamp: Date.now() });
+        channel.close();
       }
     } catch (error) {
       console.error(`Error setting localStorage value for ${key}:`, error);
@@ -313,12 +328,56 @@ class StorageSyncService {
         }
       };
       
+      // Users change channel
+      const usersChannel = new BroadcastChannel('amipass_users_changed');
+      usersChannel.onmessage = (event) => {
+        // Refresh users data from localStorage
+        const data = this.getItem('users');
+        
+        // Notify listeners
+        if (this.listeners['users']) {
+          this.listeners['users'].forEach(callback => callback(data));
+        }
+        
+        // Check if current user needs updating
+        const currentUser = this.getUser();
+        if (currentUser && currentUser.id) {
+          const users = this.getItem<any[]>('users') || [];
+          const updatedUser = users.find(u => u.id === currentUser.id);
+          
+          if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
+            // Update session storage
+            sessionStorage.setItem('user', JSON.stringify(updatedUser));
+            
+            // Notify user listeners
+            if (this.listeners['user']) {
+              this.listeners['user'].forEach(callback => callback(updatedUser));
+            }
+          }
+        }
+      };
+      
       // User change channel
       const userChannel = new BroadcastChannel('amipass_user_changed');
       userChannel.onmessage = (event) => {
-        // We don't update the user data across tabs anymore
-        // Just log for debugging
-        console.log('Another tab changed user:', event.data);
+        if (event.data && event.data.userId) {
+          const currentUser = this.getUser();
+          if (currentUser && currentUser.id === event.data.userId) {
+            // Refresh user data from users array
+            const users = this.getItem<any[]>('users') || [];
+            const updatedUser = users.find(u => u.id === event.data.userId);
+            
+            if (updatedUser) {
+              // Update session storage
+              sessionStorage.setItem('user', JSON.stringify(updatedUser));
+              
+              // Notify user listeners
+              if (this.listeners['user']) {
+                this.listeners['user'].forEach(callback => callback(updatedUser));
+              }
+            }
+          }
+        }
       };
     }
   }
@@ -338,12 +397,6 @@ class StorageSyncService {
         // If this is the key we're syncing, broadcast the change
         if (itemKey === key) {
           channel.postMessage({ type: 'update', key: itemKey });
-        }
-        
-        // Special handling for users data - notify about user updates
-        if (itemKey === 'users') {
-          const userChannel = new BroadcastChannel('amipass_users_changed');
-          userChannel.postMessage({ type: 'update', timestamp: Date.now() });
         }
       };
     }

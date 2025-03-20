@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Outpass, Student, Mentor, UserRole } from '@/lib/types';
 import storageSync from '@/lib/storageSync';
@@ -34,10 +35,21 @@ export function useOutpasses() {
     
     // Subscribe to users changes to get updated user data
     const userUnsubscribe = storageSync.subscribe('users', () => {
-      // Get the latest user data
-      const userData = storageSync.getUser();
-      if (userData) {
-        setCurrentUser(userData);
+      // Get the latest user data for the current user from the users array
+      const users = storageSync.getItem<any[]>('users') || [];
+      const currentSessionUser = storageSync.getUser();
+      
+      if (currentSessionUser && currentSessionUser.id) {
+        const updatedUser = users.find(u => u.id === currentSessionUser.id);
+        if (updatedUser) {
+          // Update session storage and state with the latest user data
+          sessionStorage.setItem('user', JSON.stringify(updatedUser));
+          setCurrentUser(updatedUser);
+          // Show notification if run from student dashboard
+          if (userRole === 'student') {
+            toast.info("Your profile information has been updated by an administrator");
+          }
+        }
       }
     });
     
@@ -72,6 +84,10 @@ export function useOutpasses() {
               // Update session storage with the latest user data
               sessionStorage.setItem('user', JSON.stringify(updatedUser));
               setCurrentUser(updatedUser);
+              // Show notification if run from student dashboard
+              if (userRole === 'student') {
+                toast.info("Your profile information has been updated by an administrator");
+              }
             }
           }
         }
@@ -90,11 +106,16 @@ export function useOutpasses() {
         // Update session storage with the latest user data
         sessionStorage.setItem('user', JSON.stringify(latestUserData));
         setCurrentUser(latestUserData);
+        
+        // Show notification if run from student dashboard
+        if (userRole === 'student') {
+          toast.info("Your profile information has been updated by an administrator");
+        }
       }
     };
     
-    // Check for user changes every 2 seconds
-    const userCheckInterval = setInterval(checkUserChanges, 2000);
+    // Check for user changes more frequently (every 1 second)
+    const userCheckInterval = setInterval(checkUserChanges, 1000);
     
     return () => {
       unsubscribe();
@@ -104,7 +125,7 @@ export function useOutpasses() {
       }
       clearInterval(userCheckInterval);
     };
-  }, []);
+  }, [userRole]);
 
   // Get filtered outpasses based on user role
   const filteredOutpasses = outpasses.filter(outpass => {
@@ -171,6 +192,16 @@ export function useOutpasses() {
   // Function to update the user
   const updateUser = useCallback((updatedUser: Student | Mentor | any) => {
     setCurrentUser(updatedUser);
+    
+    // Update users array in localStorage
+    const users = storageSync.getItem<any[]>('users') || [];
+    const updatedUsers = users.map(user => 
+      user.id === updatedUser.id ? updatedUser : user
+    );
+    storageSync.setItem('users', updatedUsers);
+    
+    // Update session storage for this tab
+    sessionStorage.setItem('user', JSON.stringify(updatedUser));
     
     // Notify other tabs about the user update via broadcast channel
     if (typeof BroadcastChannel !== 'undefined') {

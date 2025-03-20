@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Use the outpasses hook for real-time data
-  const { outpasses, isLoading } = useOutpasses();
+  const { outpasses, isLoading, currentUser } = useOutpasses();
 
   useEffect(() => {
     // Check if user data is complete
@@ -32,6 +33,10 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
       setIsInitialized(true);
     }
   }, [user]);
+
+  // Use the currentUser from useOutpasses if available, otherwise fall back to the props user
+  // This ensures we always have the most up-to-date user data
+  const displayUser = currentUser || user;
 
   // Get active outpasses - only pending or approved but not scanned yet
   const activeOutpasses = outpasses.filter(
@@ -87,13 +92,13 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar userRole="student" userName={user.name} onLogout={onLogout} />
+      <Navbar userRole="student" userName={displayUser.name} onLogout={onLogout} />
       
       <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <div className="md:col-span-2">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold font-display">Welcome, {user.name}</h1>
+              <h1 className="text-3xl font-bold font-display">Welcome, {displayUser.name}</h1>
               <p className="text-muted-foreground">
                 Manage your campus exit passes and requests
               </p>
@@ -193,42 +198,42 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Enrollment No:</span>
-                    <span className="font-medium">{user.enrollmentNumber}</span>
+                    <span className="font-medium">{displayUser.enrollmentNumber}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-medium">{user.department}</span>
+                    <span className="font-medium">{displayUser.department}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Course:</span>
-                    <span className="font-medium">{user.course}</span>
+                    <span className="font-medium">{displayUser.course}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Branch:</span>
-                    <span className="font-medium">{user.branch}</span>
+                    <span className="font-medium">{displayUser.branch}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Semester:</span>
-                    <span className="font-medium">{user.semester}</span>
+                    <span className="font-medium">{displayUser.semester}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Section:</span>
-                    <span className="font-medium">{user.section}</span>
+                    <span className="font-medium">{displayUser.section}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Contact:</span>
-                    <span className="font-medium">{user.contactNumber}</span>
+                    <span className="font-medium">{displayUser.contactNumber}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Guardian:</span>
-                    <span className="font-medium">{user.guardianNumber}</span>
+                    <span className="font-medium">{displayUser.guardianNumber}</span>
                   </div>
                 </div>
               </CardContent>
