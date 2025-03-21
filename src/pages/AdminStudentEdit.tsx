@@ -261,7 +261,23 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                   </CardDescription>
                 </div>
                 <Button 
-                  onClick={() => setIsEditing(!isEditing)}
+                  onClick={() => {
+                    if (!isEditing) {
+                      // Reset form with current student data when entering edit mode
+                      form.reset({
+                        name: selectedStudent.name,
+                        email: selectedStudent.email,
+                        contactNumber: selectedStudent.contactNumber,
+                        guardianNumber: selectedStudent.guardianNumber,
+                        department: selectedStudent.department,
+                        course: selectedStudent.course,
+                        branch: selectedStudent.branch,
+                        semester: selectedStudent.semester.toString(),
+                        section: selectedStudent.section,
+                      });
+                    }
+                    setIsEditing(!isEditing);
+                  }}
                   variant={isEditing ? "outline" : "default"}
                   disabled={updateInProgress}
                 >
@@ -450,7 +466,7 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={updateInProgress}
+                        disabled={updateInProgress || !form.formState.isValid}
                       >
                         <Save className="mr-2 h-4 w-4" />
                         {updateInProgress ? "Saving Changes..." : "Save Changes"}

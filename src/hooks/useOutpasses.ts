@@ -133,8 +133,8 @@ export function useOutpasses() {
       }
     };
     
-    // Check for user changes more frequently (every 300ms)
-    const userCheckInterval = setInterval(checkUserChanges, 300);
+    // Check for user changes every 500ms
+    const userCheckInterval = setInterval(checkUserChanges, 500);
     
     return () => {
       unsubscribe();
