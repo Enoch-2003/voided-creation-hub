@@ -14,11 +14,33 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Layout } from '@/components/Layout';
 import { Admin } from '@/lib/types';
-import { ChevronLeft, Save, X, Edit, AlertCircle, Check, Search } from 'lucide-react';
+import { ChevronLeft, Save, X, Edit, AlertCircle, Check, Search, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useOutpasses } from '@/hooks/useOutpasses';
 import EnhancedInput from '@/components/EnhancedInput';
-import { ensureString, sanitizeFormData, hasFormChanges, searchStudentsByEnrollment } from '@/lib/formUtils';
+import { 
+  ensureString, 
+  sanitizeFormData, 
+  hasFormChanges, 
+  searchStudentsByEnrollment,
+  loadAllStudents
+} from '@/lib/formUtils';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 // Form schema for student edit
 const studentFormSchema = z.object({
@@ -58,6 +80,9 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   const [updateError, setUpdateError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [originalStudentData, setOriginalStudentData] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'dropdown' | 'table'>('dropdown');
+  const [currentPage, setCurrentPage] = useState(1);
+  const studentsPerPage = 5;
   
   // Initialize form
   const form = useForm<StudentFormValues>({
@@ -79,14 +104,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   // Load student data
   useEffect(() => {
     try {
-      // Get all users from localStorage
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) return;
-      
-      const allUsers = JSON.parse(usersJson);
-      
-      // Filter to get only students
-      const studentUsers = allUsers.filter((u: any) => u.role === "student");
+      const studentUsers = loadAllStudents();
       setStudents(studentUsers);
       setFilteredStudents(studentUsers);
       
@@ -97,24 +115,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       if (studentId) {
         const student = studentUsers.find((s: any) => s.id === studentId);
         if (student) {
-          setSelectedStudentId(studentId);
-          setSelectedStudent(student);
-          setOriginalStudentData(student);
-          
-          // Populate form with student data
-          const sanitizedData = sanitizeFormData({
-            name: student.name || "",
-            email: student.email || "",
-            contactNumber: student.contactNumber || "",
-            guardianNumber: student.guardianNumber || "",
-            department: student.department || "",
-            course: student.course || "",
-            branch: student.branch || "",
-            semester: ensureString(student.semester),
-            section: student.section || "",
-          });
-          
-          form.reset(sanitizedData);
+          handleStudentSelect(student);
         }
       }
     } catch (error) {
@@ -127,19 +128,30 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     }
   }, [location.search, form, toast]);
 
-  // Search students by enrollment number
+  // Handle search by enrollment number or name
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredStudents(students);
     } else {
       const filtered = searchStudentsByEnrollment(students, searchTerm);
       setFilteredStudents(filtered);
+      // Reset to first page when searching
+      setCurrentPage(1);
     }
   }, [searchTerm, students]);
 
+  // Get current students for pagination
+  const indexOfLastStudent = currentPage * studentsPerPage;
+  const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
+  const currentStudents = filteredStudents.slice(indexOfFirstStudent, indexOfLastStudent);
+  const totalPages = Math.ceil(filteredStudents.length / studentsPerPage);
+
+  // Handle page change
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
   // Handle student selection
-  const handleStudentChange = (studentId: string) => {
-    if (!studentId) {
+  const handleStudentSelect = (student: any) => {
+    if (!student) {
       setSelectedStudentId("");
       setSelectedStudent(null);
       setOriginalStudentData(null);
@@ -158,37 +170,48 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       return;
     }
     
-    setSelectedStudentId(studentId);
+    setSelectedStudentId(student.id);
+    setSelectedStudent(student);
+    setOriginalStudentData({...student});
+    
+    // Populate form with student data
+    const sanitizedData = sanitizeFormData({
+      name: student.name || "",
+      email: student.email || "",
+      contactNumber: student.contactNumber || "",
+      guardianNumber: student.guardianNumber || "",
+      department: student.department || "",
+      course: student.course || "",
+      branch: student.branch || "",
+      semester: ensureString(student.semester),
+      section: student.section || "",
+    });
+    
+    form.reset(sanitizedData);
+    
+    // Update URL with student ID
+    const searchParams = new URLSearchParams(location.search);
+    searchParams.set('id', student.id);
+    navigate({
+      pathname: location.pathname,
+      search: searchParams.toString(),
+    }, { replace: true });
+    
+    setIsEditing(false);
+    setUpdateSuccess(false);
+    setUpdateError("");
+  };
+
+  // Handle dropdown selection
+  const handleStudentChange = (studentId: string) => {
+    if (!studentId) {
+      handleStudentSelect(null);
+      return;
+    }
     
     const student = students.find(s => s.id === studentId);
     if (student) {
-      setSelectedStudent(student);
-      setOriginalStudentData(student);
-      
-      // Populate form with student data
-      const sanitizedData = sanitizeFormData({
-        name: student.name || "",
-        email: student.email || "",
-        contactNumber: student.contactNumber || "",
-        guardianNumber: student.guardianNumber || "",
-        department: student.department || "",
-        course: student.course || "",
-        branch: student.branch || "",
-        semester: ensureString(student.semester),
-        section: student.section || "",
-      });
-      
-      form.reset(sanitizedData);
-      
-      // Update URL with student ID
-      const searchParams = new URLSearchParams(location.search);
-      searchParams.set('id', studentId);
-      navigate({
-        pathname: location.pathname,
-        search: searchParams.toString(),
-      }, { replace: true });
-      
-      setIsEditing(false);
+      handleStudentSelect(student);
     }
   };
 
@@ -233,7 +256,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       
       // Update selected student state
       setSelectedStudent(updatedStudentData);
-      setOriginalStudentData(updatedStudentData);
+      setOriginalStudentData({...updatedStudentData});
       
       // Update student in the students list
       const updatedStudents = students.map(s => 
@@ -264,8 +287,13 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     }
   };
 
+  // Toggle view mode between dropdown and table
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'dropdown' ? 'table' : 'dropdown');
+  };
+
   return (
-    <Layout user={user} onLogout={onLogout} activeTab="students">
+    <Layout user={user} onLogout={onLogout} activeTab="Edit Student Profile">
       <div className="container max-w-6xl mx-auto py-8 px-4">
         <div className="flex items-center mb-6">
           <Button
@@ -282,17 +310,28 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle>Select Student</CardTitle>
-            <CardDescription>
-              Choose a student to view or edit their profile information
-            </CardDescription>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle>Find Students</CardTitle>
+                <CardDescription>
+                  Search for students by enrollment number, name, or section
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleViewMode}
+              >
+                {viewMode === 'dropdown' ? 'Table View' : 'Dropdown View'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col space-y-4">
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
-                    placeholder="Search by enrollment number..."
+                    placeholder="Search by enrollment number, name, or section..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pr-10"
@@ -312,21 +351,119 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                 )}
               </div>
               
-              <Select
-                value={selectedStudentId}
-                onValueChange={handleStudentChange}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredStudents.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.name} - {student.enrollmentNumber} ({student.section})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {viewMode === 'dropdown' ? (
+                <Select
+                  value={selectedStudentId}
+                  onValueChange={handleStudentChange}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a student" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredStudents.length === 0 ? (
+                      <div className="px-2 py-1 text-sm text-gray-500">No students found</div>
+                    ) : (
+                      filteredStudents.map((student) => (
+                        <SelectItem key={student.id} value={student.id}>
+                          {student.name} - {student.enrollmentNumber} ({student.section})
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Enrollment</TableHead>
+                        <TableHead>Section</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {currentStudents.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                            No students found
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        currentStudents.map((student) => (
+                          <TableRow 
+                            key={student.id}
+                            className={selectedStudentId === student.id ? "bg-blue-50" : ""}
+                          >
+                            <TableCell>{student.name}</TableCell>
+                            <TableCell>{student.enrollmentNumber}</TableCell>
+                            <TableCell>{student.section}</TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStudentSelect(student)}
+                              >
+                                <User className="h-4 w-4 mr-2" />
+                                View
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                  
+                  {/* Pagination for table view */}
+                  {filteredStudents.length > studentsPerPage && (
+                    <div className="p-2 border-t">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious 
+                              onClick={() => paginate(Math.max(1, currentPage - 1))}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                          
+                          {Array.from({ length: Math.min(totalPages, 5) }).map((_, index) => {
+                            let pageNumber;
+                            
+                            // Calculate page numbers to show based on current page
+                            if (totalPages <= 5) {
+                              pageNumber = index + 1;
+                            } else if (currentPage <= 3) {
+                              pageNumber = index + 1;
+                            } else if (currentPage >= totalPages - 2) {
+                              pageNumber = totalPages - 4 + index;
+                            } else {
+                              pageNumber = currentPage - 2 + index;
+                            }
+                            
+                            return (
+                              <PaginationItem key={pageNumber}>
+                                <PaginationLink 
+                                  isActive={currentPage === pageNumber}
+                                  onClick={() => paginate(pageNumber)}
+                                >
+                                  {pageNumber}
+                                </PaginationLink>
+                              </PaginationItem>
+                            );
+                          })}
+                          
+                          <PaginationItem>
+                            <PaginationNext 
+                              onClick={() => paginate(Math.min(totalPages, currentPage + 1))}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -358,9 +495,6 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                       });
                       form.reset(sanitizedData);
                     }
-                  } else {
-                    // Enter edit mode
-                    // We don't need to reset the form here as it should already have the correct values
                   }
                   setIsEditing(!isEditing);
                 }}
@@ -615,7 +749,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
               <div className="py-12">
                 <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium mb-2">No Student Selected</h3>
-                <p>Please select a student from the dropdown above to view or edit their profile</p>
+                <p>Please select a student from the search results to view or edit their profile</p>
               </div>
             </CardContent>
           </Card>

@@ -65,7 +65,7 @@ export const normalizeString = (str: string): string => {
 };
 
 /**
- * Search function to filter students by enrollment number 
+ * Search function to filter students by enrollment number or name
  */
 export const searchStudentsByEnrollment = (
   students: any[],
@@ -81,6 +81,39 @@ export const searchStudentsByEnrollment = (
         normalizeString(student.enrollmentNumber).includes(normalizedSearch)) {
       return true;
     }
+    
+    // Search by name (exact or partial match)
+    if (student.name && 
+        normalizeString(student.name).includes(normalizedSearch)) {
+      return true;
+    }
+    
+    // Search by section
+    if (student.section && 
+        normalizeString(student.section).includes(normalizedSearch)) {
+      return true;
+    }
+    
     return false;
   });
 };
+
+/**
+ * Loads all student accounts from localStorage
+ */
+export const loadAllStudents = (): any[] => {
+  try {
+    // Get all users from localStorage
+    const usersJson = localStorage.getItem("users");
+    if (!usersJson) return [];
+    
+    const allUsers = JSON.parse(usersJson);
+    
+    // Filter to get only students
+    return allUsers.filter((u: any) => u.role === "student");
+  } catch (error) {
+    console.error("Error loading student data:", error);
+    return [];
+  }
+};
+

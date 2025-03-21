@@ -1,4 +1,3 @@
-
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Admin, Mentor, Student } from "@/lib/types";
@@ -25,7 +24,6 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
   const location = useLocation();
   const { pathname } = location;
   
-  // Define navigation based on user role
   const getNavigation = () => {
     if (user.role === "student") {
       return [
@@ -54,7 +52,6 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
       <nav className="bg-white shadow-sm">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -81,7 +78,6 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
         </div>
       </nav>
 
-      {/* Secondary Navigation */}
       <nav className="bg-white border-b border-gray-200">
         <div className="mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between">
@@ -108,7 +104,6 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
         </div>
       </nav>
 
-      {/* Main Content */}
       <main className="pb-16">
         {children}
       </main>
