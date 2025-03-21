@@ -14,11 +14,11 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Layout } from '@/components/Layout';
 import { Admin } from '@/lib/types';
-import { ChevronLeft, Save, X, Edit, AlertCircle, Check } from 'lucide-react';
+import { ChevronLeft, Save, X, Edit, AlertCircle, Check, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useOutpasses } from '@/hooks/useOutpasses';
 import EnhancedInput from '@/components/EnhancedInput';
-import { ensureString, sanitizeFormData, hasFormChanges } from '@/lib/formUtils';
+import { ensureString, sanitizeFormData, hasFormChanges, searchStudentsByEnrollment } from '@/lib/formUtils';
 
 // Form schema for student edit
 const studentFormSchema = z.object({
@@ -49,12 +49,15 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   
   // State variables
   const [students, setStudents] = useState<any[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [updateInProgress, setUpdateInProgress] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateError, setUpdateError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [originalStudentData, setOriginalStudentData] = useState<any>(null);
   
   // Initialize form
   const form = useForm<StudentFormValues>({
@@ -85,6 +88,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       // Filter to get only students
       const studentUsers = allUsers.filter((u: any) => u.role === "student");
       setStudents(studentUsers);
+      setFilteredStudents(studentUsers);
       
       // Check if there's a student ID in the URL
       const searchParams = new URLSearchParams(location.search);
@@ -95,6 +99,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         if (student) {
           setSelectedStudentId(studentId);
           setSelectedStudent(student);
+          setOriginalStudentData(student);
           
           // Populate form with student data
           const sanitizedData = sanitizeFormData({
@@ -122,11 +127,22 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     }
   }, [location.search, form, toast]);
 
+  // Search students by enrollment number
+  useEffect(() => {
+    if (searchTerm.trim() === "") {
+      setFilteredStudents(students);
+    } else {
+      const filtered = searchStudentsByEnrollment(students, searchTerm);
+      setFilteredStudents(filtered);
+    }
+  }, [searchTerm, students]);
+
   // Handle student selection
   const handleStudentChange = (studentId: string) => {
     if (!studentId) {
       setSelectedStudentId("");
       setSelectedStudent(null);
+      setOriginalStudentData(null);
       form.reset({
         name: "",
         email: "",
@@ -147,6 +163,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     const student = students.find(s => s.id === studentId);
     if (student) {
       setSelectedStudent(student);
+      setOriginalStudentData(student);
       
       // Populate form with student data
       const sanitizedData = sanitizeFormData({
@@ -177,10 +194,11 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
 
   // Handle form submission
   const onSubmit = async (data: StudentFormValues) => {
-    if (!selectedStudent) return;
+    if (!selectedStudent || !originalStudentData) return;
     
     // Check if there are any changes
-    if (!hasFormChanges(form.getValues(), data)) {
+    const hasChanges = hasFormChanges(originalStudentData, data);
+    if (!hasChanges) {
       toast({
         title: "No changes detected",
         description: "No changes were made to the student profile.",
@@ -215,6 +233,14 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       
       // Update selected student state
       setSelectedStudent(updatedStudentData);
+      setOriginalStudentData(updatedStudentData);
+      
+      // Update student in the students list
+      const updatedStudents = students.map(s => 
+        s.id === updatedStudentData.id ? updatedStudentData : s
+      );
+      setStudents(updatedStudents);
+      setFilteredStudents(searchStudentsByEnrollment(updatedStudents, searchTerm));
       
       // Show success message
       setUpdateSuccess(true);
@@ -262,21 +288,46 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Select
-              value={selectedStudentId}
-              onValueChange={handleStudentChange}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a student" />
-              </SelectTrigger>
-              <SelectContent>
-                {students.map((student) => (
-                  <SelectItem key={student.id} value={student.id}>
-                    {student.name} - {student.enrollmentNumber} ({student.section})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col space-y-4">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Search by enrollment number..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pr-10"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Search className="h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+                {searchTerm && (
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => setSearchTerm("")}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              
+              <Select
+                value={selectedStudentId}
+                onValueChange={handleStudentChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredStudents.map((student) => (
+                    <SelectItem key={student.id} value={student.id}>
+                      {student.name} - {student.enrollmentNumber} ({student.section})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
         
@@ -291,21 +342,25 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
               </div>
               <Button 
                 onClick={() => {
-                  if (!isEditing) {
-                    // Reset form with current student data when entering edit mode
-                    const sanitizedData = sanitizeFormData({
-                      name: selectedStudent.name || "",
-                      email: selectedStudent.email || "",
-                      contactNumber: selectedStudent.contactNumber || "",
-                      guardianNumber: selectedStudent.guardianNumber || "",
-                      department: selectedStudent.department || "",
-                      course: selectedStudent.course || "",
-                      branch: selectedStudent.branch || "",
-                      semester: ensureString(selectedStudent.semester),
-                      section: selectedStudent.section || "",
-                    });
-                    
-                    form.reset(sanitizedData);
+                  if (isEditing) {
+                    // Cancel editing - reset form to original student data
+                    if (originalStudentData) {
+                      const sanitizedData = sanitizeFormData({
+                        name: originalStudentData.name || "",
+                        email: originalStudentData.email || "",
+                        contactNumber: originalStudentData.contactNumber || "",
+                        guardianNumber: originalStudentData.guardianNumber || "",
+                        department: originalStudentData.department || "",
+                        course: originalStudentData.course || "",
+                        branch: originalStudentData.branch || "",
+                        semester: ensureString(originalStudentData.semester),
+                        section: originalStudentData.section || "",
+                      });
+                      form.reset(sanitizedData);
+                    }
+                  } else {
+                    // Enter edit mode
+                    // We don't need to reset the form here as it should already have the correct values
                   }
                   setIsEditing(!isEditing);
                 }}
@@ -543,7 +598,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={updateInProgress || !form.formState.isValid || !form.formState.isDirty}
+                        disabled={updateInProgress || !form.formState.isValid}
                       >
                         <Save className="mr-2 h-4 w-4" />
                         {updateInProgress ? "Saving Changes..." : "Save Changes"}

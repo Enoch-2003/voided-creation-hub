@@ -17,11 +17,12 @@ const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
           ref={ref}
           className={cn(
             "w-full transition-all",
-            !isEditing && "bg-gray-50 border-transparent focus:border-transparent focus:ring-0",
+            !isEditing && "bg-gray-50 border-transparent focus:border-transparent focus:ring-0 cursor-not-allowed",
             error && "border-red-500 focus:border-red-500",
             className
           )}
           readOnly={!isEditing}
+          disabled={!isEditing}
           {...props}
         />
         {error && (

@@ -18,9 +18,10 @@ interface LayoutProps {
   children: ReactNode;
   user: Student | Mentor | Admin;
   onLogout: () => void;
+  activeTab?: string;
 }
 
-export function Layout({ children, user, onLogout }: LayoutProps) {
+export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
   const location = useLocation();
   const { pathname } = location;
   
@@ -86,7 +87,7 @@ export function Layout({ children, user, onLogout }: LayoutProps) {
           <div className="flex justify-between">
             <div className="flex -mb-px">
               {navigation.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive = activeTab ? item.name.toLowerCase() === activeTab.toLowerCase() : pathname === item.href;
                 return (
                   <Link
                     key={item.name}

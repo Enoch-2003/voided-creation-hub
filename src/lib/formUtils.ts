@@ -1,3 +1,4 @@
+
 /**
  * Utility functions for form handling
  */
@@ -53,5 +54,33 @@ export const hasFormChanges = (
     const currentValue = ensureString(current[key]);
     
     return originalValue !== currentValue;
+  });
+};
+
+/**
+ * Normalizes a string for case-insensitive search
+ */
+export const normalizeString = (str: string): string => {
+  return str.trim().toLowerCase();
+};
+
+/**
+ * Search function to filter students by enrollment number 
+ */
+export const searchStudentsByEnrollment = (
+  students: any[],
+  searchTerm: string
+): any[] => {
+  if (!searchTerm.trim()) return students;
+  
+  const normalizedSearch = normalizeString(searchTerm);
+  
+  return students.filter(student => {
+    // Search by enrollment number (exact or partial match)
+    if (student.enrollmentNumber && 
+        normalizeString(student.enrollmentNumber).includes(normalizedSearch)) {
+      return true;
+    }
+    return false;
   });
 };
