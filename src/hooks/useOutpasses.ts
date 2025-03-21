@@ -210,6 +210,11 @@ export function useOutpasses() {
 
   // Function to update the user
   const updateUser = useCallback((updatedUser: Student | Mentor | any) => {
+    // Force convert semester to string if it exists
+    if (updatedUser && updatedUser.semester !== undefined) {
+      updatedUser.semester = String(updatedUser.semester);
+    }
+    
     // Set local state
     setCurrentUser(updatedUser);
     
@@ -221,13 +226,15 @@ export function useOutpasses() {
     if (existingUserIndex >= 0) {
       // Preserve the password if it exists
       const existingPassword = users[existingUserIndex].password;
+      const existingEnrollmentNumber = users[existingUserIndex].enrollmentNumber;
       
       // Update existing user
       updatedUsers = [...users];
       updatedUsers[existingUserIndex] = {
         ...updatedUser,
-        // Preserve the password if it exists in the original user
-        password: existingPassword || updatedUser.password
+        // Preserve the password and enrollment number if they exist in the original user
+        password: existingPassword || updatedUser.password,
+        enrollmentNumber: existingEnrollmentNumber || updatedUser.enrollmentNumber
       };
     } else {
       // Add user if not found

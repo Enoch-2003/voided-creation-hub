@@ -1,93 +1,64 @@
 
-import React, { useState, useEffect } from "react";
-import { Layout } from "@/components/Layout";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Admin, Student } from "@/lib/types";
-import { Search, User, Save, AlertCircle } from "lucide-react";
-import storageSync from "@/lib/storageSync";
-import { toast } from "sonner";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useOutpasses } from "@/hooks/useOutpasses";
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Layout } from '@/components/Layout';
+import { Admin } from '@/lib/types';
+import { ChevronLeft, Save, X, Edit, AlertCircle, Check } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useOutpasses } from '@/hooks/useOutpasses';
+import EnhancedInput from '@/components/EnhancedInput';
+import { ensureString, sanitizeFormData, hasFormChanges } from '@/lib/formUtils';
 
-interface AdminStudentEditProps {
-  user: Admin;
-  onLogout: () => void;
-}
-
-// Form schema for validation
-const studentProfileSchema = z.object({
-  name: z.string().min(2, { message: "Name must be at least 2 characters" }),
-  email: z.string().email({ message: "Please enter a valid email address" }),
-  contactNumber: z.string().min(10, { message: "Contact number must be at least 10 digits" }),
-  guardianNumber: z.string().min(10, { message: "Guardian number must be at least 10 digits" }),
-  department: z.string().min(1, { message: "Department is required" }),
-  course: z.string().min(1, { message: "Course is required" }),
-  branch: z.string().min(1, { message: "Branch is required" }),
-  semester: z.string().min(1, { message: "Semester is required" }),
-  section: z.string().min(1, { message: "Section is required" }),
+// Form schema for student edit
+const studentFormSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Please enter a valid email"),
+  contactNumber: z.string().min(10, "Contact number should be at least 10 digits"),
+  guardianNumber: z.string().min(10, "Guardian number should be at least 10 digits"),
+  department: z.string().min(1, "Department is required"),
+  course: z.string().min(1, "Course is required"),
+  branch: z.string().min(1, "Branch is required"),
+  semester: z.string().min(1, "Semester is required"),
+  section: z.string().min(1, "Section is required"),
 });
 
-export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditProps) {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
-  const [allStudents, setAllStudents] = useState<Student[]>([]);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+// Type for the form data
+type StudentFormValues = z.infer<typeof studentFormSchema>;
+
+type Props = {
+  user: Admin;
+  onLogout: () => void;
+};
+
+export default function AdminStudentEdit({ user, onLogout }: Props) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
+  const { updateUser } = useOutpasses();
+  
+  // State variables
+  const [students, setStudents] = useState<any[]>([]);
+  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [updateInProgress, setUpdateInProgress] = useState(false);
-  const { updateUser } = useOutpasses();
-
-  // Load all students
-  useEffect(() => {
-    // Get all users from storage
-    const users = storageSync.getItem<any[]>('users') || [];
-    // Filter to only include students
-    const students = users.filter(user => user.role === 'student') as Student[];
-    setAllStudents(students);
-    
-    // Subscribe to users changes to keep the list updated
-    const unsubscribe = storageSync.subscribe('users', (updatedUsers) => {
-      if (Array.isArray(updatedUsers)) {
-        const students = updatedUsers.filter(user => user.role === 'student') as Student[];
-        setAllStudents(students);
-        
-        // Update selected student if it's in the list
-        if (selectedStudent) {
-          const updatedStudent = students.find(s => s.id === selectedStudent.id);
-          if (updatedStudent) {
-            setSelectedStudent(updatedStudent);
-            
-            // Update form if editing
-            if (isEditing) {
-              form.reset({
-                name: updatedStudent.name,
-                email: updatedStudent.email,
-                contactNumber: updatedStudent.contactNumber,
-                guardianNumber: updatedStudent.guardianNumber,
-                department: updatedStudent.department,
-                course: updatedStudent.course,
-                branch: updatedStudent.branch,
-                semester: updatedStudent.semester.toString(), // Convert to string
-                section: updatedStudent.section,
-              });
-            }
-          }
-        }
-      }
-    });
-    
-    return () => unsubscribe();
-  }, [selectedStudent, isEditing]);
-
-  // Set up form with react-hook-form and zod validation
-  const form = useForm<z.infer<typeof studentProfileSchema>>({
-    resolver: zodResolver(studentProfileSchema),
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [updateError, setUpdateError] = useState("");
+  
+  // Initialize form
+  const form = useForm<StudentFormValues>({
+    resolver: zodResolver(studentFormSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -99,198 +70,286 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
       semester: "",
       section: "",
     },
-    mode: "onChange" // Enable onChange validation mode
+    mode: "onChange",
   });
 
-  // Search for students by enrollment number
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      toast.error("Please enter an enrollment number to search");
+  // Load student data
+  useEffect(() => {
+    try {
+      // Get all users from localStorage
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) return;
+      
+      const allUsers = JSON.parse(usersJson);
+      
+      // Filter to get only students
+      const studentUsers = allUsers.filter((u: any) => u.role === "student");
+      setStudents(studentUsers);
+      
+      // Check if there's a student ID in the URL
+      const searchParams = new URLSearchParams(location.search);
+      const studentId = searchParams.get('id');
+      
+      if (studentId) {
+        const student = studentUsers.find((s: any) => s.id === studentId);
+        if (student) {
+          setSelectedStudentId(studentId);
+          setSelectedStudent(student);
+          
+          // Populate form with student data
+          const sanitizedData = sanitizeFormData({
+            name: student.name || "",
+            email: student.email || "",
+            contactNumber: student.contactNumber || "",
+            guardianNumber: student.guardianNumber || "",
+            department: student.department || "",
+            course: student.course || "",
+            branch: student.branch || "",
+            semester: ensureString(student.semester),
+            section: student.section || "",
+          });
+          
+          form.reset(sanitizedData);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading student data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load student data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [location.search, form, toast]);
+
+  // Handle student selection
+  const handleStudentChange = (studentId: string) => {
+    if (!studentId) {
+      setSelectedStudentId("");
+      setSelectedStudent(null);
+      form.reset({
+        name: "",
+        email: "",
+        contactNumber: "",
+        guardianNumber: "",
+        department: "",
+        course: "",
+        branch: "",
+        semester: "",
+        section: "",
+      });
+      setIsEditing(false);
       return;
     }
-
-    setIsSearching(true);
     
-    // Find student by enrollment number
-    const foundStudent = allStudents.find(
-      student => student.enrollmentNumber.toLowerCase() === searchTerm.toLowerCase()
-    );
-
-    if (foundStudent) {
-      setSelectedStudent(foundStudent);
-      // Reset form with found student's data
-      form.reset({
-        name: foundStudent.name,
-        email: foundStudent.email,
-        contactNumber: foundStudent.contactNumber,
-        guardianNumber: foundStudent.guardianNumber,
-        department: foundStudent.department,
-        course: foundStudent.course,
-        branch: foundStudent.branch,
-        semester: foundStudent.semester.toString(), // Convert to string
-        section: foundStudent.section,
-      });
-    } else {
-      toast.error("No student found with that enrollment number");
-      setSelectedStudent(null);
-    }
+    setSelectedStudentId(studentId);
     
-    setIsSearching(false);
-  };
-
-  // Handle form submission for updating student profile
-  const onSubmit = (data: z.infer<typeof studentProfileSchema>) => {
-    if (!selectedStudent) return;
-    
-    setUpdateInProgress(true);
-
-    // Update student data
-    const updatedStudent: Student = {
-      ...selectedStudent,
-      name: data.name,
-      email: data.email,
-      contactNumber: data.contactNumber,
-      guardianNumber: data.guardianNumber,
-      department: data.department,
-      course: data.course,
-      branch: data.branch,
-      semester: data.semester,
-      section: data.section
-    };
-
-    try {
-      // Use the updateUser function from useOutpasses to ensure proper cross-tab communication
-      updateUser(updatedStudent);
+    const student = students.find(s => s.id === studentId);
+    if (student) {
+      setSelectedStudent(student);
       
-      // Also update outpasses with this student's information
-      const outpasses = storageSync.getItem<any[]>('outpasses') || [];
-      const updatedOutpasses = outpasses.map(outpass => {
-        if (outpass.studentId === updatedStudent.id) {
-          return {
-            ...outpass,
-            studentName: updatedStudent.name,
-            studentSection: updatedStudent.section
-          };
-        }
-        return outpass;
+      // Populate form with student data
+      const sanitizedData = sanitizeFormData({
+        name: student.name || "",
+        email: student.email || "",
+        contactNumber: student.contactNumber || "",
+        guardianNumber: student.guardianNumber || "",
+        department: student.department || "",
+        course: student.course || "",
+        branch: student.branch || "",
+        semester: ensureString(student.semester),
+        section: student.section || "",
       });
       
-      // Save updated outpasses
-      storageSync.setItem('outpasses', updatedOutpasses);
+      form.reset(sanitizedData);
       
-      // Broadcast explicitly to ensure real-time updates
-      if (typeof BroadcastChannel !== 'undefined') {
-        // Send specific update for this user
-        const userChannel = new BroadcastChannel('amipass_user_changed');
-        userChannel.postMessage({ userId: updatedStudent.id, forceUpdate: true });
-        userChannel.close();
-        
-        // Also send general update for outpasses
-        const outpassChannel = new BroadcastChannel('amity-outpass-outpasses');
-        outpassChannel.postMessage({ type: 'update', key: 'outpasses' });
-        outpassChannel.close();
-      }
+      // Update URL with student ID
+      const searchParams = new URLSearchParams(location.search);
+      searchParams.set('id', studentId);
+      navigate({
+        pathname: location.pathname,
+        search: searchParams.toString(),
+      }, { replace: true });
       
-      setSelectedStudent(updatedStudent);
-      
-      // Show success message
-      toast.success("Student profile updated successfully", {
-        description: "All dashboard instances with this student's data will be updated in real-time."
-      });
-    } catch (error) {
-      console.error('Error updating student:', error);
-      toast.error("Failed to update student profile");
-    } finally {
-      setUpdateInProgress(false);
       setIsEditing(false);
     }
   };
 
-  return (
-    <Layout user={user} onLogout={onLogout}>
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Edit Student Profile</h1>
-            <p className="text-muted-foreground mt-1">
-              Search and edit student information
-            </p>
-          </div>
-        </div>
+  // Handle form submission
+  const onSubmit = async (data: StudentFormValues) => {
+    if (!selectedStudent) return;
+    
+    // Check if there are any changes
+    if (!hasFormChanges(form.getValues(), data)) {
+      toast({
+        title: "No changes detected",
+        description: "No changes were made to the student profile.",
+      });
+      setIsEditing(false);
+      return;
+    }
+    
+    setUpdateInProgress(true);
+    setUpdateError("");
+    setUpdateSuccess(false);
+    
+    try {
+      // Prepare updated student data
+      const updatedStudentData = {
+        ...selectedStudent,
+        name: data.name,
+        email: data.email,
+        contactNumber: data.contactNumber,
+        guardianNumber: data.guardianNumber,
+        department: data.department,
+        course: data.course,
+        branch: data.branch,
+        semester: data.semester,
+        section: data.section,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.name,
+      };
+      
+      // Update user in local storage
+      updateUser(updatedStudentData);
+      
+      // Update selected student state
+      setSelectedStudent(updatedStudentData);
+      
+      // Show success message
+      setUpdateSuccess(true);
+      toast({
+        title: "Success",
+        description: "Student profile updated successfully",
+      });
+      
+      // Exit editing mode
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Error updating student:", error);
+      setUpdateError("Failed to update student profile. Please try again.");
+      toast({
+        title: "Error",
+        description: "Failed to update student profile. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdateInProgress(false);
+    }
+  };
 
-        {/* Search Section */}
-        <Card className="mb-8">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Find Student</CardTitle>
+  return (
+    <Layout user={user} onLogout={onLogout} activeTab="students">
+      <div className="container max-w-6xl mx-auto py-8 px-4">
+        <div className="flex items-center mb-6">
+          <Button
+            variant="outline"
+            size="sm"
+            className="mr-2"
+            onClick={() => navigate("/admin")}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold">Student Profile Management</h1>
+        </div>
+        
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Select Student</CardTitle>
             <CardDescription>
-              Enter student enrollment number to search
+              Choose a student to view or edit their profile information
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Enter enrollment number..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                />
-              </div>
-              <Button onClick={handleSearch} disabled={isSearching}>
-                {isSearching ? "Searching..." : "Search"}
-              </Button>
-            </div>
+            <Select
+              value={selectedStudentId}
+              onValueChange={handleStudentChange}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a student" />
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((student) => (
+                  <SelectItem key={student.id} value={student.id}>
+                    {student.name} - {student.enrollmentNumber} ({student.section})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </CardContent>
         </Card>
-
-        {/* Student Details and Edit Form */}
-        {selectedStudent && (
+        
+        {selectedStudent ? (
           <Card>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <User className="h-5 w-5" />
-                    {selectedStudent.name}
-                  </CardTitle>
-                  <CardDescription>
-                    Enrollment: {selectedStudent.enrollmentNumber}
-                  </CardDescription>
-                </div>
-                <Button 
-                  onClick={() => {
-                    if (!isEditing) {
-                      // Reset form with current student data when entering edit mode
-                      form.reset({
-                        name: selectedStudent.name,
-                        email: selectedStudent.email,
-                        contactNumber: selectedStudent.contactNumber,
-                        guardianNumber: selectedStudent.guardianNumber,
-                        department: selectedStudent.department,
-                        course: selectedStudent.course,
-                        branch: selectedStudent.branch,
-                        semester: selectedStudent.semester.toString(),
-                        section: selectedStudent.section,
-                      });
-                    }
-                    setIsEditing(!isEditing);
-                  }}
-                  variant={isEditing ? "outline" : "default"}
-                  disabled={updateInProgress}
-                >
-                  {isEditing ? "Cancel Editing" : "Edit Profile"}
-                </Button>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>{selectedStudent.name}</CardTitle>
+                <CardDescription>
+                  Enrollment: {selectedStudent.enrollmentNumber} | Section: {selectedStudent.section}
+                </CardDescription>
               </div>
+              <Button 
+                onClick={() => {
+                  if (!isEditing) {
+                    // Reset form with current student data when entering edit mode
+                    const sanitizedData = sanitizeFormData({
+                      name: selectedStudent.name || "",
+                      email: selectedStudent.email || "",
+                      contactNumber: selectedStudent.contactNumber || "",
+                      guardianNumber: selectedStudent.guardianNumber || "",
+                      department: selectedStudent.department || "",
+                      course: selectedStudent.course || "",
+                      branch: selectedStudent.branch || "",
+                      semester: ensureString(selectedStudent.semester),
+                      section: selectedStudent.section || "",
+                    });
+                    
+                    form.reset(sanitizedData);
+                  }
+                  setIsEditing(!isEditing);
+                }}
+                variant={isEditing ? "outline" : "default"}
+                disabled={updateInProgress}
+              >
+                {isEditing ? (
+                  <>
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel Editing
+                  </>
+                ) : (
+                  <>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Profile
+                  </>
+                )}
+              </Button>
             </CardHeader>
-
+            
             <CardContent>
-              {isEditing ? (
-                <Form {...form}>
-                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {updateSuccess && (
+                <Alert className="mb-6 bg-green-50 border-green-200">
+                  <Check className="h-5 w-5 text-green-600" />
+                  <AlertTitle className="text-green-800">Profile Updated</AlertTitle>
+                  <AlertDescription className="text-green-700">
+                    The student profile has been updated successfully.
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {updateError && (
+                <Alert className="mb-6" variant="destructive">
+                  <AlertCircle className="h-5 w-5" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{updateError}</AlertDescription>
+                </Alert>
+              )}
+              
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Personal Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="name"
@@ -298,7 +357,12 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Full Name</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter full name" 
+                                error={form.formState.errors.name?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -312,7 +376,13 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                type="email" 
+                                placeholder="Enter email address" 
+                                error={form.formState.errors.email?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -326,7 +396,12 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Contact Number</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter contact number" 
+                                error={form.formState.errors.contactNumber?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -338,38 +413,41 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                         name="guardianNumber"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Guardian Number</FormLabel>
+                            <FormLabel>Guardian's Contact Number</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter guardian's number" 
+                                error={form.formState.errors.guardianNumber?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Academic Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       <FormField
                         control={form.control}
                         name="department"
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Department</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select department" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="ASET">ASET</SelectItem>
-                                <SelectItem value="ABS">ABS</SelectItem>
-                                <SelectItem value="ASCO">ASCO</SelectItem>
-                                <SelectItem value="ALS">ALS</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <FormControl>
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter department" 
+                                error={form.formState.errors.department?.message}
+                                {...field} 
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -382,7 +460,12 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Course</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter course" 
+                                error={form.formState.errors.course?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -396,7 +479,12 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Branch</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter branch" 
+                                error={form.formState.errors.branch?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -409,24 +497,14 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Semester</FormLabel>
-                            <Select 
-                              onValueChange={field.onChange} 
-                              defaultValue={field.value}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select semester" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {[1, 2, 3, 4, 5, 6, 7, 8].map(num => (
-                                  <SelectItem key={num} value={num.toString()}>
-                                    Semester {num}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            <FormControl>
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter semester" 
+                                error={form.formState.errors.semester?.message}
+                                {...field} 
+                              />
+                            </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -439,94 +517,51 @@ export default function AdminStudentEdit({ user, onLogout }: AdminStudentEditPro
                           <FormItem>
                             <FormLabel>Section</FormLabel>
                             <FormControl>
-                              <Input {...field} />
+                              <EnhancedInput 
+                                isEditing={isEditing} 
+                                placeholder="Enter section" 
+                                error={form.formState.errors.section?.message}
+                                {...field} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
                     </div>
-                    
-                    <Alert>
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertTitle>Real-time updates</AlertTitle>
-                      <AlertDescription>
-                        Changes will be reflected immediately in student dashboards across all active tabs
-                      </AlertDescription>
-                    </Alert>
-                    
-                    <div className="flex justify-end gap-3">
+                  </div>
+                  
+                  {isEditing && (
+                    <CardFooter className="px-0 pb-0 pt-4 flex justify-end gap-2">
                       <Button 
-                        type="button" 
                         variant="outline" 
                         onClick={() => setIsEditing(false)}
                         disabled={updateInProgress}
                       >
+                        <X className="mr-2 h-4 w-4" />
                         Cancel
                       </Button>
                       <Button 
                         type="submit" 
-                        disabled={updateInProgress || !form.formState.isValid}
+                        disabled={updateInProgress || !form.formState.isValid || !form.formState.isDirty}
                       >
                         <Save className="mr-2 h-4 w-4" />
                         {updateInProgress ? "Saving Changes..." : "Save Changes"}
                       </Button>
-                    </div>
-                  </form>
-                </Form>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Full Name</h3>
-                    <p>{selectedStudent.name}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Email Address</h3>
-                    <p>{selectedStudent.email}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Enrollment Number</h3>
-                    <p>{selectedStudent.enrollmentNumber}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Department</h3>
-                    <p>{selectedStudent.department}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Course</h3>
-                    <p>{selectedStudent.course}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Branch</h3>
-                    <p>{selectedStudent.branch}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Semester</h3>
-                    <p>{selectedStudent.semester}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Section</h3>
-                    <p>{selectedStudent.section}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Contact Number</h3>
-                    <p>{selectedStudent.contactNumber}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Guardian Number</h3>
-                    <p>{selectedStudent.guardianNumber}</p>
-                  </div>
-                </div>
-              )}
+                    </CardFooter>
+                  )}
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="bg-gray-50">
+            <CardContent className="pt-6 text-center text-gray-500">
+              <div className="py-12">
+                <AlertCircle className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium mb-2">No Student Selected</h3>
+                <p>Please select a student from the dropdown above to view or edit their profile</p>
+              </div>
             </CardContent>
           </Card>
         )}
