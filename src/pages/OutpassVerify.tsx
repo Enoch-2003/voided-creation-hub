@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,29 @@ export default function OutpassVerify() {
   const [serialCode, setSerialCode] = useState<string>("");
   const [showExpiredDialog, setShowExpiredDialog] = useState(false);
   
+  const navigateBack = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+    } else {
+      const currentUser = storageSync.getUser();
+      const currentUserRole = storageSync.getUserRole();
+      
+      if (currentUser) {
+        if (currentUserRole === 'student') {
+          navigate("/student");
+        } else if (currentUserRole === 'mentor') {
+          navigate("/mentor");
+        } else if (currentUserRole === 'admin') {
+          navigate("/admin");
+        } else {
+          navigate("/");
+        }
+      } else {
+        navigate("/");
+      }
+    }
+  };
+  
   useEffect(() => {
     if (!id) {
       setError("Invalid outpass ID");
@@ -31,7 +53,6 @@ export default function OutpassVerify() {
       return;
     }
     
-    // Load outpasses from localStorage
     const storedOutpasses = localStorage.getItem("outpasses");
     if (!storedOutpasses) {
       setError("No outpasses found in the system");
@@ -40,7 +61,6 @@ export default function OutpassVerify() {
     }
     
     try {
-      // Parse outpasses and find the one with matching ID
       const allOutpasses = JSON.parse(storedOutpasses);
       const foundOutpass = allOutpasses.find((o: Outpass) => o.id === id);
       
@@ -50,15 +70,12 @@ export default function OutpassVerify() {
         return;
       }
       
-      // Check if the outpass is approved
       if (foundOutpass.status !== "approved") {
         setError("This outpass has not been approved");
         setIsLoading(false);
         return;
       }
       
-      // Check if the outpass has already been scanned/verified
-      // If it has been scanned before and has a scanTimestamp, show expired dialog
       if (foundOutpass.scanTimestamp) {
         setShowExpiredDialog(true);
         setOutpass(foundOutpass);
@@ -66,16 +83,13 @@ export default function OutpassVerify() {
         return;
       }
       
-      // Get the serial code prefix from settings
-      let prefix = "XYZ"; // Default prefix
+      let prefix = "XYZ";
       
-      // Try to get the most recent prefix from logs
       const serialCodeLogs = localStorage.getItem("serialCodeLogs");
       if (serialCodeLogs) {
         try {
           const logs = JSON.parse(serialCodeLogs);
           if (logs && logs.length > 0) {
-            // Sort logs by creation date (descending) and take the first one
             const sortedLogs = logs.sort((a: any, b: any) => 
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
             );
@@ -89,16 +103,13 @@ export default function OutpassVerify() {
         }
       }
       
-      // Set the serial code using the latest prefix with numeric digits or use the existing one if already set
       if (foundOutpass.serialCode) {
         setSerialCode(foundOutpass.serialCode);
       } else {
-        // Generate a 6-digit random number instead of using alphanumeric ID
         const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
         const newSerialCode = `AUMP-${prefix}-${randomDigits}`;
         setSerialCode(newSerialCode);
         
-        // Update outpass serialCode if not already set
         const updatedOutpasses = allOutpasses.map((o: Outpass) => {
           if (o.id === id) {
             return {
@@ -109,19 +120,14 @@ export default function OutpassVerify() {
           return o;
         });
         
-        // Save back to localStorage
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
       }
       
-      // Set isVerified based on whether it has been scanned before
       setIsVerified(!!foundOutpass.scanTimestamp);
       
-      // If the outpass hasn't been scanned yet, mark it as scanned
       if (!foundOutpass.scanTimestamp) {
-        // Save the scan timestamp
         const scanTimestamp = new Date().toISOString();
         
-        // Update in local storage
         const updatedOutpasses = allOutpasses.map((o: Outpass) => {
           if (o.id === id) {
             return {
@@ -132,14 +138,11 @@ export default function OutpassVerify() {
           return o;
         });
         
-        // Save back to localStorage
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
         
-        // Update foundOutpass with the scan timestamp
         foundOutpass.scanTimestamp = scanTimestamp;
       }
       
-      // Set the outpass data
       setOutpass(foundOutpass);
       setIsLoading(false);
     } catch (error) {
@@ -154,7 +157,6 @@ export default function OutpassVerify() {
     toast.success("Serial code copied to clipboard");
   };
   
-  // Handler for downloading the outpass as PDF
   const handleDownloadPDF = () => {
     if (!outpass) return;
     
@@ -164,20 +166,16 @@ export default function OutpassVerify() {
       format: "a4",
     });
     
-    // Add title
     pdf.setFontSize(18);
     pdf.text("AmiPass - Campus Exit Permit", 105, 20, { align: "center" });
     
-    // Add verification info
     pdf.setFontSize(14);
     pdf.text(`Verification Status: ${isVerified ? 'Verified' : 'Newly Verified'}`, 105, 30, { align: "center" });
     pdf.text(`Verification Time: ${formatDateTime(outpass.scanTimestamp || new Date().toISOString())}`, 105, 38, { align: "center" });
     
-    // Add line separator
     pdf.setDrawColor(200, 200, 200);
     pdf.line(20, 45, 190, 45);
     
-    // Add outpass details
     pdf.setFontSize(12);
     pdf.text("Exit Permit Details", 20, 55);
     
@@ -189,7 +187,6 @@ export default function OutpassVerify() {
     pdf.text(`Reason: ${outpass.reason}`, 20, 97);
     pdf.text(`Serial Code: ${serialCode}`, 20, 105);
     
-    // Add approval details
     pdf.setFontSize(12);
     pdf.text("Approval Information", 20, 120);
     
@@ -198,51 +195,28 @@ export default function OutpassVerify() {
     pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 138);
     pdf.text(`Approved On: ${formatDateTime(outpass.updatedAt)}`, 20, 146);
     
-    // Add verification note
     pdf.setFontSize(8);
     pdf.setTextColor(255, 0, 0);
     pdf.text("THIS OUTPASS IS VALID FOR ONE-TIME USE ONLY", 105, 170, { align: "center" });
     pdf.setTextColor(0, 0, 0);
     
-    // Add footer
     pdf.setFontSize(8);
     pdf.text("This outpass has been verified by the AmiPass system.", 105, 220, { align: "center" });
     pdf.text("Please show this to the security personnel when exiting the campus.", 105, 225, { align: "center" });
     pdf.text(`Generated on: ${new Date().toLocaleString()}`, 105, 230, { align: "center" });
     
-    // Save the PDF
     pdf.save(`AmiPass-Verification-${outpass.id}.pdf`);
     
     toast.success("Verification PDF downloaded successfully");
   };
   
-  // Handler for the "Close" button to go back to the student dashboard
   const handleNavigateToStudent = () => {
-    // Check if the user is logged in first
-    const currentUser = storageSync.getUser();
-    const currentUserRole = storageSync.getUserRole();
-    
-    if (currentUser && currentUserRole === 'student') {
-      navigate("/student");
-    } else {
-      // If we can't confirm they're logged in, try to go back to previous page
-      window.history.back();
-    }
+    navigateBack();
   };
   
-  // When the user closes the expired dialog
   const handleExpiredDialogClose = () => {
     setShowExpiredDialog(false);
-    // Check if the user is logged in first
-    const currentUser = storageSync.getUser();
-    const currentUserRole = storageSync.getUserRole();
-    
-    if (currentUser && currentUserRole === 'student') {
-      navigate("/student");
-    } else {
-      // If we can't confirm they're logged in, try to go back to previous page
-      window.history.back();
-    }
+    navigateBack();
   };
   
   if (isLoading) {
@@ -267,7 +241,7 @@ export default function OutpassVerify() {
           <Button 
             variant="outline" 
             className="mt-6"
-            onClick={() => window.history.back()}
+            onClick={navigateBack}
           >
             Go Back
           </Button>
@@ -286,7 +260,7 @@ export default function OutpassVerify() {
           <Button 
             variant="outline" 
             className="mt-6"
-            onClick={() => window.history.back()}
+            onClick={navigateBack}
           >
             Go Back
           </Button>
@@ -295,7 +269,6 @@ export default function OutpassVerify() {
     );
   }
   
-  // Show the expired dialog if the outpass has already been scanned/verified
   if (showExpiredDialog) {
     return (
       <Dialog open={showExpiredDialog} onOpenChange={setShowExpiredDialog}>
