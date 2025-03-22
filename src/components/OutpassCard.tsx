@@ -42,7 +42,6 @@ export function OutpassCard({
   };
 
   const handleDeny = () => {
-    // Just pass the ID to the parent component which will open the dialog
     if (onDeny) {
       onDeny(outpass.id);
     }
