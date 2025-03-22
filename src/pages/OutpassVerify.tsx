@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,8 @@ export default function OutpassVerify() {
           if (o.id === id) {
             return {
               ...o,
-              scanTimestamp
+              scanTimestamp,
+              serialCode: foundOutpass.serialCode || `AUMP-${prefix}-${randomDigits}`
             };
           }
           return o;
@@ -141,6 +143,9 @@ export default function OutpassVerify() {
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
         
         foundOutpass.scanTimestamp = scanTimestamp;
+        if (!foundOutpass.serialCode) {
+          foundOutpass.serialCode = `AUMP-${prefix}-${randomDigits}`;
+        }
       }
       
       setOutpass(foundOutpass);
@@ -159,6 +164,9 @@ export default function OutpassVerify() {
   
   const handleDownloadPDF = () => {
     if (!outpass) return;
+    
+    // Ensure we have the serial code
+    const actualSerialCode = outpass.serialCode || serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`;
     
     const pdf = new jsPDF({
       orientation: "portrait",
@@ -185,7 +193,7 @@ export default function OutpassVerify() {
     pdf.text(`Section: ${outpass.studentSection || 'N/A'}`, 20, 81);
     pdf.text(`Exit Date & Time: ${formatDateTime(outpass.exitDateTime)}`, 20, 89);
     pdf.text(`Reason: ${outpass.reason}`, 20, 97);
-    pdf.text(`Serial Code: ${serialCode}`, 20, 105);
+    pdf.text(`Serial Code: ${actualSerialCode}`, 20, 105);
     
     pdf.setFontSize(12);
     pdf.text("Approval Information", 20, 120);
@@ -283,8 +291,11 @@ export default function OutpassVerify() {
             <XCircle className="h-16 w-16 text-red-500 mb-4" />
             <p className="text-center mb-2"><strong>Verification Status:</strong> Expired after scan</p>
             <p className="text-center text-sm text-muted-foreground">
-              This outpass was first verified on: {formatDateTime(outpass.scanTimestamp || "")}
+              This outpass was first verified on: {formatDateTime(outpass?.scanTimestamp || "")}
             </p>
+            {outpass?.serialCode && (
+              <p className="text-center mt-2"><strong>Serial Code:</strong> {outpass.serialCode}</p>
+            )}
           </div>
           <DialogFooter className="flex sm:justify-between">
             <Button variant="outline" onClick={handleExpiredDialogClose}>
@@ -356,9 +367,9 @@ export default function OutpassVerify() {
             
             <div className="space-y-1">
               <div className="font-medium text-sm text-muted-foreground">Student Details</div>
-              <div className="font-bold">{outpass.studentName}</div>
-              <div className="text-sm">{outpass.enrollmentNumber}</div>
-              {outpass.studentSection && (
+              <div className="font-bold">{outpass?.studentName}</div>
+              <div className="text-sm">{outpass?.enrollmentNumber}</div>
+              {outpass?.studentSection && (
                 <div className="text-sm">Section: {outpass.studentSection}</div>
               )}
             </div>
@@ -367,11 +378,11 @@ export default function OutpassVerify() {
               <div className="font-medium text-sm text-muted-foreground">Exit Details</div>
               <div>
                 <span className="font-medium">Date & Time: </span>
-                <span>{formatDateTime(outpass.exitDateTime)}</span>
+                <span>{formatDateTime(outpass?.exitDateTime || "")}</span>
               </div>
               <div>
                 <span className="font-medium">Reason: </span>
-                <span>{outpass.reason}</span>
+                <span>{outpass?.reason}</span>
               </div>
             </div>
             
@@ -379,11 +390,11 @@ export default function OutpassVerify() {
               <div className="font-medium text-sm text-muted-foreground">Approval Details</div>
               <div>
                 <span className="font-medium">Approved by: </span>
-                <span>{outpass.mentorName}</span>
+                <span>{outpass?.mentorName}</span>
               </div>
               <div>
                 <span className="font-medium">Approved on: </span>
-                <span>{formatDateTime(outpass.updatedAt)}</span>
+                <span>{formatDateTime(outpass?.updatedAt || "")}</span>
               </div>
             </div>
             
@@ -391,7 +402,7 @@ export default function OutpassVerify() {
               <div className="font-medium text-sm text-muted-foreground">Verification Details</div>
               <div>
                 <span className="font-medium">Verified on: </span>
-                <span>{formatDateTime(outpass.scanTimestamp || new Date().toISOString())}</span>
+                <span>{formatDateTime(outpass?.scanTimestamp || new Date().toISOString())}</span>
               </div>
             </div>
           </CardContent>

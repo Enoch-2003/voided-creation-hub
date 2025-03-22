@@ -5,11 +5,20 @@ import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass, OutpassStatus } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, X, Search, User, FileText } from "lucide-react";
+import { Clock, X, Search, User, FileText, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useOutpasses } from "@/hooks/useOutpasses";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle 
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 interface MentorPendingProps {
   user: Mentor;
@@ -22,6 +31,11 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"name" | "enrollment" | "all">("all");
+  
+  // Denial dialog state
+  const [denyDialogOpen, setDenyDialogOpen] = useState(false);
+  const [denyReason, setDenyReason] = useState("");
+  const [outpassToDeny, setOutpassToDeny] = useState<string | null>(null);
   
   // Filter outpasses by mentor's sections
   const sectionFilteredOutpasses = outpasses.filter((outpass) => {
@@ -74,9 +88,17 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
     });
   };
   
-  const handleDeny = (id: string, reason: string) => {
+  const handleOpenDenyDialog = (id: string) => {
+    setOutpassToDeny(id);
+    setDenyReason("");
+    setDenyDialogOpen(true);
+  };
+  
+  const handleConfirmDeny = () => {
+    if (!outpassToDeny) return;
+    
     // Find the outpass to deny
-    const outpassToUpdate = outpasses.find(o => o.id === id);
+    const outpassToUpdate = outpasses.find(o => o.id === outpassToDeny);
     if (!outpassToUpdate) return;
     
     // Update the outpass with explicit OutpassStatus type
@@ -85,18 +107,29 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
       status: "denied" as OutpassStatus,
       mentorId: user.id,
       mentorName: user.name,
-      denyReason: reason,
+      denyReason: denyReason.trim() || "No reason provided",
       updatedAt: new Date().toISOString()
     };
     
     // Update outpass using the hook
     updateOutpass(updatedOutpass);
     
+    // Close dialog and reset state
+    setDenyDialogOpen(false);
+    setOutpassToDeny(null);
+    setDenyReason("");
+    
     // Show success toast
     toast({
       title: "Outpass denied",
       description: "Student has been notified of the denial.",
     });
+  };
+  
+  const handleCancelDeny = () => {
+    setDenyDialogOpen(false);
+    setOutpassToDeny(null);
+    setDenyReason("");
   };
   
   return (
@@ -164,7 +197,7 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
                   outpass={outpass} 
                   userRole="mentor"
                   onApprove={handleApprove}
-                  onDeny={handleDeny}
+                  onDeny={handleOpenDenyDialog}
                   showActions={true}
                 />
               ))}
@@ -190,6 +223,39 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
           </div>
         )}
       </main>
+      
+      {/* Denial Reason Dialog */}
+      <Dialog open={denyDialogOpen} onOpenChange={setDenyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              Deny Outpass Request
+            </DialogTitle>
+            <DialogDescription>
+              Please provide a reason for denying this outpass request. The student will see this reason.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Textarea
+              placeholder="Enter denial reason..."
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+              className="resize-none min-h-32"
+            />
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelDeny}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDeny}>
+              Deny Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -13,7 +13,7 @@ interface OutpassCardProps {
   outpass: Outpass;
   userRole: "student" | "mentor";
   onApprove?: (id: string) => void;
-  onDeny?: (id: string, reason: string) => void;
+  onDeny?: (id: string, reason?: string) => void;
   showActions?: boolean;
   onViewQR?: (outpass: Outpass) => void;
 }
@@ -42,9 +42,9 @@ export function OutpassCard({
   };
 
   const handleDeny = () => {
-    const reason = prompt("Please enter a reason for denying this outpass:");
-    if (reason) {
-      onDeny?.(outpass.id, reason);
+    // Just pass the ID to the parent component which will open the dialog
+    if (onDeny) {
+      onDeny(outpass.id);
     }
   };
   

@@ -151,11 +151,6 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     // Add Amity University logo
     pdf.addImage("/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png", "PNG", 95, 95, 20, 20);
     
-    // Add verification URL
-    pdf.setFontSize(8);
-    pdf.text("Scan this QR code or visit:", 105, 100, { align: "center" });
-    pdf.text(verificationUrl, 105, 105, { align: "center" });
-    
     // Add outpass details
     pdf.setFontSize(12);
     pdf.text("Outpass Details", 20, 130);

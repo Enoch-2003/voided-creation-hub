@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for form handling
  */
@@ -117,3 +116,75 @@ export const loadAllStudents = (): any[] => {
   }
 };
 
+/**
+ * MongoDB data conversion utilities
+ * Prepares data for MongoDB integration
+ */
+
+/**
+ * Converts data from localStorage format to MongoDB format
+ * Adds _id field and converts dates to MongoDB compatible format
+ */
+export const prepareDataForMongoDB = <T extends Record<string, any>>(
+  data: T
+): T & { _id?: string } => {
+  // Create a deep copy to avoid modifying the original
+  const mongoData = JSON.parse(JSON.stringify(data)) as T & { _id?: string };
+  
+  // Use the existing id as MongoDB _id if available
+  if (mongoData.id && !mongoData._id) {
+    mongoData._id = mongoData.id;
+  }
+  
+  // Process date fields for MongoDB
+  Object.keys(mongoData).forEach(key => {
+    const value = mongoData[key];
+    
+    // Convert ISO date strings to Date objects
+    if (typeof value === 'string' && 
+        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+      try {
+        // Only convert if it's a valid date
+        const date = new Date(value);
+        if (!isNaN(date.getTime())) {
+          mongoData[key] = date;
+        }
+      } catch (e) {
+        // Keep original value if conversion fails
+      }
+    }
+  });
+  
+  return mongoData;
+};
+
+/**
+ * Converts data from MongoDB format back to application format
+ */
+export const convertFromMongoDB = <T extends Record<string, any>>(
+  mongoData: T & { _id?: string }
+): T => {
+  // Create a deep copy
+  const appData = JSON.parse(JSON.stringify(mongoData)) as T;
+  
+  // Use MongoDB _id as the application id if needed
+  if (mongoData._id && !appData.id) {
+    appData.id = mongoData._id.toString();
+  }
+  
+  // Clean up MongoDB specific fields
+  if ('_id' in appData) {
+    delete appData._id;
+  }
+  
+  return appData;
+};
+
+/**
+ * Prepares a collection of items for MongoDB
+ */
+export const prepareCollectionForMongoDB = <T extends Record<string, any>>(
+  items: T[]
+): (T & { _id?: string })[] => {
+  return items.map(item => prepareDataForMongoDB(item));
+};
