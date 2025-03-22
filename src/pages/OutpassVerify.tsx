@@ -107,8 +107,9 @@ export default function OutpassVerify() {
       if (foundOutpass.serialCode) {
         setSerialCode(foundOutpass.serialCode);
       } else {
-        const randomDigits = Math.floor(100000 + Math.random() * 900000).toString();
-        const newSerialCode = `AUMP-${prefix}-${randomDigits}`;
+        // Generate a random 6-digit number for the serial code
+        const generatedRandomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+        const newSerialCode = `AUMP-${prefix}-${generatedRandomDigits}`;
         setSerialCode(newSerialCode);
         
         const updatedOutpasses = allOutpasses.map((o: Outpass) => {
@@ -134,7 +135,7 @@ export default function OutpassVerify() {
             return {
               ...o,
               scanTimestamp,
-              serialCode: foundOutpass.serialCode || `AUMP-${prefix}-${randomDigits}`
+              serialCode: foundOutpass.serialCode || serialCode
             };
           }
           return o;
@@ -143,8 +144,8 @@ export default function OutpassVerify() {
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
         
         foundOutpass.scanTimestamp = scanTimestamp;
-        if (!foundOutpass.serialCode) {
-          foundOutpass.serialCode = `AUMP-${prefix}-${randomDigits}`;
+        if (!foundOutpass.serialCode && serialCode) {
+          foundOutpass.serialCode = serialCode;
         }
       }
       
@@ -155,7 +156,7 @@ export default function OutpassVerify() {
       setError("Error loading outpass data");
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, serialCode]);
   
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(serialCode);

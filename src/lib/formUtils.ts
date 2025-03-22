@@ -1,3 +1,4 @@
+
 /**
  * Utility functions for form handling
  */
@@ -127,13 +128,13 @@ export const loadAllStudents = (): any[] => {
  */
 export const prepareDataForMongoDB = <T extends Record<string, any>>(
   data: T
-): T & { _id?: string } => {
+): Record<string, any> => {
   // Create a deep copy to avoid modifying the original
-  const mongoData = JSON.parse(JSON.stringify(data)) as T & { _id?: string };
+  const mongoData: Record<string, any> = JSON.parse(JSON.stringify(data));
   
   // Use the existing id as MongoDB _id if available
-  if (mongoData.id && !mongoData._id) {
-    mongoData._id = mongoData.id;
+  if ('id' in data && !mongoData._id) {
+    mongoData._id = data.id;
   }
   
   // Process date fields for MongoDB
@@ -162,13 +163,13 @@ export const prepareDataForMongoDB = <T extends Record<string, any>>(
  * Converts data from MongoDB format back to application format
  */
 export const convertFromMongoDB = <T extends Record<string, any>>(
-  mongoData: T & { _id?: string }
-): T => {
+  mongoData: Record<string, any> & { _id?: string }
+): Record<string, any> => {
   // Create a deep copy
-  const appData = JSON.parse(JSON.stringify(mongoData)) as T;
+  const appData: Record<string, any> = JSON.parse(JSON.stringify(mongoData));
   
   // Use MongoDB _id as the application id if needed
-  if (mongoData._id && !appData.id) {
+  if (mongoData._id && !('id' in mongoData)) {
     appData.id = mongoData._id.toString();
   }
   
@@ -185,6 +186,6 @@ export const convertFromMongoDB = <T extends Record<string, any>>(
  */
 export const prepareCollectionForMongoDB = <T extends Record<string, any>>(
   items: T[]
-): (T & { _id?: string })[] => {
+): Record<string, any>[] => {
   return items.map(item => prepareDataForMongoDB(item));
 };
