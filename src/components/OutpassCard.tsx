@@ -43,7 +43,10 @@ export function OutpassCard({
 
   const handleDeny = () => {
     if (onDeny) {
-      onDeny(outpass.id);
+      const reason = window.prompt("Please enter reason for denial:");
+      if (reason !== null) {
+        onDeny(outpass.id, reason);
+      }
     }
   };
   
