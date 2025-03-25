@@ -59,6 +59,9 @@ export function OutpassCard({
         const baseUrl = window.location.origin;
         const verificationUrl = `${baseUrl}/outpass/verify/${outpass.id}`;
         
+        // Clear any previous session flag for this outpass
+        sessionStorage.removeItem(`outpass_viewed_${outpass.id}`);
+        
         // Open the verification URL in a new tab
         window.open(verificationUrl, '_blank');
         

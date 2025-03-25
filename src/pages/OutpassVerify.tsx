@@ -24,6 +24,7 @@ export default function OutpassVerify() {
   const [serialCode, setSerialCode] = useState<string>("");
   const [showExpiredDialog, setShowExpiredDialog] = useState(false);
   const [alreadyScanned, setAlreadyScanned] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
   
   const navigateBack = () => {
     if (window.history.length > 1) {
@@ -80,10 +81,14 @@ export default function OutpassVerify() {
       
       // Check if the outpass has already been scanned before
       if (foundOutpass.scanTimestamp) {
-        // Set alreadyScanned to true but don't show the expired dialog immediately
-        // This allows the user to see the verification page first
         setAlreadyScanned(true);
         setIsVerified(true);
+        
+        // Check if this is a return visit by looking for a flag in sessionStorage
+        const hasViewedBefore = sessionStorage.getItem(`outpass_viewed_${id}`);
+        if (hasViewedBefore) {
+          setIsFirstVisit(false);
+        }
       }
       
       let prefix = "XYZ";
@@ -159,20 +164,13 @@ export default function OutpassVerify() {
     }
   }, [id, serialCode]);
 
-  // Effect to show the expired dialog AFTER the verification page has been shown
-  // This will run after the component is mounted and rendered
+  // Effect to show the expired dialog only on subsequent visits
   useEffect(() => {
-    // If the outpass was already scanned (not first-time verification)
-    // and the page has been shown (not loading), show the expired dialog
-    // using a small timeout to ensure the verification page is seen first
-    if (alreadyScanned && !isLoading && outpass) {
-      const timer = setTimeout(() => {
-        setShowExpiredDialog(true);
-      }, 1500); // Short delay to ensure the verification page is seen
-      
-      return () => clearTimeout(timer);
+    // Only if already scanned, not loading, and this is NOT the first visit
+    if (alreadyScanned && !isLoading && outpass && !isFirstVisit) {
+      setShowExpiredDialog(true);
     }
-  }, [alreadyScanned, isLoading, outpass]);
+  }, [alreadyScanned, isLoading, outpass, isFirstVisit]);
   
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(serialCode);
@@ -236,6 +234,10 @@ export default function OutpassVerify() {
   };
   
   const handleNavigateToStudent = () => {
+    // Mark that this outpass has been viewed in this session
+    if (id) {
+      sessionStorage.setItem(`outpass_viewed_${id}`, 'true');
+    }
     navigateBack();
   };
   

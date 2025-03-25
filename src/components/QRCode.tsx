@@ -193,6 +193,8 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
   // Direct QR view handler that opens the verification page in a new tab
   const handleViewDirectQR = () => {
     if (verificationUrl) {
+      // Clear any previous session flag for this outpass to ensure it shows the page first
+      sessionStorage.removeItem(`outpass_viewed_${outpass.id}`);
       window.open(verificationUrl, '_blank');
     }
   };
