@@ -55,9 +55,16 @@ export function OutpassCard({
       if (onViewQR) {
         onViewQR(outpass);
       } else {
+        // Check if this outpass has a verification URL and use that
+        const baseUrl = window.location.origin;
+        const verificationUrl = `${baseUrl}/outpass/verify/${outpass.id}`;
+        
+        // Open the verification URL in a new tab
+        window.open(verificationUrl, '_blank');
+        
         toast({
           title: "QR Code Available",
-          description: "Scanning this QR code at the security gate will mark your exit."
+          description: "Opening verification page in a new tab."
         });
       }
     } else {

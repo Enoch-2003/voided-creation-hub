@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import QRCodeLib from "qrcode";
 import { jsPDF } from "jspdf";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useNavigate } from "react-router-dom";
 
 interface QRCodeProps {
   outpass: Outpass;
@@ -16,6 +17,7 @@ interface QRCodeProps {
 export function QRCode({ outpass, onClose }: QRCodeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const logoRef = useRef<HTMLImageElement>(null);
+  const navigate = useNavigate();
   const [isExpired, setIsExpired] = useState(false);
   const [verificationUrl, setVerificationUrl] = useState<string>("");
   
@@ -188,6 +190,13 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.save(`AmiPass-${outpass.id}.pdf`);
   };
   
+  // Direct QR view handler that opens the verification page in a new tab
+  const handleViewDirectQR = () => {
+    if (verificationUrl) {
+      window.open(verificationUrl, '_blank');
+    }
+  };
+  
   return (
     <div className="flex flex-col items-center">
       <h2 className="text-lg font-semibold mb-4">Your Outpass QR Code</h2>
@@ -215,15 +224,13 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
       {/* Verification link for manual access */}
       {verificationUrl && !isExpired && (
         <div className="text-xs text-center text-gray-500 mb-4">
-          <p>Can't scan? Open this link:</p>
-          <a 
-            href={verificationUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
+          <p>Can't scan? Use this link:</p>
+          <button 
+            onClick={handleViewDirectQR}
             className="text-blue-600 underline break-all"
           >
             {verificationUrl}
-          </a>
+          </button>
         </div>
       )}
       
