@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,7 +32,7 @@ export default function Register() {
   const [studentEmail, setStudentEmail] = useState("");
   const [studentEnrollment, setStudentEnrollment] = useState("");
   const [studentContact, setStudentContact] = useState("");
-  const [studentGuardianContact, setStudentGuardianContact] = useState("");
+  const [studentGuardianEmail, setStudentGuardianEmail] = useState(""); // Changed from guardianNumber to guardianEmail
   const [studentDepartment, setStudentDepartment] = useState("");
   const [studentCourse, setStudentCourse] = useState("");
   const [studentBranch, setStudentBranch] = useState("");
@@ -43,6 +44,7 @@ export default function Register() {
   // Mentor form state
   const [mentorName, setMentorName] = useState("");
   const [mentorEmail, setMentorEmail] = useState("");
+  const [mentorContactNumber, setMentorContactNumber] = useState(""); // Added contact number for mentors
   const [mentorDepartment, setMentorDepartment] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
   const [mentorConfirmPassword, setMentorConfirmPassword] = useState("");
@@ -183,12 +185,23 @@ export default function Register() {
     
     // Validate fields
     if (!studentName || !studentEmail || !studentEnrollment || !studentContact || 
-        !studentGuardianContact || !studentDepartment || !studentCourse || 
+        !studentGuardianEmail || !studentDepartment || !studentCourse || 
         !studentBranch || !studentSemester || !studentSection || 
         !studentPassword || !studentConfirmPassword) {
       toast({
         title: "Error",
         description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Validate email format for guardian email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(studentGuardianEmail)) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid guardian email address",
         variant: "destructive",
       });
       return;
@@ -240,7 +253,7 @@ export default function Register() {
         role: "student",
         enrollmentNumber: studentEnrollment,
         contactNumber: studentContact,
-        guardianNumber: studentGuardianContact,
+        guardianEmail: studentGuardianEmail, // Changed from guardianNumber to guardianEmail
         department: studentDepartment,
         course: studentCourse,
         branch: studentBranch,
@@ -287,7 +300,9 @@ export default function Register() {
     e.preventDefault();
     
     // Validate fields
-    if (!mentorName || !mentorEmail || !mentorDepartment || !mentorPassword || !mentorConfirmPassword || mentorSections.length === 0 || mentorSemesters.length === 0) {
+    if (!mentorName || !mentorEmail || !mentorContactNumber || !mentorDepartment || 
+        !mentorPassword || !mentorConfirmPassword || 
+        mentorSections.length === 0 || mentorSemesters.length === 0) {
       toast({
         title: "Error",
         description: "Please fill in all fields and add at least one section and semester",
@@ -332,6 +347,7 @@ export default function Register() {
         email: mentorEmail,
         password: mentorPassword, // Store password for login authentication
         role: "mentor",
+        contactNumber: mentorContactNumber, // Added contact number for mentors
         department: mentorDepartment,
         branches: mentorBranches,
         courses: mentorCourses,
@@ -489,12 +505,13 @@ export default function Register() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="student-guardian-contact">Guardian Contact Number</Label>
+                  <Label htmlFor="student-guardian-email">Guardian Email Address</Label>
                   <Input
-                    id="student-guardian-contact"
-                    placeholder="+1234567890"
-                    value={studentGuardianContact}
-                    onChange={(e) => setStudentGuardianContact(e.target.value)}
+                    id="student-guardian-email"
+                    type="email"
+                    placeholder="guardian@example.com"
+                    value={studentGuardianEmail}
+                    onChange={(e) => setStudentGuardianEmail(e.target.value)}
                     disabled={isLoading}
                   />
                 </div>
@@ -636,16 +653,29 @@ export default function Register() {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="mentor-email">Email Address</Label>
-                  <Input
-                    id="mentor-email"
-                    type="email"
-                    placeholder="jane.smith@amity.edu"
-                    value={mentorEmail}
-                    onChange={(e) => setMentorEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mentor-email">Email Address</Label>
+                    <Input
+                      id="mentor-email"
+                      type="email"
+                      placeholder="jane.smith@amity.edu"
+                      value={mentorEmail}
+                      onChange={(e) => setMentorEmail(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="mentor-contact">Contact Number</Label>
+                    <Input
+                      id="mentor-contact"
+                      placeholder="+1234567890"
+                      value={mentorContactNumber}
+                      onChange={(e) => setMentorContactNumber(e.target.value)}
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-2">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -88,6 +87,10 @@ export default function OutpassVerify() {
         const hasViewedBefore = sessionStorage.getItem(`outpass_viewed_${id}`);
         if (hasViewedBefore) {
           setIsFirstVisit(false);
+          // Immediately show the dialog for subsequent visits
+          setTimeout(() => {
+            setShowExpiredDialog(true);
+          }, 500);
         }
       }
       
@@ -164,13 +167,13 @@ export default function OutpassVerify() {
     }
   }, [id, serialCode]);
 
-  // Effect to show the expired dialog only on subsequent visits
+  // Set session storage flag on first load if it's already scanned
   useEffect(() => {
-    // Only if already scanned, not loading, and this is NOT the first visit
-    if (alreadyScanned && !isLoading && outpass && !isFirstVisit) {
-      setShowExpiredDialog(true);
+    if (!isLoading && outpass && alreadyScanned && isFirstVisit && id) {
+      // Mark this as viewed for future visits
+      sessionStorage.setItem(`outpass_viewed_${id}`, 'true');
     }
-  }, [alreadyScanned, isLoading, outpass, isFirstVisit]);
+  }, [isLoading, outpass, alreadyScanned, isFirstVisit, id]);
   
   const handleCopyToClipboard = () => {
     navigator.clipboard.writeText(serialCode);

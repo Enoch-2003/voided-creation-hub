@@ -9,7 +9,7 @@ import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PanelRight, Clock, CheckCheck, XCircle, Edit } from "lucide-react";
 import { useOutpasses } from "@/hooks/useOutpasses";
-import { MentorProfileEdit } from "@/components/MentorProfileEdit";
+import MentorProfileEdit from "@/components/MentorProfileEdit";
 
 interface MentorDashboardProps {
   user: Mentor;
@@ -21,7 +21,6 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const { toast } = useToast();
   const { outpasses, updateOutpass } = useOutpasses();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<Mentor>(user);
   
   const filteredOutpasses = outpasses.filter((outpass) => {
@@ -76,8 +75,14 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     }
   };
   
-  const handleProfileUpdate = (updatedMentor: Mentor) => {
-    setCurrentUser(updatedMentor);
+  // Update currentUser when user prop changes
+  useEffect(() => {
+    setCurrentUser(user);
+  }, [user]);
+  
+  // Update currentUser when profile is edited
+  const handleProfileEdit = () => {
+    setIsEditProfileOpen(true);
   };
   
   return (
@@ -190,7 +195,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => setIsEditProfileOpen(true)}
+                    onClick={handleProfileEdit}
                     className="flex items-center gap-1"
                   >
                     <Edit className="h-4 w-4" />
@@ -215,6 +220,13 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                     <span className="text-muted-foreground">Department:</span>
                     <span className="font-medium">{currentUser.department}</span>
                   </div>
+                  
+                  {currentUser.contactNumber && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Contact Number:</span>
+                      <span className="font-medium">{currentUser.contactNumber}</span>
+                    </div>
+                  )}
                   
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Branches:</span>
@@ -343,11 +355,11 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         </div>
       </main>
       
-      {showProfileEdit && (
+      {isEditProfileOpen && (
         <MentorProfileEdit
-          isOpen={showProfileEdit}
-          onClose={() => setShowProfileEdit(false)}
-          mentor={user}
+          isOpen={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          mentor={currentUser}
         />
       )}
     </div>

@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,11 +13,12 @@ interface MentorProfileEditProps {
   mentor: Mentor;
 }
 
-export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
+export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
   const { toast } = useToast();
   const [name, setName] = useState(mentor.name);
   const [email, setEmail] = useState(mentor.email);
   const [department, setDepartment] = useState(mentor.department);
+  const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +35,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
             name,
             email,
             department,
+            contactNumber,
           };
         }
         return user;
@@ -48,6 +51,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
         name,
         email,
         department,
+        contactNumber,
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
       
@@ -102,6 +106,16 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
               value={department}
               onChange={(e) => setDepartment(e.target.value)}
               placeholder="Enter your department"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="contactNumber">Contact Number</Label>
+            <Input
+              id="contactNumber"
+              value={contactNumber}
+              onChange={(e) => setContactNumber(e.target.value)}
+              placeholder="Enter your contact number"
             />
           </div>
           
