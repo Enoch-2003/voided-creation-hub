@@ -63,7 +63,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
       // Save back to localStorage
       localStorage.setItem("users", JSON.stringify(updatedUsers));
       
-      // Update session storage
+      // Update both local and session storage for the current user
       const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
       const updatedUser = {
         ...currentUser,
@@ -73,6 +73,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
         contactNumber,
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
+      localStorage.setItem("user", JSON.stringify(updatedUser));
       
       toast({
         title: "Success",
