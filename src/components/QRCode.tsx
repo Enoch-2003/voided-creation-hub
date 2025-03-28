@@ -194,7 +194,7 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     if (verificationUrl) {
       // Clear any previous session flag for this outpass to ensure it shows the page first
       sessionStorage.removeItem(`outpass_viewed_${outpass.id}`);
-      window.open(verificationUrl, '_blank');
+      window.open(verificationUrl, '_self');
     }
   };
   
