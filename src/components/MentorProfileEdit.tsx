@@ -1,59 +1,31 @@
-
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mentor } from "@/lib/types";
-import storageSync from "@/lib/storageSync";
-
-const departments = ["Computer Science", "Electronics", "Civil Engineering", "Mechanical Engineering", "Business Administration"];
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 interface MentorProfileEditProps {
-  mentor: Mentor;
+  isOpen: boolean;
   onClose: () => void;
-  onUpdate: () => void;
+  mentor: Mentor;
 }
 
-export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorProfileEditProps) {
-  const [name, setName] = useState(mentor.name || "");
-  const [email, setEmail] = useState(mentor.email || "");
-  const [department, setDepartment] = useState(mentor.department || "");
-  const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
+export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Update form when mentor prop changes
-    setName(mentor.name || "");
-    setEmail(mentor.email || "");
-    setDepartment(mentor.department || "");
-    setContactNumber(mentor.contactNumber || "");
-  }, [mentor]);
-
+  const [name, setName] = useState(mentor.name);
+  const [email, setEmail] = useState(mentor.email);
+  const [department, setDepartment] = useState(mentor.department);
+  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!name || !email || !department || !contactNumber) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     try {
-      // Get all users
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) {
-        throw new Error("No users found");
-      }
+      // Get all users from localStorage
+      const users = JSON.parse(localStorage.getItem("users") || "[]");
       
-      const users = JSON.parse(usersJson);
-      
-      // Find and update the mentor
+      // Update the mentor's information
       const updatedUsers = users.map((user: any) => {
         if (user.id === mentor.id) {
           return {
@@ -61,7 +33,6 @@ export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorP
             name,
             email,
             department,
-            contactNumber,
           };
         }
         return user;
@@ -70,32 +41,23 @@ export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorP
       // Save back to localStorage
       localStorage.setItem("users", JSON.stringify(updatedUsers));
       
-      // Update both local and session storage for the current user
+      // Update session storage
       const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
       const updatedUser = {
         ...currentUser,
         name,
         email,
         department,
-        contactNumber,
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
       
-      // Update sync storage
-      storageSync.setUser(updatedUser, "mentor");
-      
       toast({
         title: "Success",
-        description: "Profile updated successfully.",
+        description: "Your profile has been updated.",
       });
       
-      // Call onUpdate to refresh parent component
-      onUpdate();
-      
-      // Close the form
       onClose();
     } catch (error) {
-      console.error("Update error:", error);
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
@@ -103,16 +65,14 @@ export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorP
       });
     }
   };
-
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Edit Profile</CardTitle>
-        <CardDescription>
-          Update your mentor profile information
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Profile</DialogTitle>
+        </DialogHeader>
+        
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
@@ -120,7 +80,7 @@ export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorP
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
+              placeholder="Enter your full name"
             />
           </div>
           
@@ -131,47 +91,28 @@ export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorP
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Your email address"
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="contactNumber">Contact Number</Label>
-            <Input
-              id="contactNumber"
-              type="tel"
-              value={contactNumber}
-              onChange={(e) => setContactNumber(e.target.value)}
-              placeholder="Your contact number"
+              placeholder="Enter your email"
             />
           </div>
           
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
-            <Select onValueChange={setDepartment} value={department}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select department" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              id="department"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+              placeholder="Enter your department"
+            />
           </div>
           
-          <div className="flex space-x-2 pt-4">
-            <Button type="submit" className="flex-1">
-              Save Changes
-            </Button>
-            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
+            <Button type="submit">Save Changes</Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

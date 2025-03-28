@@ -13,7 +13,7 @@ export interface Student extends User {
   role: 'student';
   enrollmentNumber: string;
   contactNumber: string;
-  guardianEmail: string; // Changed from guardianNumber to guardianEmail
+  guardianNumber: string;
   department: string; // Now using college abbreviations like ASET, ABS, etc.
   course: string;
   branch: string;
@@ -24,7 +24,6 @@ export interface Student extends User {
 export interface Mentor extends User {
   role: 'mentor';
   department: string; // Now using college abbreviations like ASET, ABS, etc.
-  contactNumber?: string; // Added contact number for mentors
   branches: string[];
   courses: string[];
   semesters: string[];
@@ -61,5 +60,4 @@ export interface Outpass {
   denyReason?: string;
   studentSection?: string; // Added to match students with mentors
   serialCode?: string; // Full serial code including prefix
-  viewed?: boolean; // Added to track if the outpass has been viewed
 }

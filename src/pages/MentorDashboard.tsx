@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +21,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const { toast } = useToast();
   const { outpasses, updateOutpass } = useOutpasses();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [showProfileEdit, setShowProfileEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<Mentor>(user);
   
   const filteredOutpasses = outpasses.filter((outpass) => {
@@ -343,11 +343,11 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         </div>
       </main>
       
-      {isEditProfileOpen && (
+      {showProfileEdit && (
         <MentorProfileEdit
-          isOpen={isEditProfileOpen}
-          onClose={() => setIsEditProfileOpen(false)}
-          mentor={currentUser}
+          isOpen={showProfileEdit}
+          onClose={() => setShowProfileEdit(false)}
+          mentor={user}
         />
       )}
     </div>
