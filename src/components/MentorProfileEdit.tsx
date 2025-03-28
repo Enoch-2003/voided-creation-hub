@@ -1,52 +1,59 @@
 
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Mentor } from "@/lib/types";
 import { useState, useEffect } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { departments } from "@/lib/constants";
+import { Mentor } from "@/lib/types";
+import storageSync from "@/lib/storageSync";
+
+const departments = ["Computer Science", "Electronics", "Civil Engineering", "Mechanical Engineering", "Business Administration"];
 
 interface MentorProfileEditProps {
-  isOpen: boolean;
-  onClose: () => void;
   mentor: Mentor;
+  onClose: () => void;
+  onUpdate: () => void;
 }
 
-export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
-  const { toast } = useToast();
-  const [name, setName] = useState(mentor.name);
-  const [email, setEmail] = useState(mentor.email);
-  const [department, setDepartment] = useState(mentor.department);
+export default function MentorProfileEdit({ mentor, onClose, onUpdate }: MentorProfileEditProps) {
+  const [name, setName] = useState(mentor.name || "");
+  const [email, setEmail] = useState(mentor.email || "");
+  const [department, setDepartment] = useState(mentor.department || "");
   const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
-  
+  const { toast } = useToast();
+
   useEffect(() => {
-    // Update state if mentor prop changes
-    setName(mentor.name);
-    setEmail(mentor.email);
-    setDepartment(mentor.department);
+    // Update form when mentor prop changes
+    setName(mentor.name || "");
+    setEmail(mentor.email || "");
+    setDepartment(mentor.department || "");
     setContactNumber(mentor.contactNumber || "");
   }, [mentor]);
-  
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!contactNumber) {
+    if (!name || !email || !department || !contactNumber) {
       toast({
         title: "Error",
-        description: "Contact number is required.",
+        description: "Please fill in all required fields.",
         variant: "destructive",
       });
       return;
     }
     
     try {
-      // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
+      // Get all users
+      const usersJson = localStorage.getItem("users");
+      if (!usersJson) {
+        throw new Error("No users found");
+      }
       
-      // Update the mentor's information
+      const users = JSON.parse(usersJson);
+      
+      // Find and update the mentor
       const updatedUsers = users.map((user: any) => {
         if (user.id === mentor.id) {
           return {
@@ -73,15 +80,22 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
         contactNumber,
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
-      localStorage.setItem("user", JSON.stringify(updatedUser));
+      
+      // Update sync storage
+      storageSync.setUser(updatedUser, "mentor");
       
       toast({
         title: "Success",
-        description: "Your profile has been updated.",
+        description: "Profile updated successfully.",
       });
       
+      // Call onUpdate to refresh parent component
+      onUpdate();
+      
+      // Close the form
       onClose();
     } catch (error) {
+      console.error("Update error:", error);
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
@@ -89,14 +103,16 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
       });
     }
   };
-  
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
-        </DialogHeader>
-        
+    <Card>
+      <CardHeader>
+        <CardTitle>Edit Profile</CardTitle>
+        <CardDescription>
+          Update your mentor profile information
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
@@ -104,8 +120,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your full name"
-              required
+              placeholder="Your full name"
             />
           </div>
           
@@ -116,28 +131,26 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
+              placeholder="Your email address"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="contactNumber">Official Contact Number</Label>
+            <Label htmlFor="contactNumber">Contact Number</Label>
             <Input
               id="contactNumber"
               type="tel"
               value={contactNumber}
               onChange={(e) => setContactNumber(e.target.value)}
-              placeholder="Enter your contact number"
-              required
+              placeholder="Your contact number"
             />
           </div>
           
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
-            <Select onValueChange={setDepartment} defaultValue={department}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a department" />
+            <Select onValueChange={setDepartment} value={department}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
                 {departments.map((dept) => (
@@ -149,14 +162,16 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
             </Select>
           </div>
           
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+          <div className="flex space-x-2 pt-4">
+            <Button type="submit" className="flex-1">
+              Save Changes
+            </Button>
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </CardContent>
+    </Card>
   );
 }

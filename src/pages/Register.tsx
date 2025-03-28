@@ -7,7 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Student, Mentor } from "@/lib/types";
-import { departments, courses, branches, semesters, sections } from "@/lib/constants";
+
+// Import constants
+const departments = ["Computer Science", "Electronics", "Civil Engineering", "Mechanical Engineering", "Business Administration"];
+const courses = ["B.Tech", "M.Tech", "MBA", "BBA", "B.Sc", "M.Sc"];
+const branches = ["CSE", "IT", "ECE", "ME", "CE", "EEE"];
+const semesters = ["1", "2", "3", "4", "5", "6", "7", "8"];
+const sections = ["A", "B", "C", "D", "E"];
 
 export default function Register() {
   const [isStudent, setIsStudent] = useState(true);
