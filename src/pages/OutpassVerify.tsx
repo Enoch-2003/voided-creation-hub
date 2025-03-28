@@ -91,6 +91,7 @@ export default function OutpassVerify() {
         }
       }
       
+      // Generate or retrieve serial code
       let prefix = "XYZ";
       
       const serialCodeLogs = localStorage.getItem("serialCodeLogs");

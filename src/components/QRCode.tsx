@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Outpass } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
