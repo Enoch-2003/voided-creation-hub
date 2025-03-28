@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,11 @@ export default function Register() {
   const [branch, setBranch] = useState("");
   const [semester, setSemester] = useState("");
   const [section, setSection] = useState("");
-  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
-  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
-  const [selectedSemesters, setSelectedSemesters] = useState<string[]>([]);
-  const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  // For mentors, we'll use single selections for now since the Select component doesn't support multiple
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedSection, setSelectedSection] = useState("");
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -83,7 +85,7 @@ export default function Register() {
         navigate("/login");
       }, 2000);
     } else {
-      if (!name || !email || !password || !confirmPassword || !department || !contactNumber || selectedBranches.length === 0 || selectedCourses.length === 0 || selectedSemesters.length === 0 || selectedSections.length === 0) {
+      if (!name || !email || !password || !confirmPassword || !department || !contactNumber || !selectedBranch || !selectedCourse || !selectedSemester || !selectedSection) {
         toast({
           title: "Error",
           description: "Please fill in all required fields for mentors.",
@@ -99,10 +101,11 @@ export default function Register() {
         email,
         department,
         contactNumber,
-        branches: selectedBranches,
-        courses: selectedCourses,
-        semesters: selectedSemesters,
-        sections: selectedSections,
+        // Convert single selections to arrays as required by the Mentor type
+        branches: [selectedBranch],
+        courses: [selectedCourse],
+        semesters: [selectedSemester],
+        sections: [selectedSection],
         password: hashedPassword
       };
       
@@ -380,10 +383,26 @@ export default function Register() {
                   </div>
                   
                   <div>
-                    <Label>Branches</Label>
-                    <Select onValueChange={(value) => setSelectedBranches(value === "" ? [] : [value])} multiple>
+                    <Label htmlFor="department">Department</Label>
+                    <Select onValueChange={setDepartment} defaultValue={department}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select branches" />
+                        <SelectValue placeholder="Select a department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept} value={dept}>
+                            {dept}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div>
+                    <Label>Branch</Label>
+                    <Select onValueChange={setSelectedBranch} defaultValue={selectedBranch}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select branch" />
                       </SelectTrigger>
                       <SelectContent>
                         {branches.map((branch) => (
@@ -396,10 +415,10 @@ export default function Register() {
                   </div>
                   
                   <div>
-                    <Label>Courses</Label>
-                    <Select onValueChange={(value) => setSelectedCourses(value === "" ? [] : [value])} multiple>
+                    <Label>Course</Label>
+                    <Select onValueChange={setSelectedCourse} defaultValue={selectedCourse}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select courses" />
+                        <SelectValue placeholder="Select course" />
                       </SelectTrigger>
                       <SelectContent>
                         {courses.map((course) => (
@@ -412,10 +431,10 @@ export default function Register() {
                   </div>
                   
                   <div>
-                    <Label>Semesters</Label>
-                    <Select onValueChange={(value) => setSelectedSemesters(value === "" ? [] : [value])} multiple>
+                    <Label>Semester</Label>
+                    <Select onValueChange={setSelectedSemester} defaultValue={selectedSemester}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select semesters" />
+                        <SelectValue placeholder="Select semester" />
                       </SelectTrigger>
                       <SelectContent>
                         {semesters.map((semester) => (
@@ -428,10 +447,10 @@ export default function Register() {
                   </div>
                   
                   <div>
-                    <Label>Sections</Label>
-                    <Select onValueChange={(value) => setSelectedSections(value === "" ? [] : [value])} multiple>
+                    <Label>Section</Label>
+                    <Select onValueChange={setSelectedSection} defaultValue={selectedSection}>
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select sections" />
+                        <SelectValue placeholder="Select section" />
                       </SelectTrigger>
                       <SelectContent>
                         {sections.map((section) => (

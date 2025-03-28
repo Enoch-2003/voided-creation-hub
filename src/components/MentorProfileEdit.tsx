@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Mentor } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { departments } from "@/lib/constants";
 
 interface MentorProfileEditProps {
   isOpen: boolean;
@@ -119,7 +121,7 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="contactNumber">Contact Number</Label>
+            <Label htmlFor="contactNumber">Official Contact Number</Label>
             <Input
               id="contactNumber"
               type="tel"
@@ -132,13 +134,18 @@ export function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEdit
           
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
-            <Input
-              id="department"
-              value={department}
-              onChange={(e) => setDepartment(e.target.value)}
-              placeholder="Enter your department"
-              required
-            />
+            <Select onValueChange={setDepartment} defaultValue={department}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select a department" />
+              </SelectTrigger>
+              <SelectContent>
+                {departments.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="flex justify-end gap-2">

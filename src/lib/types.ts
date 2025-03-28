@@ -61,4 +61,5 @@ export interface Outpass {
   denyReason?: string;
   studentSection?: string; // Added to match students with mentors
   serialCode?: string; // Full serial code including prefix
+  viewed?: boolean; // Added to track if the outpass has been viewed
 }
