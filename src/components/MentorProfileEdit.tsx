@@ -4,9 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mentor } from "@/lib/types";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect, Option } from "@/components/ui/multi-select";
 
 interface MentorProfileEditProps {
   isOpen: boolean;
@@ -16,16 +15,16 @@ interface MentorProfileEditProps {
 
 export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
   const { toast } = useToast();
-  const [name, setName] = useState(mentor?.name || "");
-  const [email, setEmail] = useState(mentor?.email || "");
-  const [department, setDepartment] = useState(mentor?.department || "");
-  const [contactNumber, setContactNumber] = useState(mentor?.contactNumber || "");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [department, setDepartment] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
   
-  // Ensure we have arrays even if they're undefined
-  const [branches, setBranches] = useState<string[]>([]);
-  const [courses, setCourses] = useState<string[]>([]);
-  const [semesters, setSemesters] = useState<string[]>([]);
-  const [sections, setSections] = useState<string[]>([]);
+  // Convert arrays to comma-separated strings for easier editing
+  const [branchesText, setBranchesText] = useState("");
+  const [coursesText, setCoursesText] = useState("");
+  const [semestersText, setSemestersText] = useState("");
+  const [sectionsText, setSectionsText] = useState("");
   
   // Update state when mentor prop changes
   useEffect(() => {
@@ -34,41 +33,20 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
       setEmail(mentor.email || "");
       setDepartment(mentor.department || "");
       setContactNumber(mentor.contactNumber || "");
-      setBranches(Array.isArray(mentor.branches) ? [...mentor.branches] : []);
-      setCourses(Array.isArray(mentor.courses) ? [...mentor.courses] : []);
-      setSemesters(Array.isArray(mentor.semesters) ? [...mentor.semesters] : []);
-      setSections(Array.isArray(mentor.sections) ? [...mentor.sections] : []);
+      
+      // Convert arrays to comma-separated strings
+      setBranchesText(Array.isArray(mentor.branches) ? mentor.branches.join(", ") : "");
+      setCoursesText(Array.isArray(mentor.courses) ? mentor.courses.join(", ") : "");
+      setSemestersText(Array.isArray(mentor.semesters) ? mentor.semesters.join(", ") : "");
+      setSectionsText(Array.isArray(mentor.sections) ? mentor.sections.join(", ") : "");
     }
   }, [mentor]);
   
-  // Options for the multi-select fields
-  const branchOptions = useMemo(() => [
-    "CSE", "IT", "ECE", "ME", "CE", "EEE", "BBA", "MBA", "BCA"
-  ].map(branch => ({
-    label: branch,
-    value: branch
-  })), []);
-  
-  const courseOptions = useMemo(() => [
-    "BTech", "MTech", "BBA", "MBA", "BCA", "MCA"
-  ].map(course => ({
-    label: course,
-    value: course
-  })), []);
-  
-  const semesterOptions = useMemo(() => [
-    "1", "2", "3", "4", "5", "6", "7", "8"
-  ].map(sem => ({
-    label: sem,
-    value: sem
-  })), []);
-  
-  const sectionOptions = useMemo(() => [
-    "A", "B", "C", "D", "E", "F"
-  ].map(section => ({
-    label: section,
-    value: section
-  })), []);
+  // Helper function to convert comma-separated string to array and trim whitespace
+  const stringToArray = (str: string): string[] => {
+    if (!str || str.trim() === "") return [];
+    return str.split(",").map(item => item.trim()).filter(item => item !== "");
+  };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,6 +54,12 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
     try {
       // Get all users from localStorage
       const users = JSON.parse(localStorage.getItem("users") || "[]");
+      
+      // Convert comma-separated strings back to arrays
+      const branches = stringToArray(branchesText);
+      const courses = stringToArray(coursesText);
+      const semesters = stringToArray(semestersText);
+      const sections = stringToArray(sectionsText);
       
       // Update the mentor's information
       const updatedUsers = users.map((user: any) => {
@@ -86,10 +70,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             email,
             department,
             contactNumber,
-            branches: Array.isArray(branches) ? branches : [],
-            courses: Array.isArray(courses) ? courses : [],
-            semesters: Array.isArray(semesters) ? semesters : [],
-            sections: Array.isArray(sections) ? sections : [],
+            branches,
+            courses,
+            semesters,
+            sections,
           };
         }
         return user;
@@ -107,10 +91,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
           email,
           department,
           contactNumber,
-          branches: Array.isArray(branches) ? branches : [],
-          courses: Array.isArray(courses) ? courses : [],
-          semesters: Array.isArray(semesters) ? semesters : [],
-          sections: Array.isArray(sections) ? sections : [],
+          branches,
+          courses,
+          semesters,
+          sections,
         };
         sessionStorage.setItem("user", JSON.stringify(updatedUser));
       }
@@ -131,24 +115,12 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
     }
   };
   
-  // Helper function to safely map arrays for MultiSelect
-  const mapToOptions = (values: string[]): Option[] => {
-    if (!values || !Array.isArray(values)) return [];
-    return values.map(value => ({ label: value, value }));
-  };
-  
-  // Helper function to handle MultiSelect changes
-  const handleMultiSelectChange = (setter: React.Dispatch<React.SetStateAction<string[]>>) => 
-    (options: Option[]) => {
-      setter(Array.isArray(options) ? options.map(item => item.value) : []);
-    };
-  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto py-4 my-auto">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto my-8" aria-describedby="profile-edit-description">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="profile-edit-description">
             Make changes to your mentor profile here. Click save when you're done.
           </DialogDescription>
         </DialogHeader>
@@ -196,46 +168,42 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="branches">Branches</Label>
-            <MultiSelect
+            <Label htmlFor="branches">Branches (comma separated)</Label>
+            <Input
               id="branches"
-              options={branchOptions}
-              selected={mapToOptions(branches)}
-              onChange={handleMultiSelectChange(setBranches)}
-              placeholder="Select branches"
+              value={branchesText}
+              onChange={(e) => setBranchesText(e.target.value)}
+              placeholder="Example: CSE, IT, ECE"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="courses">Courses</Label>
-            <MultiSelect
+            <Label htmlFor="courses">Courses (comma separated)</Label>
+            <Input
               id="courses"
-              options={courseOptions}
-              selected={mapToOptions(courses)}
-              onChange={handleMultiSelectChange(setCourses)}
-              placeholder="Select courses"
+              value={coursesText}
+              onChange={(e) => setCoursesText(e.target.value)}
+              placeholder="Example: BTech, MTech"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="semesters">Semesters</Label>
-            <MultiSelect
+            <Label htmlFor="semesters">Semesters (comma separated)</Label>
+            <Input
               id="semesters"
-              options={semesterOptions}
-              selected={mapToOptions(semesters)}
-              onChange={handleMultiSelectChange(setSemesters)}
-              placeholder="Select semesters"
+              value={semestersText}
+              onChange={(e) => setSemestersText(e.target.value)}
+              placeholder="Example: 1, 2, 3"
             />
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="sections">Sections</Label>
-            <MultiSelect
+            <Label htmlFor="sections">Sections (comma separated)</Label>
+            <Input
               id="sections"
-              options={sectionOptions}
-              selected={mapToOptions(sections)}
-              onChange={handleMultiSelectChange(setSections)}
-              placeholder="Select sections"
+              value={sectionsText}
+              onChange={(e) => setSectionsText(e.target.value)}
+              placeholder="Example: A, B, C"
             />
           </div>
           
