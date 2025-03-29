@@ -646,7 +646,7 @@ export default function Register() {
                   <Label htmlFor="mentor-name">Full Name</Label>
                   <Input
                     id="mentor-name"
-                    placeholder="Dr. Jane Smith"
+                    placeholder="eg. Dr. XYZ"
                     value={mentorName}
                     onChange={(e) => setMentorName(e.target.value)}
                     disabled={isLoading}
