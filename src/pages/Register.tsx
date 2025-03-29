@@ -460,7 +460,7 @@ export default function Register() {
                     <Label htmlFor="student-name">Full Name</Label>
                     <Input
                       id="student-name"
-                      placeholder="John Doe"
+                      placeholder="Name"
                       value={studentName}
                       onChange={(e) => setStudentName(e.target.value)}
                       disabled={isLoading}
@@ -472,7 +472,7 @@ export default function Register() {
                     <Input
                       id="student-email"
                       type="email"
-                      placeholder="john.doe@example.com"
+                      placeholder="eg. abc@gmail.com"
                       value={studentEmail}
                       onChange={(e) => setStudentEmail(e.target.value)}
                       disabled={isLoading}
@@ -485,7 +485,7 @@ export default function Register() {
                     <Label htmlFor="student-enrollment">Enrollment Number</Label>
                     <Input
                       id="student-enrollment"
-                      placeholder="e.g., CS20220001"
+                      placeholder="e.g., A60205222013"
                       value={studentEnrollment}
                       onChange={(e) => setStudentEnrollment(e.target.value)}
                       disabled={isLoading}
@@ -493,10 +493,10 @@ export default function Register() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="student-contact">Contact Number</Label>
+                    <Label htmlFor="student-contact">Contact Number (+91)</Label>
                     <Input
                       id="student-contact"
-                      placeholder="+1234567890"
+                      placeholder="+91"
                       value={studentContact}
                       onChange={(e) => setStudentContact(e.target.value)}
                       disabled={isLoading}
@@ -509,7 +509,7 @@ export default function Register() {
                   <Input
                     id="student-guardian-email"
                     type="email"
-                    placeholder="guardian@example.com"
+                    placeholder="guardian_email@gmail.comm"
                     value={studentGuardianEmail}
                     onChange={(e) => setStudentGuardianEmail(e.target.value)}
                     disabled={isLoading}
@@ -589,7 +589,7 @@ export default function Register() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="student-section">Section</Label>
+                    <Label htmlFor="student-section">Section (in capital character)</Label>
                     <Input
                       id="student-section"
                       placeholder="e.g., A"
@@ -659,7 +659,7 @@ export default function Register() {
                     <Input
                       id="mentor-email"
                       type="email"
-                      placeholder="jane.smith@amity.edu"
+                      placeholder="eg. abc@amity.edu"
                       value={mentorEmail}
                       onChange={(e) => setMentorEmail(e.target.value)}
                       disabled={isLoading}
@@ -667,10 +667,10 @@ export default function Register() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="mentor-contact">Contact Number</Label>
+                    <Label htmlFor="mentor-contact">Contact Number (+91)</Label>
                     <Input
                       id="mentor-contact"
-                      placeholder="+1234567890"
+                      placeholder="+91"
                       value={mentorContactNumber}
                       onChange={(e) => setMentorContactNumber(e.target.value)}
                       disabled={isLoading}
