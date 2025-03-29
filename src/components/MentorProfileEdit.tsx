@@ -16,27 +16,27 @@ interface MentorProfileEditProps {
 
 export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
   const { toast } = useToast();
-  const [name, setName] = useState(mentor.name);
-  const [email, setEmail] = useState(mentor.email);
-  const [department, setDepartment] = useState(mentor.department);
+  const [name, setName] = useState(mentor.name || "");
+  const [email, setEmail] = useState(mentor.email || "");
+  const [department, setDepartment] = useState(mentor.department || "");
   const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
   
   // Ensure we have arrays even if they're undefined
-  const [branches, setBranches] = useState<string[]>(Array.isArray(mentor.branches) ? mentor.branches : []);
-  const [courses, setCourses] = useState<string[]>(Array.isArray(mentor.courses) ? mentor.courses : []);
-  const [semesters, setSemesters] = useState<string[]>(Array.isArray(mentor.semesters) ? mentor.semesters : []);
-  const [sections, setSections] = useState<string[]>(Array.isArray(mentor.sections) ? mentor.sections : []);
+  const [branches, setBranches] = useState<string[]>(Array.isArray(mentor.branches) ? [...mentor.branches] : []);
+  const [courses, setCourses] = useState<string[]>(Array.isArray(mentor.courses) ? [...mentor.courses] : []);
+  const [semesters, setSemesters] = useState<string[]>(Array.isArray(mentor.semesters) ? [...mentor.semesters] : []);
+  const [sections, setSections] = useState<string[]>(Array.isArray(mentor.sections) ? [...mentor.sections] : []);
   
   // Update state when mentor prop changes
   useEffect(() => {
-    setName(mentor.name);
-    setEmail(mentor.email);
-    setDepartment(mentor.department);
+    setName(mentor.name || "");
+    setEmail(mentor.email || "");
+    setDepartment(mentor.department || "");
     setContactNumber(mentor.contactNumber || "");
-    setBranches(Array.isArray(mentor.branches) ? mentor.branches : []);
-    setCourses(Array.isArray(mentor.courses) ? mentor.courses : []);
-    setSemesters(Array.isArray(mentor.semesters) ? mentor.semesters : []);
-    setSections(Array.isArray(mentor.sections) ? mentor.sections : []);
+    setBranches(Array.isArray(mentor.branches) ? [...mentor.branches] : []);
+    setCourses(Array.isArray(mentor.courses) ? [...mentor.courses] : []);
+    setSemesters(Array.isArray(mentor.semesters) ? [...mentor.semesters] : []);
+    setSections(Array.isArray(mentor.sections) ? [...mentor.sections] : []);
   }, [mentor]);
   
   // Options for the multi-select fields
@@ -76,10 +76,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             email,
             department,
             contactNumber,
-            branches,
-            courses,
-            semesters,
-            sections,
+            branches: Array.isArray(branches) ? branches : [],
+            courses: Array.isArray(courses) ? courses : [],
+            semesters: Array.isArray(semesters) ? semesters : [],
+            sections: Array.isArray(sections) ? sections : [],
           };
         }
         return user;
@@ -96,10 +96,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
         email,
         department,
         contactNumber,
-        branches,
-        courses,
-        semesters,
-        sections,
+        branches: Array.isArray(branches) ? branches : [],
+        courses: Array.isArray(courses) ? courses : [],
+        semesters: Array.isArray(semesters) ? semesters : [],
+        sections: Array.isArray(sections) ? sections : [],
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
       
@@ -110,6 +110,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
       
       onClose();
     } catch (error) {
+      console.error("Error updating profile:", error);
       toast({
         title: "Error",
         description: "Failed to update profile. Please try again.",
@@ -127,6 +128,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
   // Helper function to handle MultiSelect changes
   const handleMultiSelectChange = (setter: React.Dispatch<React.SetStateAction<string[]>>) => 
     (options: Option[]) => {
+      if (!Array.isArray(options)) {
+        setter([]);
+        return;
+      }
       setter(options.map(item => item.value));
     };
   

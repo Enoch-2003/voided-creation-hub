@@ -36,6 +36,7 @@ export function MultiSelect({
   const safeSelected = Array.isArray(selected) ? selected : [];
 
   const handleUnselect = (option: Option) => {
+    if (!Array.isArray(safeSelected)) return;
     const filtered = safeSelected.filter((s) => s.value !== option.value)
     onChange(filtered)
   }
@@ -45,6 +46,7 @@ export function MultiSelect({
     if (input) {
       if (e.key === "Delete" || e.key === "Backspace") {
         if (input.value === "") {
+          if (!Array.isArray(safeSelected)) return;
           const newSelected = [...safeSelected]
           newSelected.pop()
           onChange(newSelected)
@@ -57,6 +59,12 @@ export function MultiSelect({
   }
 
   const handleSelect = (option: Option) => {
+    if (!Array.isArray(safeSelected)) {
+      onChange([option]);
+      setInputValue("");
+      return;
+    }
+    
     const isSelected = safeSelected.some((s) => s.value === option.value)
     if (isSelected) {
       handleUnselect(option)
@@ -66,9 +74,14 @@ export function MultiSelect({
     setInputValue("")
   }
 
-  const selectableOptions = options.filter(
-    (option) => !safeSelected.some((s) => s.value === option.value)
-  )
+  const selectableOptions = React.useMemo(() => {
+    if (!Array.isArray(options)) return [];
+    if (!Array.isArray(safeSelected)) return options;
+    
+    return options.filter(
+      (option) => !safeSelected.some((s) => s.value === option.value)
+    );
+  }, [options, safeSelected]);
 
   return (
     <div 
@@ -87,7 +100,7 @@ export function MultiSelect({
           inputRef.current?.focus()
         }}
       >
-        {safeSelected.map((option) => (
+        {Array.isArray(safeSelected) && safeSelected.map((option) => (
           <Badge
             key={option.value}
             variant="secondary"
@@ -119,7 +132,7 @@ export function MultiSelect({
             className={cn(
               "placeholder:text-muted-foreground flex-1 bg-transparent outline-none"
             )}
-            placeholder={safeSelected.length === 0 ? placeholder : undefined}
+            placeholder={Array.isArray(safeSelected) && safeSelected.length === 0 ? placeholder : undefined}
           />
         </CommandPrimitive>
       </div>
