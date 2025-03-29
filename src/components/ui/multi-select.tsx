@@ -32,8 +32,11 @@ export function MultiSelect({
   const [open, setOpen] = React.useState(false)
   const [inputValue, setInputValue] = React.useState("")
 
+  // Ensure selected is always an array, even if undefined is passed
+  const safeSelected = Array.isArray(selected) ? selected : [];
+
   const handleUnselect = (option: Option) => {
-    const filtered = selected.filter((s) => s.value !== option.value)
+    const filtered = safeSelected.filter((s) => s.value !== option.value)
     onChange(filtered)
   }
 
@@ -42,7 +45,7 @@ export function MultiSelect({
     if (input) {
       if (e.key === "Delete" || e.key === "Backspace") {
         if (input.value === "") {
-          const newSelected = [...selected]
+          const newSelected = [...safeSelected]
           newSelected.pop()
           onChange(newSelected)
         }
@@ -54,17 +57,17 @@ export function MultiSelect({
   }
 
   const handleSelect = (option: Option) => {
-    const isSelected = selected.some((s) => s.value === option.value)
+    const isSelected = safeSelected.some((s) => s.value === option.value)
     if (isSelected) {
       handleUnselect(option)
     } else {
-      onChange([...selected, option])
+      onChange([...safeSelected, option])
     }
     setInputValue("")
   }
 
   const selectableOptions = options.filter(
-    (option) => !selected.some((s) => s.value === option.value)
+    (option) => !safeSelected.some((s) => s.value === option.value)
   )
 
   return (
@@ -84,7 +87,7 @@ export function MultiSelect({
           inputRef.current?.focus()
         }}
       >
-        {selected.map((option) => (
+        {safeSelected.map((option) => (
           <Badge
             key={option.value}
             variant="secondary"
@@ -116,7 +119,7 @@ export function MultiSelect({
             className={cn(
               "placeholder:text-muted-foreground flex-1 bg-transparent outline-none"
             )}
-            placeholder={selected.length === 0 ? placeholder : undefined}
+            placeholder={safeSelected.length === 0 ? placeholder : undefined}
           />
         </CommandPrimitive>
       </div>

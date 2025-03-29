@@ -1,12 +1,12 @@
 
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Mentor } from "@/lib/types";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { MultiSelect, Option } from "@/components/ui/multi-select";
 
 interface MentorProfileEditProps {
   isOpen: boolean;
@@ -20,10 +20,24 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
   const [email, setEmail] = useState(mentor.email);
   const [department, setDepartment] = useState(mentor.department);
   const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
-  const [branches, setBranches] = useState<string[]>(mentor.branches || []);
-  const [courses, setCourses] = useState<string[]>(mentor.courses || []);
-  const [semesters, setSemesters] = useState<string[]>(mentor.semesters || []);
-  const [sections, setSections] = useState<string[]>(mentor.sections || []);
+  
+  // Ensure we have arrays even if they're undefined
+  const [branches, setBranches] = useState<string[]>(Array.isArray(mentor.branches) ? mentor.branches : []);
+  const [courses, setCourses] = useState<string[]>(Array.isArray(mentor.courses) ? mentor.courses : []);
+  const [semesters, setSemesters] = useState<string[]>(Array.isArray(mentor.semesters) ? mentor.semesters : []);
+  const [sections, setSections] = useState<string[]>(Array.isArray(mentor.sections) ? mentor.sections : []);
+  
+  // Update state when mentor prop changes
+  useEffect(() => {
+    setName(mentor.name);
+    setEmail(mentor.email);
+    setDepartment(mentor.department);
+    setContactNumber(mentor.contactNumber || "");
+    setBranches(Array.isArray(mentor.branches) ? mentor.branches : []);
+    setCourses(Array.isArray(mentor.courses) ? mentor.courses : []);
+    setSemesters(Array.isArray(mentor.semesters) ? mentor.semesters : []);
+    setSections(Array.isArray(mentor.sections) ? mentor.sections : []);
+  }, [mentor]);
   
   // Options for the multi-select fields
   const branchOptions = ["CSE", "IT", "ECE", "ME", "CE", "EEE", "BBA", "MBA", "BCA"].map(branch => ({
@@ -104,10 +118,16 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
     }
   };
   
-  // Helper function to handle string array updates for MultiSelect
+  // Helper function to safely map arrays for MultiSelect
+  const mapToOptions = (values: string[] | undefined): Option[] => {
+    if (!values || !Array.isArray(values)) return [];
+    return values.map(value => ({ label: value, value }));
+  };
+  
+  // Helper function to handle MultiSelect changes
   const handleMultiSelectChange = (setter: React.Dispatch<React.SetStateAction<string[]>>) => 
-    (value: { label: string; value: string }[]) => {
-      setter(value.map(item => item.value));
+    (options: Option[]) => {
+      setter(options.map(item => item.value));
     };
   
   return (
@@ -115,6 +135,9 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
+          <DialogDescription>
+            Make changes to your mentor profile here. Click save when you're done.
+          </DialogDescription>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,7 +187,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             <MultiSelect
               id="branches"
               options={branchOptions}
-              selected={branches.map(branch => ({ label: branch, value: branch }))}
+              selected={mapToOptions(branches)}
               onChange={handleMultiSelectChange(setBranches)}
               placeholder="Select branches"
             />
@@ -175,7 +198,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             <MultiSelect
               id="courses"
               options={courseOptions}
-              selected={courses.map(course => ({ label: course, value: course }))}
+              selected={mapToOptions(courses)}
               onChange={handleMultiSelectChange(setCourses)}
               placeholder="Select courses"
             />
@@ -186,7 +209,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             <MultiSelect
               id="semesters"
               options={semesterOptions}
-              selected={semesters.map(sem => ({ label: sem, value: sem }))}
+              selected={mapToOptions(semesters)}
               onChange={handleMultiSelectChange(setSemesters)}
               placeholder="Select semesters"
             />
@@ -197,7 +220,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             <MultiSelect
               id="sections"
               options={sectionOptions}
-              selected={sections.map(section => ({ label: section, value: section }))}
+              selected={mapToOptions(sections)}
               onChange={handleMultiSelectChange(setSections)}
               placeholder="Select sections"
             />
