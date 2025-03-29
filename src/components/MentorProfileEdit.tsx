@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Mentor } from "@/lib/types";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface MentorProfileEditProps {
   isOpen: boolean;
@@ -19,6 +20,31 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
   const [email, setEmail] = useState(mentor.email);
   const [department, setDepartment] = useState(mentor.department);
   const [contactNumber, setContactNumber] = useState(mentor.contactNumber || "");
+  const [branches, setBranches] = useState<string[]>(mentor.branches || []);
+  const [courses, setCourses] = useState<string[]>(mentor.courses || []);
+  const [semesters, setSemesters] = useState<string[]>(mentor.semesters || []);
+  const [sections, setSections] = useState<string[]>(mentor.sections || []);
+  
+  // Options for the multi-select fields
+  const branchOptions = ["CSE", "IT", "ECE", "ME", "CE", "EEE", "BBA", "MBA", "BCA"].map(branch => ({
+    label: branch,
+    value: branch
+  }));
+  
+  const courseOptions = ["BTech", "MTech", "BBA", "MBA", "BCA", "MCA"].map(course => ({
+    label: course,
+    value: course
+  }));
+  
+  const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8"].map(sem => ({
+    label: sem,
+    value: sem
+  }));
+  
+  const sectionOptions = ["A", "B", "C", "D", "E", "F"].map(section => ({
+    label: section,
+    value: section
+  }));
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +62,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
             email,
             department,
             contactNumber,
+            branches,
+            courses,
+            semesters,
+            sections,
           };
         }
         return user;
@@ -52,6 +82,10 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
         email,
         department,
         contactNumber,
+        branches,
+        courses,
+        semesters,
+        sections,
       };
       sessionStorage.setItem("user", JSON.stringify(updatedUser));
       
@@ -70,9 +104,15 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
     }
   };
   
+  // Helper function to handle string array updates for MultiSelect
+  const handleMultiSelectChange = (setter: React.Dispatch<React.SetStateAction<string[]>>) => 
+    (value: { label: string; value: string }[]) => {
+      setter(value.map(item => item.value));
+    };
+  
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
@@ -116,6 +156,50 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
               value={contactNumber}
               onChange={(e) => setContactNumber(e.target.value)}
               placeholder="Enter your contact number"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="branches">Branches</Label>
+            <MultiSelect
+              id="branches"
+              options={branchOptions}
+              selected={branches.map(branch => ({ label: branch, value: branch }))}
+              onChange={handleMultiSelectChange(setBranches)}
+              placeholder="Select branches"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="courses">Courses</Label>
+            <MultiSelect
+              id="courses"
+              options={courseOptions}
+              selected={courses.map(course => ({ label: course, value: course }))}
+              onChange={handleMultiSelectChange(setCourses)}
+              placeholder="Select courses"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="semesters">Semesters</Label>
+            <MultiSelect
+              id="semesters"
+              options={semesterOptions}
+              selected={semesters.map(sem => ({ label: sem, value: sem }))}
+              onChange={handleMultiSelectChange(setSemesters)}
+              placeholder="Select semesters"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="sections">Sections</Label>
+            <MultiSelect
+              id="sections"
+              options={sectionOptions}
+              selected={sections.map(section => ({ label: section, value: section }))}
+              onChange={handleMultiSelectChange(setSections)}
+              placeholder="Select sections"
             />
           </div>
           

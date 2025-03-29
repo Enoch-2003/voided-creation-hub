@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,13 @@ export default function OutpassVerify() {
   const [isFirstVisit, setIsFirstVisit] = useState(true);
   
   const navigateBack = () => {
-    if (window.history.length > 1) {
+    const returnPath = sessionStorage.getItem("return_from_verification");
+    
+    if (returnPath) {
+      // Clear the return path
+      sessionStorage.removeItem("return_from_verification");
+      navigate(returnPath);
+    } else if (window.history.length > 1) {
       window.history.back();
     } else {
       const currentUser = storageSync.getUser();

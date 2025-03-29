@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Outpass } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
@@ -189,12 +190,17 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     pdf.save(`AmiPass-${outpass.id}.pdf`);
   };
   
-  // Direct QR view handler that opens the verification page in a new tab
+  // Direct QR view handler that opens the verification page in the same tab
   const handleViewDirectQR = () => {
     if (verificationUrl) {
       // Clear any previous session flag for this outpass to ensure it shows the page first
       sessionStorage.removeItem(`outpass_viewed_${outpass.id}`);
-      window.open(verificationUrl, '_blank');
+      // Save return location for later
+      sessionStorage.setItem("return_from_verification", "/student");
+      // Navigate to the verification page directly (not in a new tab)
+      navigate(`/outpass/verify/${outpass.id}`);
+      // Close the QR dialog
+      onClose();
     }
   };
   

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -47,7 +46,7 @@ const studentFormSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email"),
   contactNumber: z.string().min(10, "Contact number should be at least 10 digits"),
-  guardianNumber: z.string().min(10, "Guardian number should be at least 10 digits"),
+  guardianEmail: z.string().email("Please enter a valid guardian email"),
   department: z.string().min(1, "Department is required"),
   course: z.string().min(1, "Course is required"),
   branch: z.string().min(1, "Branch is required"),
@@ -91,7 +90,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       name: "",
       email: "",
       contactNumber: "",
-      guardianNumber: "",
+      guardianEmail: "",
       department: "",
       course: "",
       branch: "",
@@ -159,7 +158,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         name: "",
         email: "",
         contactNumber: "",
-        guardianNumber: "",
+        guardianEmail: "",
         department: "",
         course: "",
         branch: "",
@@ -179,7 +178,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       name: student.name || "",
       email: student.email || "",
       contactNumber: student.contactNumber || "",
-      guardianNumber: student.guardianNumber || "",
+      guardianEmail: student.guardianEmail || "",
       department: student.department || "",
       course: student.course || "",
       branch: student.branch || "",
@@ -241,7 +240,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         name: data.name,
         email: data.email,
         contactNumber: data.contactNumber,
-        guardianNumber: data.guardianNumber,
+        guardianEmail: data.guardianEmail,
         department: data.department,
         course: data.course,
         branch: data.branch,
@@ -486,7 +485,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                         name: originalStudentData.name || "",
                         email: originalStudentData.email || "",
                         contactNumber: originalStudentData.contactNumber || "",
-                        guardianNumber: originalStudentData.guardianNumber || "",
+                        guardianEmail: originalStudentData.guardianEmail || "",
                         department: originalStudentData.department || "",
                         course: originalStudentData.course || "",
                         branch: originalStudentData.branch || "",
@@ -599,15 +598,16 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                       
                       <FormField
                         control={form.control}
-                        name="guardianNumber"
+                        name="guardianEmail"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Guardian's Contact Number</FormLabel>
+                            <FormLabel>Guardian's Email</FormLabel>
                             <FormControl>
                               <EnhancedInput 
                                 isEditing={isEditing} 
-                                placeholder="Enter guardian's number" 
-                                error={form.formState.errors.guardianNumber?.message}
+                                type="email"
+                                placeholder="Enter guardian's email" 
+                                error={form.formState.errors.guardianEmail?.message}
                                 {...field} 
                               />
                             </FormControl>
