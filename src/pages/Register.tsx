@@ -589,7 +589,7 @@ export default function Register() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="student-section">Section (in capital character)</Label>
+                    <Label htmlFor="student-section">Section (in uppercase)</Label>
                     <Input
                       id="student-section"
                       placeholder="e.g., A"
