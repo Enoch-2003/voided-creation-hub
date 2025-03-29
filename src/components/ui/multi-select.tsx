@@ -33,20 +33,20 @@ export function MultiSelect({
   const [inputValue, setInputValue] = React.useState("")
 
   // Ensure selected is always an array, even if undefined is passed
-  const safeSelected = Array.isArray(selected) ? selected : [];
+  const safeSelected = React.useMemo(() => {
+    return Array.isArray(selected) ? selected : [];
+  }, [selected]);
 
-  const handleUnselect = (option: Option) => {
-    if (!Array.isArray(safeSelected)) return;
+  const handleUnselect = React.useCallback((option: Option) => {
     const filtered = safeSelected.filter((s) => s.value !== option.value)
     onChange(filtered)
-  }
+  }, [safeSelected, onChange]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const input = inputRef.current
     if (input) {
       if (e.key === "Delete" || e.key === "Backspace") {
-        if (input.value === "") {
-          if (!Array.isArray(safeSelected)) return;
+        if (input.value === "" && safeSelected.length > 0) {
           const newSelected = [...safeSelected]
           newSelected.pop()
           onChange(newSelected)
@@ -56,15 +56,9 @@ export function MultiSelect({
         setOpen(false)
       }
     }
-  }
+  }, [safeSelected, onChange]);
 
-  const handleSelect = (option: Option) => {
-    if (!Array.isArray(safeSelected)) {
-      onChange([option]);
-      setInputValue("");
-      return;
-    }
-    
+  const handleSelect = React.useCallback((option: Option) => {
     const isSelected = safeSelected.some((s) => s.value === option.value)
     if (isSelected) {
       handleUnselect(option)
@@ -72,16 +66,18 @@ export function MultiSelect({
       onChange([...safeSelected, option])
     }
     setInputValue("")
-  }
+  }, [safeSelected, onChange, handleUnselect]);
+
+  // Safety check for options
+  const safeOptions = React.useMemo(() => {
+    return Array.isArray(options) ? options : [];
+  }, [options]);
 
   const selectableOptions = React.useMemo(() => {
-    if (!Array.isArray(options)) return [];
-    if (!Array.isArray(safeSelected)) return options;
-    
-    return options.filter(
+    return safeOptions.filter(
       (option) => !safeSelected.some((s) => s.value === option.value)
     );
-  }, [options, safeSelected]);
+  }, [safeOptions, safeSelected]);
 
   return (
     <div 
@@ -100,7 +96,7 @@ export function MultiSelect({
           inputRef.current?.focus()
         }}
       >
-        {Array.isArray(safeSelected) && safeSelected.map((option) => (
+        {safeSelected.map((option) => (
           <Badge
             key={option.value}
             variant="secondary"
@@ -132,7 +128,7 @@ export function MultiSelect({
             className={cn(
               "placeholder:text-muted-foreground flex-1 bg-transparent outline-none"
             )}
-            placeholder={Array.isArray(safeSelected) && safeSelected.length === 0 ? placeholder : undefined}
+            placeholder={safeSelected.length === 0 ? placeholder : undefined}
           />
         </CommandPrimitive>
       </div>
@@ -141,16 +137,17 @@ export function MultiSelect({
           <div className="absolute top-0 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
             <Command className="overflow-auto max-h-60">
               <CommandGroup>
-                {selectableOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    onSelect={() => handleSelect(option)}
-                    className="cursor-pointer"
-                  >
-                    {option.label}
-                  </CommandItem>
-                ))}
-                {selectableOptions.length === 0 && (
+                {selectableOptions.length > 0 ? (
+                  selectableOptions.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      onSelect={() => handleSelect(option)}
+                      className="cursor-pointer"
+                    >
+                      {option.label}
+                    </CommandItem>
+                  ))
+                ) : (
                   <div className="py-2 px-4 text-center text-sm text-muted-foreground">
                     No options available
                   </div>
