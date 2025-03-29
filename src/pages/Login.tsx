@@ -528,7 +528,7 @@ export default function Login() {
                   <Input
                     id="student-id"
                     type="text"
-                    placeholder="e.g., CS20220001"
+                    placeholder="e.g., A60205222013"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value)}
                     disabled={isLoading}
