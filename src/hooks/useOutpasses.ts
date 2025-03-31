@@ -1,9 +1,11 @@
 
 import { useState, useEffect } from 'react';
-import { Outpass, Student, Mentor } from '@/lib/types';
+import { Outpass, Student, Mentor, User, isStudent, isMentor } from '@/lib/types';
 import { useOutpassSubscription } from './useOutpassSubscription';
 import { useUserProfile } from './useUserProfile';
 import { useOutpassOperations } from './useOutpassOperations';
+import { validateOutpass } from '@/lib/validation';
+import { handleApiError } from '@/lib/errorHandler';
 
 /**
  * Main hook that combines subscription, user profile, and operations
@@ -18,18 +20,20 @@ export function useOutpasses() {
   const filteredOutpasses = allOutpasses.filter(outpass => {
     if (!currentUser) return false;
     
-    if (userRole === 'student') {
-      return outpass.studentId === currentUser.id;
-    } else if (userRole === 'mentor') {
-      const mentor = currentUser as Mentor;
+    // Validate each outpass to ensure type safety
+    const validatedOutpass = validateOutpass(outpass);
+    if (!validatedOutpass) return false;
+    
+    if (isStudent(currentUser)) {
+      return validatedOutpass.studentId === currentUser.id;
+    } else if (isMentor(currentUser)) {
       // Show outpasses for sections that the mentor manages
-      return outpass.studentSection && mentor.sections.includes(outpass.studentSection);
-    } else if (userRole === 'admin') {
+      return validatedOutpass.studentSection && 
+             currentUser.sections?.includes(validatedOutpass.studentSection);
+    } else {
       // Admin can see all outpasses
       return true;
     }
-    
-    return false;
   });
 
   return {

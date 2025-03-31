@@ -71,6 +71,20 @@ function App() {
     navigate("/login");
   };
 
+  const handleLogin = (userId: string, userRole: string) => {
+    setIsAuthenticated(true);
+    setUserRole(userRole);
+    
+    // Redirect based on user role
+    if (userRole === "student") {
+      navigate('/student');
+    } else if (userRole === "mentor") {
+      navigate('/mentor');
+    } else if (userRole === "admin") {
+      navigate('/admin');
+    }
+  };
+
   return (
     <Routes>
       <Route path="/" element={<Index />} />
@@ -88,7 +102,7 @@ function App() {
               <Navigate to="/not-found" />
             )
           ) : (
-            <Login />
+            <Login onLogin={handleLogin} />
           )
         }
       />

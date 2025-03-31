@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +8,13 @@ import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserRole } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 
-interface LoginProps {
+// Define specific login props interface
+export interface LoginProps {
   onLogin: (userId: string, userRole: string) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [activeTab, setActiveTab] = useState<UserRole | "admin">("student");
+  const [activeTab, setActiveTab] = useState<"student" | "mentor" | "admin">("student");
   const [isLoading, setIsLoading] = useState(false);
   
   // Student login state
@@ -39,7 +39,7 @@ export default function Login({ onLogin }: LoginProps) {
       // Select the appropriate credentials based on active tab
       let email = "";
       let password = "";
-      let tableName: "students" | "mentors" | "admins";
+      let tableName = "";
       let usernameField = "email";
       
       if (activeTab === "student") {
@@ -96,15 +96,6 @@ export default function Login({ onLogin }: LoginProps) {
       
       // Call the login callback
       onLogin(data.id, activeTab);
-      
-      // Navigate to appropriate dashboard based on role
-      if (activeTab === "student") {
-        navigate("/student/dashboard");
-      } else if (activeTab === "mentor") {
-        navigate("/mentor/dashboard");
-      } else if (activeTab === "admin") {
-        navigate("/admin/dashboard");
-      }
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Login failed. Please try again.");
@@ -131,7 +122,7 @@ export default function Login({ onLogin }: LoginProps) {
         </div>
 
         <div className="bg-white shadow-lg rounded-lg p-6">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as UserRole | "admin")}>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "student" | "mentor" | "admin")}>
             <TabsList className="grid grid-cols-3 mb-6">
               <TabsTrigger value="student">Student</TabsTrigger>
               <TabsTrigger value="mentor">Mentor</TabsTrigger>

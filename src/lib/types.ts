@@ -126,3 +126,128 @@ export function dbToOutpassFormat(outpassDb: OutpassDB): Outpass {
     serialCode: outpassDb.serial_code
   };
 }
+
+// Helper function to type-guard user objects
+export function isStudent(user: User | Student | Mentor | Admin): user is Student {
+  return user.role === 'student';
+}
+
+export function isMentor(user: User | Student | Mentor | Admin): user is Mentor {
+  return user.role === 'mentor';
+}
+
+export function isAdmin(user: User | Student | Mentor | Admin): user is Admin {
+  return user.role === 'admin';
+}
+
+// Database interface types for proper type checking when interacting with Supabase
+export interface StudentDB {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  enrollment_number: string;
+  contact_number?: string;
+  guardian_email?: string;
+  department?: string;
+  course?: string;
+  branch?: string;
+  semester?: string;
+  section?: string;
+  created_at?: string;
+}
+
+export interface MentorDB {
+  id: string;
+  name: string;
+  email: string;
+  password: string;
+  role: UserRole;
+  contact_number?: string;
+  department?: string;
+  branches?: string[];
+  courses?: string[];
+  semesters?: string[];
+  sections?: string[];
+  created_at?: string;
+}
+
+export interface AdminDB {
+  id: string;
+  name: string;
+  username: string;
+  email?: string;
+  password: string;
+  role: UserRole;
+  created_at?: string;
+}
+
+// Helper functions to convert between frontend and DB models for users
+export function studentToDbFormat(student: Student): StudentDB {
+  return {
+    id: student.id,
+    name: student.name,
+    email: student.email,
+    password: student.password || '',
+    role: student.role,
+    enrollment_number: student.enrollmentNumber,
+    contact_number: student.contactNumber,
+    guardian_email: student.guardianEmail,
+    department: student.department,
+    course: student.course,
+    branch: student.branch,
+    semester: student.semester,
+    section: student.section
+  };
+}
+
+export function dbToStudentFormat(studentDb: StudentDB): Student {
+  return {
+    id: studentDb.id,
+    name: studentDb.name,
+    email: studentDb.email,
+    role: 'student',
+    password: studentDb.password,
+    enrollmentNumber: studentDb.enrollment_number,
+    contactNumber: studentDb.contact_number,
+    guardianEmail: studentDb.guardian_email,
+    department: studentDb.department,
+    course: studentDb.course,
+    branch: studentDb.branch,
+    semester: studentDb.semester,
+    section: studentDb.section
+  };
+}
+
+export function mentorToDbFormat(mentor: Mentor): MentorDB {
+  return {
+    id: mentor.id,
+    name: mentor.name,
+    email: mentor.email,
+    password: mentor.password || '',
+    role: mentor.role,
+    contact_number: mentor.contactNumber,
+    department: mentor.department,
+    branches: mentor.branches,
+    courses: mentor.courses,
+    semesters: mentor.semesters,
+    sections: mentor.sections
+  };
+}
+
+export function dbToMentorFormat(mentorDb: MentorDB): Mentor {
+  return {
+    id: mentorDb.id,
+    name: mentorDb.name,
+    email: mentorDb.email,
+    role: 'mentor',
+    password: mentorDb.password,
+    contactNumber: mentorDb.contact_number,
+    department: mentorDb.department,
+    branches: mentorDb.branches,
+    courses: mentorDb.courses,
+    semesters: mentorDb.semesters,
+    sections: mentorDb.sections
+  };
+}
