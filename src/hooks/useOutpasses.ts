@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Outpass, Student, Mentor, UserRole } from '@/lib/types';
 import storageSync from '@/lib/storageSync';
@@ -215,7 +214,7 @@ export function useOutpasses() {
       updatedUser.semester = String(updatedUser.semester);
     }
     
-    // Set local state
+    // Set local state immediately for real-time updates
     setCurrentUser(updatedUser);
     
     // Update users array in localStorage
@@ -248,16 +247,20 @@ export function useOutpasses() {
     const safeUser = { ...updatedUser };
     delete (safeUser as any).password;
     
-    // Update session storage for this tab
+    // Update session storage for this tab - for immediate effect
     if (updatedUser.id === storageSync.getUser()?.id) {
       sessionStorage.setItem('user', JSON.stringify(safeUser));
     }
     
     // Notify other tabs about the user update via broadcast channel
     if (typeof BroadcastChannel !== 'undefined') {
-      const userChangeChannel = new BroadcastChannel('amipass_user_changed');
-      userChangeChannel.postMessage({ userId: updatedUser.id, forceUpdate: true });
-      userChangeChannel.close();
+      try {
+        const userChangeChannel = new BroadcastChannel('amipass_user_changed');
+        userChangeChannel.postMessage({ userId: updatedUser.id, forceUpdate: true });
+        userChangeChannel.close();
+      } catch (error) {
+        console.error("Error with BroadcastChannel:", error);
+      }
     }
     
     return safeUser;

@@ -11,9 +11,10 @@ interface MentorProfileEditProps {
   isOpen: boolean;
   onClose: () => void;
   mentor: Mentor;
+  onProfileUpdate?: (updatedMentor: Mentor) => void; // New prop to handle updates
 }
 
-export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorProfileEditProps) {
+export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUpdate }: MentorProfileEditProps) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -61,6 +62,19 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
       const semesters = stringToArray(semestersText);
       const sections = stringToArray(sectionsText);
       
+      // Create updated mentor object
+      const updatedMentor = {
+        ...mentor,
+        name,
+        email,
+        department,
+        contactNumber,
+        branches,
+        courses,
+        semesters,
+        sections,
+      };
+      
       // Update the mentor's information
       const updatedUsers = users.map((user: any) => {
         if (user.id === mentor?.id) {
@@ -99,6 +113,11 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
         sessionStorage.setItem("user", JSON.stringify(updatedUser));
       }
       
+      // Call the onProfileUpdate callback with the updated mentor data
+      if (onProfileUpdate) {
+        onProfileUpdate(updatedMentor);
+      }
+      
       toast({
         title: "Success",
         description: "Your profile has been updated.",
@@ -117,7 +136,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor }: MentorPro
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto my-8" aria-describedby="profile-edit-description">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto my-4" aria-describedby="profile-edit-description">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
           <DialogDescription id="profile-edit-description">

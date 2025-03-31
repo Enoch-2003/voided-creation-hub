@@ -31,6 +31,11 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const approvedOutpasses = filteredOutpasses.filter(o => o.status === "approved");
   const deniedOutpasses = filteredOutpasses.filter(o => o.status === "denied");
   
+  // Handle profile updates
+  const handleProfileUpdate = (updatedMentor: Mentor) => {
+    setCurrentUser(updatedMentor);
+  };
+
   const handleApprove = (id: string) => {
     const outpassToUpdate = outpasses.find(o => o.id === id);
     
@@ -360,6 +365,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
           isOpen={isEditProfileOpen}
           onClose={() => setIsEditProfileOpen(false)}
           mentor={currentUser}
+          onProfileUpdate={handleProfileUpdate}
         />
       )}
     </div>
