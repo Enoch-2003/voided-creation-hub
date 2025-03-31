@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
 import { handleApiError } from '@/lib/errorHandler';
-import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Custom hook for subscribing to outpass updates in real-time
@@ -12,9 +11,8 @@ export function useOutpassSubscription() {
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Generate a unique ID for this tab/session
-  // This helps to ensure we don't get duplicate events across tabs
-  const [tabId] = useState(() => uuidv4());
+  // Generate a unique ID for this tab/session using crypto instead of uuid
+  const [tabId] = useState(() => crypto.randomUUID());
 
   // Fetch initial outpasses and set up real-time subscription
   useEffect(() => {
@@ -79,9 +77,12 @@ export function useOutpassSubscription() {
         },
         (payload) => {
           // Delete the outpass from state
-          setOutpasses(prev => 
-            prev.filter(outpass => outpass.id !== payload.old.id)
-          );
+          const oldId = payload.old?.id;
+          if (oldId) {
+            setOutpasses(prev => 
+              prev.filter(outpass => outpass.id !== oldId)
+            );
+          }
         })
       .subscribe();
 

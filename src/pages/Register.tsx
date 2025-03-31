@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,12 +93,6 @@ export default function Register() {
     },
   };
   
-  // Semester options
-  const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8"];
-  
-  // Section options
-  const sectionOptions = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-  
   // Handle student registration
   const handleStudentRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +103,7 @@ export default function Register() {
       // Validate form fields
       if (!studentName || !studentEnrollment || !studentEmail || !studentPassword) {
         toast.error("Please fill all required fields");
+        setIsLoading(false);
         return;
       }
       
@@ -123,6 +117,7 @@ export default function Register() {
       
       if (existingUsers && existingUsers.length > 0) {
         toast.error("A student with this email or enrollment number already exists");
+        setIsLoading(false);
         return;
       }
       
@@ -171,6 +166,7 @@ export default function Register() {
       // Validate form fields
       if (!mentorName || !mentorEmail || !mentorPassword) {
         toast.error("Please fill all required fields");
+        setIsLoading(false);
         return;
       }
       
@@ -184,6 +180,7 @@ export default function Register() {
       
       if (existingUsers && existingUsers.length > 0) {
         toast.error("A mentor with this email already exists");
+        setIsLoading(false);
         return;
       }
       
@@ -398,34 +395,24 @@ export default function Register() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="studentSemester">Semester</Label>
-                    <Select value={studentSemester} onValueChange={setStudentSemester} disabled={isLoading}>
-                      <SelectTrigger id="studentSemester">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {semesterOptions.map((sem) => (
-                          <SelectItem key={sem} value={sem}>
-                            {sem}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="studentSemester"
+                      placeholder="Enter your semester"
+                      value={studentSemester}
+                      onChange={(e) => setStudentSemester(e.target.value)}
+                      disabled={isLoading}
+                    />
                   </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="studentSection">Section</Label>
-                    <Select value={studentSection} onValueChange={setStudentSection} disabled={isLoading}>
-                      <SelectTrigger id="studentSection">
-                        <SelectValue placeholder="Select" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectionOptions.map((sec) => (
-                          <SelectItem key={sec} value={sec}>
-                            {sec}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      id="studentSection"
+                      placeholder="Enter your section"
+                      value={studentSection}
+                      onChange={(e) => setStudentSection(e.target.value)}
+                      disabled={isLoading}
+                    />
                   </div>
                 </div>
                 
@@ -560,45 +547,29 @@ export default function Register() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Semesters (Select multiple)</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {semesterOptions.map((sem) => (
-                      <div key={sem} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`semester-${sem}`}
-                          checked={selectedSemesters.includes(sem)}
-                          onChange={() => toggleSelection(sem, selectedSemesters, setSelectedSemesters)}
-                          disabled={isLoading}
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <label htmlFor={`semester-${sem}`} className="text-sm">
-                          {sem}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <Label>Semesters (Enter comma-separated values)</Label>
+                  <Input
+                    placeholder="e.g., 1,2,3,4"
+                    value={selectedSemesters.join(',')}
+                    onChange={(e) => {
+                      const values = e.target.value.split(',').map(v => v.trim()).filter(v => v);
+                      setSelectedSemesters(values);
+                    }}
+                    disabled={isLoading}
+                  />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Sections (Select multiple)</Label>
-                  <div className="grid grid-cols-5 gap-2">
-                    {sectionOptions.map((sec) => (
-                      <div key={sec} className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id={`section-${sec}`}
-                          checked={selectedSections.includes(sec)}
-                          onChange={() => toggleSelection(sec, selectedSections, setSelectedSections)}
-                          disabled={isLoading}
-                          className="rounded border-gray-300 text-primary focus:ring-primary"
-                        />
-                        <label htmlFor={`section-${sec}`} className="text-sm">
-                          {sec}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <Label>Sections (Enter comma-separated values)</Label>
+                  <Input
+                    placeholder="e.g., A,B,C,D"
+                    value={selectedSections.join(',')}
+                    onChange={(e) => {
+                      const values = e.target.value.split(',').map(v => v.trim()).filter(v => v);
+                      setSelectedSections(values);
+                    }}
+                    disabled={isLoading}
+                  />
                 </div>
                 
                 <div className="pt-4 flex flex-col gap-4">

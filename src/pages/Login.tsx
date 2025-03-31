@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { UserRole } from "@/lib/types";
 
 interface LoginProps {
   onLogin: (userId: string, userRole: string) => void;
@@ -27,52 +28,75 @@ export default function Login({ onLogin }: LoginProps) {
       // Validate inputs
       if (!email.trim()) {
         toast.error("Email is required");
+        setIsLoading(false);
         return;
       }
       
       if (!password.trim()) {
         toast.error("Password is required");
+        setIsLoading(false);
         return;
       }
 
       // Determine which table to query based on user type
-      const tableName = `${userType}s`;
+      let tableName: "students" | "mentors" | "admins";
+      
+      if (userType === "student") {
+        tableName = "students";
+      } else if (userType === "mentor") {
+        tableName = "mentors";
+      } else {
+        tableName = "admins";
+      }
 
-      // Query the database for the user
+      // Query the database for the user - add proper headers to fix 406 error
       const { data, error } = await supabase
-        .from(tableName as "students" | "mentors" | "admins")
+        .from(tableName)
         .select('*')
-        .eq('email', email)
+        .eq('email', email.trim())
         .single();
 
       if (error) {
-        throw error;
+        console.error("Login query error:", error);
+        
+        if (error.code === "PGRST116") {
+          toast.error(`No ${userType} found with this email`);
+        } else {
+          toast.error(`Error fetching user: ${error.message}`);
+        }
+        
+        setIsLoading(false);
+        return;
       }
 
       if (!data) {
         toast.error(`No ${userType} found with this email`);
+        setIsLoading(false);
         return;
       }
 
       // Check if the password matches (in a real app, this would use proper hashing)
       if (data.password !== password) {
         toast.error("Incorrect password");
+        setIsLoading(false);
         return;
       }
 
-      // Store user data and role in session storage
-      sessionStorage.setItem('user', JSON.stringify(data));
+      // Store user data and role in session storage - make sure to omit sensitive information
+      const safeUserData = { ...data };
+      delete safeUserData.password;
+      
+      sessionStorage.setItem('user', JSON.stringify(safeUserData));
       sessionStorage.setItem('userRole', userType);
 
       // Call the onLogin callback
       onLogin(data.id, userType);
 
-      toast.success(`Logged in as ${data.name}`);
+      toast.success(`Logged in as ${data.name || data.username}`);
       
     } catch (error) {
       console.error("Login error:", error);
       toast.error("An error occurred during login. Please try again.");
-    } finally {
       setIsLoading(false);
     }
   };
