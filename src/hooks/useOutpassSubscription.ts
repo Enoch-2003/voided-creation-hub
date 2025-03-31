@@ -51,7 +51,8 @@ export function useOutpassSubscription() {
         },
         (payload) => {
           // Ensure the payload data follows the OutpassDB structure
-          const newOutpass = dbToOutpassFormat(payload.new as OutpassDB);
+          const payloadData = payload.new as OutpassDB;
+          const newOutpass = dbToOutpassFormat(payloadData);
           setOutpasses(prev => [newOutpass, ...prev]);
         })
       .on('postgres_changes', 
@@ -62,7 +63,8 @@ export function useOutpassSubscription() {
         },
         (payload) => {
           // Ensure the payload data follows the OutpassDB structure
-          const updatedOutpass = dbToOutpassFormat(payload.new as OutpassDB);
+          const payloadData = payload.new as OutpassDB;
+          const updatedOutpass = dbToOutpassFormat(payloadData);
           setOutpasses(prev => 
             prev.map(outpass => 
               outpass.id === updatedOutpass.id ? updatedOutpass : outpass

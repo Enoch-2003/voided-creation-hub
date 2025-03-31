@@ -1,262 +1,165 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserRole } from "@/lib/types";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { handleApiError } from "@/lib/errorHandler";
 
-// Define specific login props interface
-export interface LoginProps {
+interface LoginProps {
   onLogin: (userId: string, userRole: string) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const [activeTab, setActiveTab] = useState<"student" | "mentor" | "admin">("student");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [userType, setUserType] = useState<"student" | "mentor" | "admin">("student");
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Student login state
-  const [studentEmail, setStudentEmail] = useState("");
-  const [studentPassword, setStudentPassword] = useState("");
-  
-  // Mentor login state
-  const [mentorEmail, setMentorEmail] = useState("");
-  const [mentorPassword, setMentorPassword] = useState("");
-  
-  // Admin login state
-  const [adminUsername, setAdminUsername] = useState("");
-  const [adminPassword, setAdminPassword] = useState("");
-  
   const navigate = useNavigate();
-  
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
-      // Select the appropriate credentials based on active tab
-      let email = "";
-      let password = "";
-      let tableName: "students" | "mentors" | "admins";
-      let usernameField = "email";
-      
-      if (activeTab === "student") {
-        email = studentEmail;
-        password = studentPassword;
-        tableName = "students";
-      } else if (activeTab === "mentor") {
-        email = mentorEmail;
-        password = mentorPassword;
-        tableName = "mentors";
-      } else if (activeTab === "admin") {
-        email = adminUsername;
-        password = adminPassword;
-        tableName = "admins";
-        usernameField = "username";
-      } else {
-        throw new Error("Invalid user role");
-      }
-      
-      // Check if inputs are valid
-      if (!email || !password) {
-        toast.error("Please fill all required fields");
-        setIsLoading(false);
+      // Validate inputs
+      if (!email.trim()) {
+        toast.error("Email is required");
         return;
       }
       
-      // Query the database for user credentials
+      if (!password.trim()) {
+        toast.error("Password is required");
+        return;
+      }
+
+      // Determine which table to query based on user type
+      const tableName = `${userType}s`;
+
+      // Query the database for the user
       const { data, error } = await supabase
-        .from(tableName)
+        .from(tableName as "students" | "mentors" | "admins")
         .select('*')
-        .eq(usernameField, email)
+        .eq('email', email)
         .single();
-      
-      if (error || !data) {
-        toast.error(`Login failed: User not found`);
-        setIsLoading(false);
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data) {
+        toast.error(`No ${userType} found with this email`);
         return;
       }
-      
-      // Check if password matches - data must have password property since we're querying user tables
-      if ('password' in data && data.password !== password) {
+
+      // Check if the password matches (in a real app, this would use proper hashing)
+      if (data.password !== password) {
         toast.error("Incorrect password");
-        setIsLoading(false);
         return;
       }
-      
-      // Login successful
-      if ('name' in data) {
-        toast.success(`Welcome back, ${data.name}`);
-      } else {
-        toast.success(`Login successful`);
-      }
-      
-      // Store user data in session storage
+
+      // Store user data and role in session storage
       sessionStorage.setItem('user', JSON.stringify(data));
-      sessionStorage.setItem('userId', data.id);
-      sessionStorage.setItem('userRole', activeTab);
+      sessionStorage.setItem('userRole', userType);
+
+      // Call the onLogin callback
+      onLogin(data.id, userType);
+
+      toast.success(`Logged in as ${data.name}`);
       
-      // Call the login callback
-      onLogin(data.id, activeTab);
     } catch (error) {
-      handleApiError(error, "Login");
+      console.error("Login error:", error);
+      toast.error("An error occurred during login. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="mx-auto w-24 h-24 mb-4">
-            <img
-              src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-              alt="Amity University"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <h1 className="text-2xl font-bold font-display">
-            Amity University, Madhya Pradesh
-          </h1>
-          <p className="text-gray-500 mt-1">Outpass Management System</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            Sign in to AmiPass
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Your digital outpass management system
+          </p>
         </div>
-
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "student" | "mentor" | "admin")}>
-            <TabsList className="grid grid-cols-3 mb-6">
-              <TabsTrigger value="student">Student</TabsTrigger>
-              <TabsTrigger value="mentor">Mentor</TabsTrigger>
-              <TabsTrigger value="admin">Admin</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="student">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="studentEmail" className="block text-sm font-medium">
-                    Email
-                  </label>
-                  <Input
-                    id="studentEmail"
-                    type="email"
-                    placeholder="student@example.com"
-                    value={studentEmail}
-                    onChange={(e) => setStudentEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="studentPassword" className="block text-sm font-medium">
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Login</CardTitle>
+            <CardDescription>
+              Enter your credentials to access your account
+            </CardDescription>
+          </CardHeader>
+          
+          <form onSubmit={handleLogin}>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="userType">
+                  I am a
+                </label>
+                <Select value={userType} onValueChange={(value: "student" | "mentor" | "admin") => setUserType(value)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select user type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Student</SelectItem>
+                    <SelectItem value="mentor">Mentor</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="email">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70" htmlFor="password">
                     Password
                   </label>
-                  <Input
-                    id="studentPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={studentPassword}
-                    onChange={(e) => setStudentPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
                 </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-                
-                <p className="text-sm text-center text-gray-500 mt-4">
-                  Don't have an account?{" "}
-                  <a href="/register" className="text-blue-600 hover:underline">
-                    Register
-                  </a>
-                </p>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="mentor">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="mentorEmail" className="block text-sm font-medium">
-                    Email
-                  </label>
-                  <Input
-                    id="mentorEmail"
-                    type="email"
-                    placeholder="mentor@example.com"
-                    value={mentorEmail}
-                    onChange={(e) => setMentorEmail(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="mentorPassword" className="block text-sm font-medium">
-                    Password
-                  </label>
-                  <Input
-                    id="mentorPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={mentorPassword}
-                    onChange={(e) => setMentorPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-                
-                <p className="text-sm text-center text-gray-500 mt-4">
-                  Don't have an account?{" "}
-                  <a href="/register" className="text-blue-600 hover:underline">
-                    Register
-                  </a>
-                </p>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="admin">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="adminUsername" className="block text-sm font-medium">
-                    Username
-                  </label>
-                  <Input
-                    id="adminUsername"
-                    type="text"
-                    placeholder="admin"
-                    value={adminUsername}
-                    onChange={(e) => setAdminUsername(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label htmlFor="adminPassword" className="block text-sm font-medium">
-                    Password
-                  </label>
-                  <Input
-                    id="adminPassword"
-                    type="password"
-                    placeholder="••••••••"
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    disabled={isLoading}
-                  />
-                </div>
-
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? "Logging in..." : "Login"}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+            </CardContent>
+            
+            <CardFooter className="flex flex-col space-y-4">
+              <Button className="w-full" type="submit" disabled={isLoading}>
+                {isLoading ? "Signing In..." : "Sign In"}
+              </Button>
+              
+              <div className="text-center text-sm">
+                Don't have an account?{" "}
+                <Link to="/register" className="text-blue-600 hover:text-blue-800">
+                  Register here
+                </Link>
+              </div>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
     </div>
   );
