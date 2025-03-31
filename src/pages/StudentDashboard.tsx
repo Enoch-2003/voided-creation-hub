@@ -34,9 +34,10 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
     }
   }, [user]);
 
-  // Use the currentUser from useOutpasses if available, otherwise fall back to the props user
-  // This ensures we always have the most up-to-date user data
-  const displayUser = currentUser || user;
+  // Get the student user, ensuring the type cast is valid
+  const displayUser = currentUser && currentUser.role === 'student' 
+    ? currentUser as Student 
+    : user;
 
   // Get active outpasses - only pending or approved but not scanned yet
   const activeOutpasses = outpasses.filter(
@@ -203,37 +204,37 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-medium">{displayUser.department}</span>
+                    <span className="font-medium">{displayUser.department || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Course:</span>
-                    <span className="font-medium">{displayUser.course}</span>
+                    <span className="font-medium">{displayUser.course || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Branch:</span>
-                    <span className="font-medium">{displayUser.branch}</span>
+                    <span className="font-medium">{displayUser.branch || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Semester:</span>
-                    <span className="font-medium">{displayUser.semester}</span>
+                    <span className="font-medium">{displayUser.semester || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Section:</span>
-                    <span className="font-medium">{displayUser.section}</span>
+                    <span className="font-medium">{displayUser.section || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Contact:</span>
-                    <span className="font-medium">{displayUser.contactNumber}</span>
+                    <span className="font-medium">{displayUser.contactNumber || 'N/A'}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Guardian:</span>
-                    <span className="font-medium">{displayUser.guardianNumber}</span>
+                    <span className="font-medium">{displayUser.guardianEmail || 'N/A'}</span>
                   </div>
                 </div>
               </CardContent>

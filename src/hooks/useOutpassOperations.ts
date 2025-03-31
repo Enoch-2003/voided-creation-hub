@@ -1,6 +1,6 @@
 
 import { useCallback } from 'react';
-import { Outpass } from '@/lib/types';
+import { Outpass, outpassToDbFormat } from '@/lib/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -15,24 +15,7 @@ export function useOutpassOperations(tabId: string) {
       updatedOutpass.updatedAt = new Date().toISOString();
       
       // Convert camelCase to snake_case for database
-      const dbOutpass = {
-        id: updatedOutpass.id,
-        student_id: updatedOutpass.studentId,
-        student_name: updatedOutpass.studentName,
-        enrollment_number: updatedOutpass.enrollmentNumber,
-        exit_date_time: updatedOutpass.exitDateTime,
-        reason: updatedOutpass.reason,
-        status: updatedOutpass.status,
-        mentor_id: updatedOutpass.mentorId,
-        mentor_name: updatedOutpass.mentorName,
-        qr_code: updatedOutpass.qrCode,
-        created_at: updatedOutpass.createdAt,
-        updated_at: updatedOutpass.updatedAt,
-        scan_timestamp: updatedOutpass.scanTimestamp,
-        deny_reason: updatedOutpass.denyReason,
-        student_section: updatedOutpass.studentSection,
-        serial_code: updatedOutpass.serialCode
-      };
+      const dbOutpass = outpassToDbFormat(updatedOutpass);
       
       const { error } = await supabase
         .from('outpasses')
@@ -60,24 +43,7 @@ export function useOutpassOperations(tabId: string) {
   const addOutpass = useCallback(async (newOutpass: Outpass) => {
     try {
       // Convert camelCase to snake_case for database
-      const dbOutpass = {
-        id: newOutpass.id,
-        student_id: newOutpass.studentId,
-        student_name: newOutpass.studentName,
-        enrollment_number: newOutpass.enrollmentNumber,
-        exit_date_time: newOutpass.exitDateTime,
-        reason: newOutpass.reason,
-        status: newOutpass.status,
-        mentor_id: newOutpass.mentorId,
-        mentor_name: newOutpass.mentorName,
-        qr_code: newOutpass.qrCode,
-        created_at: newOutpass.createdAt,
-        updated_at: newOutpass.updatedAt,
-        scan_timestamp: newOutpass.scanTimestamp,
-        deny_reason: newOutpass.denyReason,
-        student_section: newOutpass.studentSection,
-        serial_code: newOutpass.serialCode
-      };
+      const dbOutpass = outpassToDbFormat(newOutpass);
       
       const { error } = await supabase
         .from('outpasses')

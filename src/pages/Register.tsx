@@ -1,824 +1,623 @@
+
 import { useState, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useForm, SubmitHandler } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { Navbar } from "@/components/Navbar";
-import { UserRole } from "@/lib/types";
-import { Loader2, ChevronLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-
-const studentRegistrationFormSchema = z.object({
-  firstName: z.string().min(2, {
-    message: "First name must be at least 2 characters.",
-  }),
-  lastName: z.string().min(2, {
-    message: "Last name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters.",
-  }),
-  confirmPassword: z.string(),
-  enrollmentNumber: z.string().regex(/^A\d{8}$/, {
-    message: "Enrollment number must start with 'A' followed by 8 digits.",
-  }),
-  phone: z.string().regex(/^\d{10}$/, {
-    message: "Phone number must be a 10-digit number.",
-  }),
-  guardianEmail: z.string().email({
-    message: "Please enter a valid guardian email address.",
-  }),
-  college: z.string().min(2, {
-    message: "Please select a college",
-  }),
-  course: z.string().min(2, {
-    message: "Please select a course",
-  }),
-  branch: z.string().min(2, {
-    message: "Please select a branch",
-  }),
-  semester: z.number().min(1, {
-    message: "Please select a semester",
-  }),
-  section: z.string().min(1, {
-    message: "Please select a section",
-  }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
-
-const mentorRegistrationFormSchema = z.object({
-  firstName: z.string().min(2, {
-    message: "First name must be at least 2 characters.",
-  }),
-  lastName: z.string().min(2, {
-    message: "Last name must be at least 2 characters.",
-  }),
-  email: z.string().email({
-    message: "Please enter a valid email address.",
-  }),
-  password: z.string().min(6, {
-    message: "Password must be at least 6 characters.",
-  }),
-  confirmPassword: z.string(),
-  phone: z.string().regex(/^\d{10}$/, {
-    message: "Phone number must be a 10-digit number.",
-  }),
-  department: z.string().min(2, {
-    message: "Please select a department",
-  }),
-  branch: z.string().min(2, {
-    message: "Please select a branch",
-  }),
-  course: z.string().min(2, {
-    message: "Please select a course",
-  }),
-  semester: z.string().min(1, {
-    message: "Please select a semester",
-  }),
-  sections: z.string().array().nonempty({
-    message: "Please select at least one section",
-  }),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
-
-type StudentRegistrationFormData = z.infer<typeof studentRegistrationFormSchema>;
-type MentorRegistrationFormData = z.infer<typeof mentorRegistrationFormSchema>;
+import { UserRole } from "@/lib/types";
 
 export default function Register() {
-  const navigate = useNavigate();
-  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<"student" | "mentor">("student");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthSuccess, setIsAuthSuccess] = useState(false);
-
-  const {
-    register: registerStudent,
-    handleSubmit: handleStudentSubmit,
-    formState: { errors: studentErrors },
-  } = useForm<StudentRegistrationFormData>({
-    resolver: zodResolver(studentRegistrationFormSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      enrollmentNumber: "",
-      phone: "",
-      guardianEmail: "",
-      college: "",
-      course: "",
-      branch: "",
-      semester: 1,
-      section: "",
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const navigate = useNavigate();
+  
+  // Student registration form state
+  const [studentName, setStudentName] = useState("");
+  const [studentEnrollment, setStudentEnrollment] = useState("");
+  const [studentEmail, setStudentEmail] = useState("");
+  const [studentPassword, setStudentPassword] = useState("");
+  const [studentContactNumber, setStudentContactNumber] = useState("");
+  const [studentGuardianEmail, setStudentGuardianEmail] = useState("");
+  const [studentDepartment, setStudentDepartment] = useState("");
+  const [studentCourse, setStudentCourse] = useState("");
+  const [studentBranch, setStudentBranch] = useState("");
+  const [studentSemester, setStudentSemester] = useState("");
+  const [studentSection, setStudentSection] = useState("");
+  
+  // Mentor registration form state
+  const [mentorName, setMentorName] = useState("");
+  const [mentorEmail, setMentorEmail] = useState("");
+  const [mentorPassword, setMentorPassword] = useState("");
+  const [mentorContactNumber, setMentorContactNumber] = useState("");
+  const [mentorDepartment, setMentorDepartment] = useState("");
+  const [selectedSemesters, setSelectedSemesters] = useState<string[]>([]);
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
+  const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  
+  // Department options
+  const departmentOptions = [
+    "ASET", // Amity School of Engineering & Technology
+    "ABS", // Amity Business School
+    "ASAP", // Amity School of Applied Sciences
+    "ASCO", // Amity School of Communication
+    "ASFT", // Amity School of Fashion Technology
+    "ASFA", // Amity School of Fine Arts
+  ];
+  
+  // Course options based on department
+  const courseOptions: Record<string, string[]> = {
+    "ASET": ["B.Tech", "M.Tech", "Ph.D"],
+    "ABS": ["BBA", "MBA", "Ph.D"],
+    "ASAP": ["BSc", "MSc", "Ph.D"],
+    "ASCO": ["BA(JMC)", "MA(JMC)", "Ph.D"],
+    "ASFT": ["B.Des", "M.Des", "Ph.D"],
+    "ASFA": ["BFA", "MFA", "Ph.D"],
+  };
+  
+  // Branch options based on course and department
+  const branchOptions: Record<string, Record<string, string[]>> = {
+    "ASET": {
+      "B.Tech": ["CSE", "ECE", "ME", "CE", "EEE"],
+      "M.Tech": ["CSE", "ECE", "ME", "CE", "EEE"],
+      "Ph.D": ["Engineering"],
     },
-  });
-
-  const {
-    register: registerMentor,
-    handleSubmit: handleMentorSubmit,
-    formState: { errors: mentorErrors },
-  } = useForm<MentorRegistrationFormData>({
-    resolver: zodResolver(mentorRegistrationFormSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      phone: "",
-      department: "",
-      branch: "",
-      course: "",
-      semester: "",
-      sections: [],
+    "ABS": {
+      "BBA": ["General", "Marketing", "Finance", "HR"],
+      "MBA": ["General", "Marketing", "Finance", "HR"],
+      "Ph.D": ["Management"],
     },
-  });
-
-  useEffect(() => {
-    if (isAuthSuccess) {
-      // Short delay for transition effect before redirecting
-      const timer = setTimeout(() => {
-        const userRole = sessionStorage.getItem("userRole");
-        if (userRole === "student") {
-          navigate("/student");
-        } else if (userRole === "mentor") {
-          navigate("/mentor");
-        }
-      }, 1500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthSuccess, navigate]);
-
-  const handleStudentRegister = async (data: StudentRegistrationFormData) => {
-    setIsSubmitting(true);
-
+    "ASAP": {
+      "BSc": ["Physics", "Chemistry", "Mathematics", "Computer Science"],
+      "MSc": ["Physics", "Chemistry", "Mathematics", "Computer Science"],
+      "Ph.D": ["Science"],
+    },
+    "ASCO": {
+      "BA(JMC)": ["Journalism", "Mass Communication"],
+      "MA(JMC)": ["Journalism", "Mass Communication"],
+      "Ph.D": ["Communication"],
+    },
+    "ASFT": {
+      "B.Des": ["Fashion Design", "Textile Design"],
+      "M.Des": ["Fashion Design", "Textile Design"],
+      "Ph.D": ["Design"],
+    },
+    "ASFA": {
+      "BFA": ["Painting", "Sculpture", "Applied Arts"],
+      "MFA": ["Painting", "Sculpture", "Applied Arts"],
+      "Ph.D": ["Fine Arts"],
+    },
+  };
+  
+  // Semester options
+  const semesterOptions = ["1", "2", "3", "4", "5", "6", "7", "8"];
+  
+  // Section options
+  const sectionOptions = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+  
+  // Handle student registration
+  const handleStudentRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      // Check if student with this enrollment number already exists
-      const { data: existingEnrollment, error: enrollmentError } = await supabase
-        .from('students')
-        .select('id')
-        .eq('enrollment_number', data.enrollmentNumber)
-        .maybeSingle();
+      setIsLoading(true);
       
-      if (enrollmentError) throw enrollmentError;
-      if (existingEnrollment) {
-        throw new Error(`Student with enrollment number ${data.enrollmentNumber} already exists.`);
+      // Validate form fields
+      if (!studentName || !studentEnrollment || !studentEmail || !studentPassword) {
+        toast.error("Please fill all required fields");
+        return;
       }
       
-      // Check if student with this email already exists
-      const { data: existingEmail, error: emailError } = await supabase
-        .from('students')
-        .select('id')
-        .eq('email', data.email)
-        .maybeSingle();
+      // Check if student with this email or enrollment already exists
+      const { data: existingUsers, error: fetchError } = await supabase
+        .from("students")
+        .select("id")
+        .or(`email.eq.${studentEmail},enrollment_number.eq.${studentEnrollment}`);
       
-      if (emailError) throw emailError;
-      if (existingEmail) {
-        throw new Error(`An account with email ${data.email} already exists.`);
+      if (fetchError) throw fetchError;
+      
+      if (existingUsers && existingUsers.length > 0) {
+        toast.error("A student with this email or enrollment number already exists");
+        return;
       }
-
-      // Generate ID for new student
-      const studentId = crypto.randomUUID();
       
-      // Create new student object for database
+      // Create new student object
       const newStudent = {
-        id: studentId,
-        name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
-        password: data.password,
-        role: "student",
-        enrollment_number: data.enrollmentNumber,
-        contact_number: data.phone,
-        guardian_email: data.guardianEmail,
-        department: data.college,
-        course: data.course,
-        branch: data.branch,
-        semester: String(data.semester),
-        section: data.section
+        id: crypto.randomUUID(),
+        name: studentName,
+        email: studentEmail,
+        password: studentPassword,
+        role: 'student' as UserRole,
+        enrollment_number: studentEnrollment,
+        contact_number: studentContactNumber,
+        guardian_email: studentGuardianEmail,
+        department: studentDepartment,
+        course: studentCourse,
+        branch: studentBranch,
+        semester: studentSemester,
+        section: studentSection,
       };
       
       // Insert student into database
       const { error } = await supabase
-        .from('students')
+        .from("students")
         .insert(newStudent);
       
       if (error) throw error;
-
-      // Create a student object for session storage (without password)
-      const safeStudent = {
-        id: studentId,
-        name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
-        role: "student" as UserRole,
-        enrollmentNumber: data.enrollmentNumber,
-        contactNumber: data.phone,
-        guardianEmail: data.guardianEmail,
-        department: data.college,
-        course: data.course,
-        branch: data.branch,
-        semester: String(data.semester),
-        section: data.section
-      };
-
-      // Set session variables and redirect to student dashboard
-      sessionStorage.setItem("user", JSON.stringify(safeStudent));
-      sessionStorage.setItem("userRole", "student");
-
-      toast({
-        title: "Registration successful!",
-        description: "Your student account has been created.",
-      });
-
-      // Navigate to student dashboard
-      setIsAuthSuccess(true);
-      setTimeout(() => {
-        navigate("/student");
-      }, 1500);
+      
+      // Registration successful
+      toast.success("Registration successful! Please login");
+      navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
-      toast({
-        title: "Registration failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
-        variant: "destructive",
-      });
+      toast.error("Registration failed. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
-
-  const handleMentorRegister = async (data: MentorRegistrationFormData) => {
-    setIsSubmitting(true);
-
+  
+  // Handle mentor registration
+  const handleMentorRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     try {
-      // Check if mentor with this email already exists
-      const { data: existingMentor, error: mentorError } = await supabase
-        .from('mentors')
-        .select('id')
-        .eq('email', data.email)
-        .maybeSingle();
+      setIsLoading(true);
       
-      if (mentorError) throw mentorError;
-      if (existingMentor) {
-        throw new Error(`A mentor account with email ${data.email} already exists.`);
+      // Validate form fields
+      if (!mentorName || !mentorEmail || !mentorPassword) {
+        toast.error("Please fill all required fields");
+        return;
       }
-
-      // Generate ID for new mentor
-      const mentorId = crypto.randomUUID();
       
-      // Convert sections to array if it's not already
-      const sectionsArray = Array.isArray(data.sections) 
-        ? data.sections 
-        : [data.sections];
+      // Check if mentor with this email already exists
+      const { data: existingUsers, error: fetchError } = await supabase
+        .from("mentors")
+        .select("id")
+        .eq("email", mentorEmail);
       
-      // Create new mentor object for database
+      if (fetchError) throw fetchError;
+      
+      if (existingUsers && existingUsers.length > 0) {
+        toast.error("A mentor with this email already exists");
+        return;
+      }
+      
+      // Create new mentor object
       const newMentor = {
-        id: mentorId,
-        name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
-        password: data.password,
-        role: "mentor",
-        contact_number: data.phone,
-        department: data.department,
-        branches: [data.branch],
-        courses: [data.course],
-        sections: sectionsArray,
-        semesters: [data.semester]
+        id: crypto.randomUUID(),
+        name: mentorName,
+        email: mentorEmail,
+        password: mentorPassword,
+        role: 'mentor' as UserRole,
+        contact_number: mentorContactNumber,
+        department: mentorDepartment,
+        branches: selectedBranches,
+        courses: selectedCourses,
+        sections: selectedSections,
+        semesters: selectedSemesters,
       };
       
       // Insert mentor into database
       const { error } = await supabase
-        .from('mentors')
+        .from("mentors")
         .insert(newMentor);
       
       if (error) throw error;
-
-      // Create a mentor object for session storage (without password)
-      const safeMentor = {
-        id: mentorId,
-        name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
-        role: "mentor" as UserRole,
-        contactNumber: data.phone,
-        department: data.department,
-        branches: [data.branch],
-        courses: [data.course],
-        sections: sectionsArray,
-        semesters: [data.semester]
-      };
-
-      // Set session variables
-      sessionStorage.setItem("user", JSON.stringify(safeMentor));
-      sessionStorage.setItem("userRole", "mentor");
-
-      toast({
-        title: "Registration successful!",
-        description: "Your mentor account has been created.",
-      });
-
-      // Navigate to mentor dashboard
-      setIsAuthSuccess(true);
-      setTimeout(() => {
-        navigate("/mentor");
-      }, 1500);
+      
+      // Registration successful
+      toast.success("Registration successful! Please login");
+      navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
-      toast({
-        title: "Registration failed",
-        description: error instanceof Error ? error.message : "Something went wrong",
-        variant: "destructive",
-      });
+      toast.error("Registration failed. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
-
-  if (isAuthSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <div className="mx-auto w-20 h-20 mb-4 relative">
+  
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value as "student" | "mentor");
+  };
+  
+  // Filter available courses based on selected department
+  const availableCourses = studentDepartment ? courseOptions[studentDepartment] || [] : [];
+  
+  // Filter available branches based on selected department and course
+  const availableBranches = studentDepartment && studentCourse ? 
+    branchOptions[studentDepartment]?.[studentCourse] || [] : [];
+  
+  // Function to toggle selection in multi-select
+  const toggleSelection = (value: string, currentSelections: string[], setSelections: (selections: string[]) => void) => {
+    if (currentSelections.includes(value)) {
+      setSelections(currentSelections.filter(item => item !== value));
+    } else {
+      setSelections([...currentSelections, value]);
+    }
+  };
+  
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 py-8">
+      <div className="max-w-md mx-auto">
+        <div className="text-center mb-8">
+          <div className="mx-auto w-20 h-20 mb-4">
             <img
               src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
               alt="Amity University"
-              className="w-full h-full object-contain animate-pulse"
+              className="w-full h-full object-contain"
             />
           </div>
-          <div className="text-xl font-semibold text-gray-700">Redirecting...</div>
+          <h1 className="text-2xl font-bold font-display">
+            Amity University, Madhya Pradesh
+          </h1>
+          <p className="text-gray-500 mt-1">Register for Outpass System</p>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col relative">
-      <Navbar />
-
-      <main className="flex-1 flex items-center justify-center">
-        <div className="w-full max-w-md p-6 sm:p-8 bg-white/80 backdrop-blur-sm rounded-xl shadow-lg">
-          <div className="flex items-center mb-6">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mr-2"
-              onClick={() => navigate("/")}
-              aria-label="Back to home"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <div className="text-center flex-grow">
-              <div className="mx-auto w-16 h-16 mb-4 relative">
-                <img
-                  src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                  alt="Amity University"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <h1 className="text-2xl font-bold font-display">Create an Account</h1>
-              <p className="text-muted-foreground">
-                Join our campus outpass system
-              </p>
-            </div>
-            <div className="w-8"></div>
-          </div>
-
-          <Tabs defaultValue="student" value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+        
+        <div className="bg-white shadow-lg rounded-lg p-6">
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
+            <TabsList className="grid grid-cols-2 mb-6">
               <TabsTrigger value="student">Student</TabsTrigger>
               <TabsTrigger value="mentor">Mentor</TabsTrigger>
             </TabsList>
-
+            
             <TabsContent value="student">
-              <form onSubmit={handleStudentSubmit(handleStudentRegister)} className="space-y-4">
+              <form onSubmit={handleStudentRegister} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="student-first-name">First Name</Label>
+                  <Label htmlFor="studentName">Full Name</Label>
                   <Input
-                    id="student-first-name"
-                    type="text"
-                    placeholder="Enter your first name"
-                    {...registerStudent("firstName")}
-                    disabled={isSubmitting}
+                    id="studentName"
+                    placeholder="Enter your full name"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {studentErrors.firstName && (
-                    <p className="text-sm text-red-500">{studentErrors.firstName.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-last-name">Last Name</Label>
+                  <Label htmlFor="studentEnrollment">Enrollment Number</Label>
                   <Input
-                    id="student-last-name"
-                    type="text"
-                    placeholder="Enter your last name"
-                    {...registerStudent("lastName")}
-                    disabled={isSubmitting}
+                    id="studentEnrollment"
+                    placeholder="e.g., A12345678901"
+                    value={studentEnrollment}
+                    onChange={(e) => setStudentEnrollment(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {studentErrors.lastName && (
-                    <p className="text-sm text-red-500">{studentErrors.lastName.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-email">Email Address</Label>
+                  <Label htmlFor="studentEmail">Email</Label>
                   <Input
-                    id="student-email"
+                    id="studentEmail"
                     type="email"
-                    placeholder="name@example.com"
-                    {...registerStudent("email")}
-                    disabled={isSubmitting}
+                    placeholder="example@email.com"
+                    value={studentEmail}
+                    onChange={(e) => setStudentEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {studentErrors.email && (
-                    <p className="text-sm text-red-500">{studentErrors.email.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-password">Password</Label>
+                  <Label htmlFor="studentPassword">Password</Label>
                   <Input
-                    id="student-password"
+                    id="studentPassword"
                     type="password"
-                    {...registerStudent("password")}
-                    disabled={isSubmitting}
+                    placeholder="Create a password"
+                    value={studentPassword}
+                    onChange={(e) => setStudentPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {studentErrors.password && (
-                    <p className="text-sm text-red-500">{studentErrors.password.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-confirm-password">Confirm Password</Label>
+                  <Label htmlFor="studentContact">Contact Number</Label>
                   <Input
-                    id="student-confirm-password"
-                    type="password"
-                    {...registerStudent("confirmPassword")}
-                    disabled={isSubmitting}
+                    id="studentContact"
+                    placeholder="Your mobile number"
+                    value={studentContactNumber}
+                    onChange={(e) => setStudentContactNumber(e.target.value)}
+                    disabled={isLoading}
                   />
-                  {studentErrors.confirmPassword && (
-                    <p className="text-sm text-red-500">{studentErrors.confirmPassword.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-enrollment-number">Enrollment Number</Label>
+                  <Label htmlFor="studentGuardianEmail">Guardian Email</Label>
                   <Input
-                    id="student-enrollment-number"
-                    type="text"
-                    placeholder="e.g., A12345678"
-                    {...registerStudent("enrollmentNumber")}
-                    disabled={isSubmitting}
+                    id="studentGuardianEmail"
+                    placeholder="Guardian's email address"
+                    value={studentGuardianEmail}
+                    onChange={(e) => setStudentGuardianEmail(e.target.value)}
+                    disabled={isLoading}
                   />
-                  {studentErrors.enrollmentNumber && (
-                    <p className="text-sm text-red-500">{studentErrors.enrollmentNumber.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-phone">Phone Number</Label>
-                  <Input
-                    id="student-phone"
-                    type="tel"
-                    placeholder="Enter your 10-digit phone number"
-                    {...registerStudent("phone")}
-                    disabled={isSubmitting}
-                  />
-                  {studentErrors.phone && (
-                    <p className="text-sm text-red-500">{studentErrors.phone.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student-guardian-email">Guardian Email</Label>
-                  <Input
-                    id="student-guardian-email"
-                    type="email"
-                    placeholder="guardian@example.com"
-                    {...registerStudent("guardianEmail")}
-                    disabled={isSubmitting}
-                  />
-                  {studentErrors.guardianEmail && (
-                    <p className="text-sm text-red-500">{studentErrors.guardianEmail.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student-college">College</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your college" />
+                  <Label htmlFor="studentDepartment">Department</Label>
+                  <Select value={studentDepartment} onValueChange={setStudentDepartment} disabled={isLoading}>
+                    <SelectTrigger id="studentDepartment">
+                      <SelectValue placeholder="Select a department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ASET" {...registerStudent("college")}>Amity School of Engineering and Technology</SelectItem>
-                      <SelectItem value="ABS" {...registerStudent("college")}>Amity Business School</SelectItem>
-                      <SelectItem value="ALS" {...registerStudent("college")}>Amity Law School</SelectItem>
-                      <SelectItem value="ASFA" {...registerStudent("college")}>Amity School of Fine Arts</SelectItem>
+                      {departmentOptions.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {studentErrors.college && (
-                    <p className="text-sm text-red-500">{studentErrors.college.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-course">Course</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your course" />
+                  <Label htmlFor="studentCourse">Course</Label>
+                  <Select 
+                    value={studentCourse} 
+                    onValueChange={setStudentCourse} 
+                    disabled={isLoading || !studentDepartment}
+                  >
+                    <SelectTrigger id="studentCourse">
+                      <SelectValue placeholder="Select a course" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="B.Tech" {...registerStudent("course")}>B.Tech</SelectItem>
-                      <SelectItem value="MBA" {...registerStudent("course")}>MBA</SelectItem>
-                      <SelectItem value="LLB" {...registerStudent("course")}>LLB</SelectItem>
-                      <SelectItem value="BFA" {...registerStudent("course")}>BFA</SelectItem>
+                      {availableCourses.map((course) => (
+                        <SelectItem key={course} value={course}>
+                          {course}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {studentErrors.course && (
-                    <p className="text-sm text-red-500">{studentErrors.course.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="student-branch">Branch</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your branch" />
+                  <Label htmlFor="studentBranch">Branch</Label>
+                  <Select 
+                    value={studentBranch} 
+                    onValueChange={setStudentBranch} 
+                    disabled={isLoading || !studentDepartment || !studentCourse}
+                  >
+                    <SelectTrigger id="studentBranch">
+                      <SelectValue placeholder="Select a branch" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CSE" {...registerStudent("branch")}>Computer Science and Engineering</SelectItem>
-                      <SelectItem value="ECE" {...registerStudent("branch")}>Electronics and Communication Engineering</SelectItem>
-                      <SelectItem value="ME" {...registerStudent("branch")}>Mechanical Engineering</SelectItem>
-                      <SelectItem value="LAW" {...registerStudent("branch")}>Law</SelectItem>
+                      {availableBranches.map((branch) => (
+                        <SelectItem key={branch} value={branch}>
+                          {branch}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {studentErrors.branch && (
-                    <p className="text-sm text-red-500">{studentErrors.branch.message}</p>
-                  )}
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student-semester">Semester</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your semester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={1} {...registerStudent("semester", { valueAsNumber: true })}>1st Semester</SelectItem>
-                      <SelectItem value={2} {...registerStudent("semester", { valueAsNumber: true })}>2nd Semester</SelectItem>
-                      <SelectItem value={3} {...registerStudent("semester", { valueAsNumber: true })}>3rd Semester</SelectItem>
-                      <SelectItem value={4} {...registerStudent("semester", { valueAsNumber: true })}>4th Semester</SelectItem>
-                      <SelectItem value={5} {...registerStudent("semester", { valueAsNumber: true })}>5th Semester</SelectItem>
-                      <SelectItem value={6} {...registerStudent("semester", { valueAsNumber: true })}>6th Semester</SelectItem>
-                      <SelectItem value={7} {...registerStudent("semester", { valueAsNumber: true })}>7th Semester</SelectItem>
-                      <SelectItem value={8} {...registerStudent("semester", { valueAsNumber: true })}>8th Semester</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {studentErrors.semester && (
-                    <p className="text-sm text-red-500">{studentErrors.semester.message}</p>
-                  )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="studentSemester">Semester</Label>
+                    <Select value={studentSemester} onValueChange={setStudentSemester} disabled={isLoading}>
+                      <SelectTrigger id="studentSemester">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {semesterOptions.map((sem) => (
+                          <SelectItem key={sem} value={sem}>
+                            {sem}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="studentSection">Section</Label>
+                    <Select value={studentSection} onValueChange={setStudentSection} disabled={isLoading}>
+                      <SelectTrigger id="studentSection">
+                        <SelectValue placeholder="Select" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectionOptions.map((sec) => (
+                          <SelectItem key={sec} value={sec}>
+                            {sec}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="student-section">Section</Label>
-                  <Input
-                    id="student-section"
-                    type="text"
-                    placeholder="Enter your section"
-                    {...registerStudent("section")}
-                    disabled={isSubmitting}
-                  />
-                  {studentErrors.section && (
-                    <p className="text-sm text-red-500">{studentErrors.section.message}</p>
-                  )}
+                
+                <div className="pt-4 flex flex-col gap-4">
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Registering..." : "Register"}
+                  </Button>
+                  
+                  <div className="text-center text-sm text-gray-500">
+                    Already have an account?{" "}
+                    <a href="/login" className="text-blue-600 hover:underline">
+                      Login instead
+                    </a>
+                  </div>
                 </div>
-
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Registering...
-                    </>
-                  ) : (
-                    "Register as Student"
-                  )}
-                </Button>
               </form>
             </TabsContent>
-
+            
             <TabsContent value="mentor">
-              <form onSubmit={handleMentorSubmit(handleMentorRegister)} className="space-y-4">
+              <form onSubmit={handleMentorRegister} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-first-name">First Name</Label>
+                  <Label htmlFor="mentorName">Full Name</Label>
                   <Input
-                    id="mentor-first-name"
-                    type="text"
-                    placeholder="Enter your first name"
-                    {...registerMentor("firstName")}
-                    disabled={isSubmitting}
+                    id="mentorName"
+                    placeholder="Enter your full name"
+                    value={mentorName}
+                    onChange={(e) => setMentorName(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {mentorErrors.firstName && (
-                    <p className="text-sm text-red-500">{mentorErrors.firstName.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-last-name">Last Name</Label>
+                  <Label htmlFor="mentorEmail">Email</Label>
                   <Input
-                    id="mentor-last-name"
-                    type="text"
-                    placeholder="Enter your last name"
-                    {...registerMentor("lastName")}
-                    disabled={isSubmitting}
-                  />
-                  {mentorErrors.lastName && (
-                    <p className="text-sm text-red-500">{mentorErrors.lastName.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mentor-email">Email Address</Label>
-                  <Input
-                    id="mentor-email"
+                    id="mentorEmail"
                     type="email"
-                    placeholder="name@amity.edu"
-                    {...registerMentor("email")}
-                    disabled={isSubmitting}
+                    placeholder="example@email.com"
+                    value={mentorEmail}
+                    onChange={(e) => setMentorEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {mentorErrors.email && (
-                    <p className="text-sm text-red-500">{mentorErrors.email.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-password">Password</Label>
+                  <Label htmlFor="mentorPassword">Password</Label>
                   <Input
-                    id="mentor-password"
+                    id="mentorPassword"
                     type="password"
-                    {...registerMentor("password")}
-                    disabled={isSubmitting}
+                    placeholder="Create a password"
+                    value={mentorPassword}
+                    onChange={(e) => setMentorPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
                   />
-                  {mentorErrors.password && (
-                    <p className="text-sm text-red-500">{mentorErrors.password.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-confirm-password">Confirm Password</Label>
+                  <Label htmlFor="mentorContact">Contact Number</Label>
                   <Input
-                    id="mentor-confirm-password"
-                    type="password"
-                    {...registerMentor("confirmPassword")}
-                    disabled={isSubmitting}
+                    id="mentorContact"
+                    placeholder="Your mobile number"
+                    value={mentorContactNumber}
+                    onChange={(e) => setMentorContactNumber(e.target.value)}
+                    disabled={isLoading}
                   />
-                  {mentorErrors.confirmPassword && (
-                    <p className="text-sm text-red-500">{mentorErrors.confirmPassword.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-phone">Phone Number</Label>
-                  <Input
-                    id="mentor-phone"
-                    type="tel"
-                    placeholder="Enter your 10-digit phone number"
-                    {...registerMentor("phone")}
-                    disabled={isSubmitting}
-                  />
-                  {mentorErrors.phone && (
-                    <p className="text-sm text-red-500">{mentorErrors.phone.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="mentor-department">Department</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your department" />
+                  <Label htmlFor="mentorDepartment">Department</Label>
+                  <Select value={mentorDepartment} onValueChange={setMentorDepartment} disabled={isLoading}>
+                    <SelectTrigger id="mentorDepartment">
+                      <SelectValue placeholder="Select a department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="ASET" {...registerMentor("department")}>Amity School of Engineering and Technology</SelectItem>
-                      <SelectItem value="ABS" {...registerMentor("department")}>Amity Business School</SelectItem>
-                      <SelectItem value="ALS" {...registerMentor("department")}>Amity Law School</SelectItem>
-                      <SelectItem value="ASFA" {...registerMentor("department")}>Amity School of Fine Arts</SelectItem>
+                      {departmentOptions.map((dept) => (
+                        <SelectItem key={dept} value={dept}>
+                          {dept}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
-                  {mentorErrors.department && (
-                    <p className="text-sm text-red-500">{mentorErrors.department.message}</p>
-                  )}
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-branch">Branch</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your branch" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="CSE" {...registerMentor("branch")}>Computer Science and Engineering</SelectItem>
-                      <SelectItem value="ECE" {...registerMentor("branch")}>Electronics and Communication Engineering</SelectItem>
-                      <SelectItem value="ME" {...registerMentor("branch")}>Mechanical Engineering</SelectItem>
-                      <SelectItem value="LAW" {...registerMentor("branch")}>Law</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {mentorErrors.branch && (
-                    <p className="text-sm text-red-500">{mentorErrors.branch.message}</p>
-                  )}
+                  <Label>Courses (Select multiple)</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.values(courseOptions)
+                      .flat()
+                      .filter((value, index, self) => self.indexOf(value) === index)
+                      .map((course) => (
+                        <div key={course} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`course-${course}`}
+                            checked={selectedCourses.includes(course)}
+                            onChange={() => toggleSelection(course, selectedCourses, setSelectedCourses)}
+                            disabled={isLoading}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <label htmlFor={`course-${course}`} className="text-sm">
+                            {course}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-course">Course</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="B.Tech" {...registerMentor("course")}>B.Tech</SelectItem>
-                      <SelectItem value="MBA" {...registerMentor("course")}>MBA</SelectItem>
-                      <SelectItem value="LLB" {...registerMentor("course")}>LLB</SelectItem>
-                      <SelectItem value="BFA" {...registerMentor("course")}>BFA</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {mentorErrors.course && (
-                    <p className="text-sm text-red-500">{mentorErrors.course.message}</p>
-                  )}
+                  <Label>Branches (Select multiple)</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {Object.values(branchOptions)
+                      .flatMap((courses) => Object.values(courses).flat())
+                      .filter((value, index, self) => self.indexOf(value) === index)
+                      .map((branch) => (
+                        <div key={branch} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`branch-${branch}`}
+                            checked={selectedBranches.includes(branch)}
+                            onChange={() => toggleSelection(branch, selectedBranches, setSelectedBranches)}
+                            disabled={isLoading}
+                            className="rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <label htmlFor={`branch-${branch}`} className="text-sm">
+                            {branch}
+                          </label>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-semester">Semester</Label>
-                  <Select disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select your semester" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1" {...registerMentor("semester")}>1st Semester</SelectItem>
-                      <SelectItem value="2" {...registerMentor("semester")}>2nd Semester</SelectItem>
-                      <SelectItem value="3" {...registerMentor("semester")}>3rd Semester</SelectItem>
-                      <SelectItem value="4" {...registerMentor("semester")}>4th Semester</SelectItem>
-                      <SelectItem value="5" {...registerMentor("semester")}>5th Semester</SelectItem>
-                      <SelectItem value="6" {...registerMentor("semester")}>6th Semester</SelectItem>
-                      <SelectItem value="7" {...registerMentor("semester")}>7th Semester</SelectItem>
-                      <SelectItem value="8" {...registerMentor("semester")}>8th Semester</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {mentorErrors.semester && (
-                    <p className="text-sm text-red-500">{mentorErrors.semester.message}</p>
-                  )}
+                  <Label>Semesters (Select multiple)</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {semesterOptions.map((sem) => (
+                      <div key={sem} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`semester-${sem}`}
+                          checked={selectedSemesters.includes(sem)}
+                          onChange={() => toggleSelection(sem, selectedSemesters, setSelectedSemesters)}
+                          disabled={isLoading}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor={`semester-${sem}`} className="text-sm">
+                          {sem}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-
+                
                 <div className="space-y-2">
-                  <Label htmlFor="mentor-sections">Sections</Label>
-                  <Select multiple disabled={isSubmitting}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select sections" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A" {...registerMentor("sections")}>Section A</SelectItem>
-                      <SelectItem value="B" {...registerMentor("sections")}>Section B</SelectItem>
-                      <SelectItem value="C" {...registerMentor("sections")}>Section C</SelectItem>
-                      <SelectItem value="D" {...registerMentor("sections")}>Section D</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {mentorErrors.sections && (
-                    <p className="text-sm text-red-500">{mentorErrors.sections.message}</p>
-                  )}
+                  <Label>Sections (Select multiple)</Label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {sectionOptions.map((sec) => (
+                      <div key={sec} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`section-${sec}`}
+                          checked={selectedSections.includes(sec)}
+                          onChange={() => toggleSelection(sec, selectedSections, setSelectedSections)}
+                          disabled={isLoading}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <label htmlFor={`section-${sec}`} className="text-sm">
+                          {sec}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Registering...
-                    </>
-                  ) : (
-                    "Register as Mentor"
-                  )}
-                </Button>
+                
+                <div className="pt-4 flex flex-col gap-4">
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Registering..." : "Register"}
+                  </Button>
+                  
+                  <div className="text-center text-sm text-gray-500">
+                    Already have an account?{" "}
+                    <a href="/login" className="text-blue-600 hover:underline">
+                      Login instead
+                    </a>
+                  </div>
+                </div>
               </form>
             </TabsContent>
           </Tabs>
-
-          <div className="mt-6 text-center text-sm">
-            <p className="text-muted-foreground">
-              Already have an account?{" "}
-              <Link to="/login" className="text-blue-600 hover:underline">
-                Login
-              </Link>
-            </p>
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

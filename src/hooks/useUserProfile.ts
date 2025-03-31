@@ -32,7 +32,7 @@ export function useUserProfile() {
       
       try {
         let userData;
-        let tableName: string;
+        let tableName: "students" | "mentors" | "admins";
         
         if (userRole === 'student') {
           tableName = 'students';
@@ -87,13 +87,16 @@ export function useUserProfile() {
   // Function to update the user
   const updateUser = useCallback(async (updatedUser: Student | Mentor | Admin) => {
     try {
-      // Force convert semester to string if it exists
-      if (updatedUser && updatedUser.semester !== undefined) {
-        updatedUser.semester = String(updatedUser.semester);
+      // Ensure semester is always a string if it exists and is a student
+      if ('role' in updatedUser && updatedUser.role === 'student') {
+        const studentUser = updatedUser as Student;
+        if (studentUser.semester !== undefined) {
+          studentUser.semester = String(studentUser.semester);
+        }
       }
       
       // Determine which table to update based on user role
-      let tableName;
+      let tableName: "students" | "mentors" | "admins";
       if (updatedUser.role === 'student') {
         tableName = 'students';
       } else if (updatedUser.role === 'mentor') {
@@ -133,7 +136,7 @@ export function useUserProfile() {
           .eq('id', updatedUser.id)
           .single();
           
-        if (data) {
+        if (data && data.password) {
           dbUser.password = data.password;
         }
       }

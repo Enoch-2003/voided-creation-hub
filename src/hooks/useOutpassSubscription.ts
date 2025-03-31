@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Outpass } from '@/lib/types';
+import { Outpass, dbToOutpassFormat } from '@/lib/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -35,24 +35,7 @@ export function useOutpassSubscription() {
         
         if (data) {
           // Convert database column names to camelCase for our frontend
-          const mappedData: Outpass[] = data.map(item => ({
-            id: item.id,
-            studentId: item.student_id,
-            studentName: item.student_name,
-            enrollmentNumber: item.enrollment_number,
-            exitDateTime: item.exit_date_time,
-            reason: item.reason,
-            status: item.status,
-            mentorId: item.mentor_id,
-            mentorName: item.mentor_name,
-            qrCode: item.qr_code,
-            createdAt: item.created_at,
-            updatedAt: item.updated_at,
-            scanTimestamp: item.scan_timestamp,
-            denyReason: item.deny_reason,
-            studentSection: item.student_section,
-            serialCode: item.serial_code
-          }));
+          const mappedData: Outpass[] = data.map(item => dbToOutpassFormat(item));
           setOutpasses(mappedData);
         }
         setIsLoading(false);
@@ -74,44 +57,10 @@ export function useOutpassSubscription() {
           const { eventType, new: newRecord, old: oldRecord } = payload;
           
           if (eventType === 'INSERT') {
-            const mappedRecord: Outpass = {
-              id: newRecord.id,
-              studentId: newRecord.student_id,
-              studentName: newRecord.student_name,
-              enrollmentNumber: newRecord.enrollment_number,
-              exitDateTime: newRecord.exit_date_time,
-              reason: newRecord.reason,
-              status: newRecord.status,
-              mentorId: newRecord.mentor_id,
-              mentorName: newRecord.mentor_name,
-              qrCode: newRecord.qr_code,
-              createdAt: newRecord.created_at,
-              updatedAt: newRecord.updated_at,
-              scanTimestamp: newRecord.scan_timestamp,
-              denyReason: newRecord.deny_reason,
-              studentSection: newRecord.student_section,
-              serialCode: newRecord.serial_code
-            };
+            const mappedRecord = dbToOutpassFormat(newRecord);
             setOutpasses(prev => [...prev, mappedRecord]);
           } else if (eventType === 'UPDATE') {
-            const mappedRecord: Outpass = {
-              id: newRecord.id,
-              studentId: newRecord.student_id,
-              studentName: newRecord.student_name,
-              enrollmentNumber: newRecord.enrollment_number,
-              exitDateTime: newRecord.exit_date_time,
-              reason: newRecord.reason,
-              status: newRecord.status,
-              mentorId: newRecord.mentor_id,
-              mentorName: newRecord.mentor_name,
-              qrCode: newRecord.qr_code,
-              createdAt: newRecord.created_at,
-              updatedAt: newRecord.updated_at,
-              scanTimestamp: newRecord.scan_timestamp,
-              denyReason: newRecord.deny_reason,
-              studentSection: newRecord.student_section,
-              serialCode: newRecord.serial_code
-            };
+            const mappedRecord = dbToOutpassFormat(newRecord);
             
             setOutpasses(prev => 
               prev.map(outpass => outpass.id === mappedRecord.id ? mappedRecord : outpass)

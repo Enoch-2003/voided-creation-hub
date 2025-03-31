@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, Outpass } from "@/lib/types";
+import { Student, OutpassDB } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -138,8 +137,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
-      // Create the outpass request
-      const outpassRequest: Outpass = {
+      // Create the outpass request using the DB schema format
+      const outpassRequest: OutpassDB = {
         id: crypto.randomUUID(),
         student_id: student.id,
         student_name: student.name,
@@ -149,7 +148,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         status: "pending",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        student_section: student.section,
+        student_section: student.section || '',
         serial_code: serialCode
       };
       
@@ -205,7 +204,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             <Label htmlFor="department">Department</Label>
             <Input 
               id="department" 
-              value={student.department} 
+              value={student.department || ''} 
               disabled 
             />
           </div>
@@ -214,7 +213,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             <Label htmlFor="section">Section</Label>
             <Input 
               id="section" 
-              value={`Section ${student.section}`} 
+              value={`Section ${student.section || ''}`} 
               disabled 
             />
           </div>
