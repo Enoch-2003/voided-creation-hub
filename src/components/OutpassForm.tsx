@@ -1,13 +1,13 @@
 
 import { useState, useEffect } from "react";
-import { generateId } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Student, Outpass } from "@/lib/types";
-import { format, isToday, setHours, setMinutes, isAfter, isBefore } from "date-fns";
+import { format, isToday, isAfter, isBefore } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 
 interface OutpassFormProps {
   student: Student;
@@ -21,6 +21,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [minTime, setMinTime] = useState("");
   const [maxTime, setMaxTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
+  const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
   
   // Set min and max time constraints
   useEffect(() => {
@@ -50,9 +51,44 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       // Default to min time if outside the range
       setExitDateTime(minTime);
     }
-  }, []);
+    
+    // Fetch the latest serial code prefix
+    fetchSerialCodePrefix();
+  }, [minTime]);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  // Fetch the latest serial code prefix from database
+  const fetchSerialCodePrefix = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("serial_code_logs")
+        .select("prefix")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error("Error fetching serial code prefix:", error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        setSerialPrefix(data[0].prefix);
+      }
+    } catch (error) {
+      console.error("Error fetching serial code prefix:", error);
+    }
+  };
+  
+  const generateSerialNumber = () => {
+    // Generate a random 6-character alphanumeric string
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+  
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!exitDateTime) {
@@ -98,34 +134,31 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     setIsSubmitting(true);
     
     try {
-      // Get the current serial code prefix from localStorage
-      const serialCodeSettings = JSON.parse(localStorage.getItem("serialCodeSettings") || '{"prefix":"XYZ"}');
-      const serialNumber = generateId().substring(0, 6).toUpperCase();
-      const serialCode = `AUMP-${serialCodeSettings.prefix}-${serialNumber}`;
+      // Generate serial code
+      const serialNumber = generateSerialNumber();
+      const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
       // Create the outpass request
       const outpassRequest: Outpass = {
-        id: generateId(),
-        studentId: student.id,
-        studentName: student.name,
-        enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: exitDateTime,
+        id: crypto.randomUUID(),
+        student_id: student.id,
+        student_name: student.name,
+        enrollment_number: student.enrollmentNumber,
+        exit_date_time: exitDateTime,
         reason: reason,
         status: "pending",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        studentSection: student.section,
-        serialCode: serialCode
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        student_section: student.section,
+        serial_code: serialCode
       };
       
-      // Get existing outpasses from localStorage
-      const existingOutpasses = JSON.parse(localStorage.getItem("outpasses") || "[]");
+      // Save to database
+      const { error } = await supabase
+        .from("outpasses")
+        .insert(outpassRequest);
       
-      // Add the new outpass
-      const updatedOutpasses = [...existingOutpasses, outpassRequest];
-      
-      // Save back to localStorage
-      localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+      if (error) throw error;
       
       // Notify success
       toast.success("Outpass request submitted successfully");
@@ -137,6 +170,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       // Call the success callback
       onSuccess();
     } catch (error) {
+      console.error("Error submitting outpass:", error);
       toast.error("Failed to submit outpass request. Please try again.");
     } finally {
       setIsSubmitting(false);

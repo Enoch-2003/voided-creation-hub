@@ -18,7 +18,7 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import storageSync from "@/lib/storageSync";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -112,46 +112,32 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all users from localStorage
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) {
-        localStorage.setItem("users", JSON.stringify([]));
-        throw new Error("No users found. Please register first.");
-      }
-      
-      const users = JSON.parse(usersJson);
-      
       // Find student by enrollment number and password
-      const student = users.find(
-        (user: any) => 
-          user.role === "student" && 
-          user.enrollmentNumber.toLowerCase() === studentId.toLowerCase() && 
-          user.password === studentPassword
-      );
+      const { data, error } = await supabase
+        .from("students")
+        .select("*")
+        .eq("enrollment_number", studentId)
+        .eq("password", studentPassword)
+        .single();
       
-      if (!student) {
+      if (error || !data) {
         throw new Error("Invalid credentials. Please check your enrollment number and password.");
-      }
-      
-      // Initialize outpass data if not exists
-      if (!localStorage.getItem("outpasses")) {
-        localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
       // Create a student object without password
       const safeStudent = {
-        id: student.id || crypto.randomUUID(),
-        name: student.name || "Student",
-        email: student.email || "",
+        id: data.id,
+        name: data.name,
+        email: data.email,
         role: "student" as UserRole,
-        enrollmentNumber: student.enrollmentNumber,
-        contactNumber: student.contactNumber || "",
-        guardianNumber: student.guardianNumber || "",
-        department: student.department || "",
-        course: student.course || "",
-        branch: student.branch || "",
-        semester: student.semester || "",
-        section: student.section || "",
+        enrollmentNumber: data.enrollment_number,
+        contactNumber: data.contact_number,
+        guardianEmail: data.guardian_email,
+        department: data.department,
+        course: data.course,
+        branch: data.branch,
+        semester: data.semester,
+        section: data.section
       };
       
       // First clear session storage
@@ -160,9 +146,6 @@ export default function Login() {
       // Save user data to sessionStorage
       sessionStorage.setItem("user", JSON.stringify(safeStudent));
       sessionStorage.setItem("userRole", "student");
-      
-      // Save to sync storage
-      storageSync.setUser(safeStudent, "student");
       
       // Show success toast
       toast({
@@ -200,44 +183,30 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Get all users from localStorage
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) {
-        localStorage.setItem("users", JSON.stringify([]));
-        throw new Error("No users found. Please register first.");
-      }
-      
-      const users = JSON.parse(usersJson);
-      
       // Find mentor by email and password
-      const mentor = users.find(
-        (user: any) => 
-          user.role === "mentor" && 
-          user.email.toLowerCase() === mentorEmail.toLowerCase() && 
-          user.password === mentorPassword
-      );
+      const { data, error } = await supabase
+        .from("mentors")
+        .select("*")
+        .eq("email", mentorEmail.toLowerCase())
+        .eq("password", mentorPassword)
+        .single();
       
-      if (!mentor) {
+      if (error || !data) {
         throw new Error("Invalid credentials. Please check your email and password.");
-      }
-      
-      // Initialize outpass data if not exists
-      if (!localStorage.getItem("outpasses")) {
-        localStorage.setItem("outpasses", JSON.stringify([]));
       }
       
       // Create a mentor object without password
       const safeMentor = {
-        id: mentor.id || crypto.randomUUID(),
-        name: mentor.name || "Mentor",
-        email: mentor.email || "",
+        id: data.id,
+        name: data.name,
+        email: data.email,
         role: "mentor" as UserRole,
-        department: mentor.department || "",
-        contactNumber: mentor.contactNumber || "",
-        branches: mentor.branches || [],
-        courses: mentor.courses || [],
-        sections: mentor.sections || [],
-        semesters: mentor.semesters || []
+        department: data.department,
+        contactNumber: data.contact_number,
+        branches: data.branches,
+        courses: data.courses,
+        sections: data.sections,
+        semesters: data.semesters
       };
       
       // First clear session storage
@@ -246,9 +215,6 @@ export default function Login() {
       // Save user data to sessionStorage
       sessionStorage.setItem("user", JSON.stringify(safeMentor));
       sessionStorage.setItem("userRole", "mentor");
-      
-      // Save to sync storage
-      storageSync.setUser(safeMentor, "mentor");
       
       // Show success toast
       toast({
@@ -286,36 +252,40 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Verify admin credentials
-      if (adminUsername === "AUMP" && adminPassword === "AmityGwalior") {
-        // Create admin object
-        const adminUser = {
-          id: "admin-123",
-          name: "Amity University, Madhya Pradesh",
-          role: "admin",
-        };
-        
-        // First clear session storage
-        sessionStorage.clear();
-        
-        // Save user data to sessionStorage
-        sessionStorage.setItem("user", JSON.stringify(adminUser));
-        sessionStorage.setItem("userRole", "admin");
-        
-        // Save to sync storage for consistency
-        storageSync.setUser(adminUser, "admin");
-        
-        // Show success toast
-        toast({
-          title: "Success!",
-          description: "You have successfully logged in as an administrator.",
-        });
-        
-        // Set authentication success state
-        setIsAuthSuccess(true);
-      } else {
+      // Find admin by username and password
+      const { data, error } = await supabase
+        .from("admins")
+        .select("*")
+        .eq("username", adminUsername)
+        .eq("password", adminPassword)
+        .single();
+      
+      if (error || !data) {
         throw new Error("Invalid admin credentials");
       }
+      
+      // Create admin object without password
+      const adminUser = {
+        id: data.id,
+        name: data.name,
+        role: "admin",
+      };
+      
+      // First clear session storage
+      sessionStorage.clear();
+      
+      // Save user data to sessionStorage
+      sessionStorage.setItem("user", JSON.stringify(adminUser));
+      sessionStorage.setItem("userRole", "admin");
+      
+      // Show success toast
+      toast({
+        title: "Success!",
+        description: "You have successfully logged in as an administrator.",
+      });
+      
+      // Set authentication success state
+      setIsAuthSuccess(true);
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -329,20 +299,34 @@ export default function Login() {
     }
   };
 
-  const findUserByEmail = (email: string) => {
+  const findUserByEmail = async (email: string) => {
     try {
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) return null;
+      // Try to find the user in students table
+      const { data: studentData } = await supabase
+        .from("students")
+        .select("*")
+        .eq("email", email)
+        .single();
       
-      const users = JSON.parse(usersJson);
-      return users.find((user: any) => user.email === email) || null;
+      if (studentData) return { ...studentData, table: "students" };
+      
+      // Try to find the user in mentors table
+      const { data: mentorData } = await supabase
+        .from("mentors")
+        .select("*")
+        .eq("email", email)
+        .single();
+      
+      if (mentorData) return { ...mentorData, table: "mentors" };
+      
+      return null;
     } catch (error) {
       console.error("Error finding user:", error);
       return null;
     }
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetLoading(true);
 
@@ -358,7 +342,7 @@ export default function Login() {
 
     try {
       // Find user by email
-      const user = findUserByEmail(resetEmail);
+      const user = await findUserByEmail(resetEmail);
       
       if (!user) {
         throw new Error("No account found with this email address");
@@ -380,7 +364,7 @@ export default function Login() {
     setResetLoading(false);
   };
 
-  const handlePasswordReset = (e: React.FormEvent) => {
+  const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetLoading(true);
 
@@ -415,26 +399,20 @@ export default function Login() {
     }
 
     try {
-      // Get all users from localStorage
-      const usersJson = localStorage.getItem("users");
-      if (!usersJson) {
-        throw new Error("No users found");
+      // Find user by email
+      const user = await findUserByEmail(resetEmail);
+      
+      if (!user || !user.table) {
+        throw new Error("User not found");
       }
       
-      const users = JSON.parse(usersJson);
+      // Update user password based on their role table
+      const { error } = await supabase
+        .from(user.table)
+        .update({ password: newPassword })
+        .eq("id", user.id);
       
-      // Find user by email and update password
-      const updatedUsers = users.map((u: any) => {
-        if (u.email === resetEmail) {
-          return {
-            ...u,
-            password: newPassword
-          };
-        }
-        return u;
-      });
-      
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
+      if (error) throw error;
       
       // Close dialog and show success message
       setResetSuccess(true);

@@ -16,7 +16,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import AdminStudentEdit from "@/pages/AdminStudentEdit";
 import NotFound from "@/pages/NotFound";
 import { Admin, Mentor, Student, User } from "@/lib/types";
-import storageSync from "@/lib/storageSync";
+import { supabase } from "@/integrations/supabase/client";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -25,8 +25,10 @@ function App() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = storageSync.getItem<User | Student | Mentor | Admin>("user");
-    const storedUserRole = storageSync.getItem<string>("userRole");
+    const storedUser = sessionStorage.getItem("user") 
+      ? JSON.parse(sessionStorage.getItem("user") as string) 
+      : null;
+    const storedUserRole = sessionStorage.getItem("userRole");
 
     if (storedUser && storedUserRole) {
       setIsAuthenticated(true);
@@ -60,7 +62,9 @@ function App() {
   }, [navigate]);
 
   const handleLogout = () => {
-    storageSync.logout();
+    // Clear session storage
+    sessionStorage.clear();
+    
     setIsAuthenticated(false);
     setUserRole(null);
     setUser(null);

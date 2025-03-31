@@ -9,7 +9,225 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      admins: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          id: string
+          name: string
+          password: string
+          role: Database["public"]["Enums"]["user_role"]
+          username: string
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name: string
+          password: string
+          role?: Database["public"]["Enums"]["user_role"]
+          username: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          name?: string
+          password?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          username?: string
+        }
+        Relationships: []
+      }
+      mentors: {
+        Row: {
+          branches: string[] | null
+          contact_number: string | null
+          courses: string[] | null
+          created_at: string | null
+          department: string | null
+          email: string
+          id: string
+          name: string
+          password: string
+          role: Database["public"]["Enums"]["user_role"]
+          sections: string[] | null
+          semesters: string[] | null
+        }
+        Insert: {
+          branches?: string[] | null
+          contact_number?: string | null
+          courses?: string[] | null
+          created_at?: string | null
+          department?: string | null
+          email: string
+          id?: string
+          name: string
+          password: string
+          role?: Database["public"]["Enums"]["user_role"]
+          sections?: string[] | null
+          semesters?: string[] | null
+        }
+        Update: {
+          branches?: string[] | null
+          contact_number?: string | null
+          courses?: string[] | null
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          id?: string
+          name?: string
+          password?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          sections?: string[] | null
+          semesters?: string[] | null
+        }
+        Relationships: []
+      }
+      outpasses: {
+        Row: {
+          created_at: string | null
+          deny_reason: string | null
+          enrollment_number: string
+          exit_date_time: string
+          id: string
+          mentor_id: string | null
+          mentor_name: string | null
+          qr_code: string | null
+          reason: string
+          scan_timestamp: string | null
+          serial_code: string | null
+          status: string
+          student_id: string
+          student_name: string
+          student_section: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deny_reason?: string | null
+          enrollment_number: string
+          exit_date_time: string
+          id?: string
+          mentor_id?: string | null
+          mentor_name?: string | null
+          qr_code?: string | null
+          reason: string
+          scan_timestamp?: string | null
+          serial_code?: string | null
+          status?: string
+          student_id: string
+          student_name: string
+          student_section?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deny_reason?: string | null
+          enrollment_number?: string
+          exit_date_time?: string
+          id?: string
+          mentor_id?: string | null
+          mentor_name?: string | null
+          qr_code?: string | null
+          reason?: string
+          scan_timestamp?: string | null
+          serial_code?: string | null
+          status?: string
+          student_id?: string
+          student_name?: string
+          student_section?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outpasses_mentor_id_fkey"
+            columns: ["mentor_id"]
+            isOneToOne: false
+            referencedRelation: "mentors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outpasses_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      serial_code_logs: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          id: string
+          prefix: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          id?: string
+          prefix: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          prefix?: string
+        }
+        Relationships: []
+      }
+      students: {
+        Row: {
+          branch: string | null
+          contact_number: string | null
+          course: string | null
+          created_at: string | null
+          department: string | null
+          email: string
+          enrollment_number: string
+          guardian_email: string | null
+          id: string
+          name: string
+          password: string
+          role: Database["public"]["Enums"]["user_role"]
+          section: string | null
+          semester: string | null
+        }
+        Insert: {
+          branch?: string | null
+          contact_number?: string | null
+          course?: string | null
+          created_at?: string | null
+          department?: string | null
+          email: string
+          enrollment_number: string
+          guardian_email?: string | null
+          id?: string
+          name: string
+          password: string
+          role?: Database["public"]["Enums"]["user_role"]
+          section?: string | null
+          semester?: string | null
+        }
+        Update: {
+          branch?: string | null
+          contact_number?: string | null
+          course?: string | null
+          created_at?: string | null
+          department?: string | null
+          email?: string
+          enrollment_number?: string
+          guardian_email?: string | null
+          id?: string
+          name?: string
+          password?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          section?: string | null
+          semester?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -18,7 +236,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "student" | "mentor" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never

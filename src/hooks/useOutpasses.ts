@@ -1,11 +1,11 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Outpass, Student, Mentor, UserRole } from '@/lib/types';
-import storageSync from '@/lib/storageSync';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 /**
- * Custom hook for real-time outpass data
- * This hook will automatically update when outpasses are modified in any tab
+ * Custom hook for real-time outpass data using Supabase
  */
 export function useOutpasses() {
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
@@ -14,147 +14,154 @@ export function useOutpasses() {
   const [userRole, setUserRole] = useState<UserRole | "admin" | null>(null);
   const [tabId, setTabId] = useState<string>('');
 
-  // Load initial data and subscribe to changes
+  // Generate a unique tab ID for notifications
   useEffect(() => {
-    setIsLoading(true);
-    setTabId(storageSync.getTabId());
+    setTabId(crypto.randomUUID().substring(0, 5));
+  }, []);
+
+  // Load user data from session storage
+  useEffect(() => {
+    const userData = sessionStorage.getItem('user');
+    const userRoleData = sessionStorage.getItem('userRole') as UserRole | "admin" | null;
     
-    // Subscribe to outpass changes (both from this tab and other tabs)
-    const unsubscribe = storageSync.subscribe('outpasses', (newOutpasses) => {
-      if (Array.isArray(newOutpasses)) {
-        setOutpasses(newOutpasses);
-      } else {
-        // Initialize if not found or invalid
-        const emptyArray: Outpass[] = [];
-        storageSync.setItem('outpasses', emptyArray);
-        setOutpasses(emptyArray);
-      }
-      setIsLoading(false);
-    });
-    
-    // Subscribe to users changes to get updated user data
-    const userUnsubscribe = storageSync.subscribe('users', () => {
-      // Get the latest user data for the current user from the users array
-      const users = storageSync.getItem<any[]>('users') || [];
-      const currentSessionUser = storageSync.getUser();
-      
-      if (currentSessionUser && currentSessionUser.id) {
-        const updatedUser = users.find(u => u.id === currentSessionUser.id);
-        if (updatedUser) {
-          // Update session storage and state with the latest user data
-          const safeUser = { ...updatedUser };
-          delete (safeUser as any).password;
-          
-          sessionStorage.setItem('user', JSON.stringify(safeUser));
-          setCurrentUser(safeUser);
-          // Show notification if run from student dashboard
-          if (userRole === 'student') {
-            toast.info("Your profile information has been updated by an administrator");
-          }
-        }
-      }
-    });
-    
-    // Get session-specific user data
-    const userData = storageSync.getUser();
-    const userRoleData = storageSync.getUserRole() as UserRole | "admin" | null;
-    
-    setCurrentUser(userData);
-    setUserRole(userRoleData);
-    
-    // Set up broadcast channel for user changes if available
-    let userChangeChannel: BroadcastChannel | null = null;
-    
-    if (typeof BroadcastChannel !== 'undefined') {
-      userChangeChannel = new BroadcastChannel('amipass_user_changed');
-      userChangeChannel.onmessage = (event) => {
-        // Just refresh our outpasses, don't change user session
-        const outpassesData = storageSync.getItem<Outpass[]>('outpasses');
-        if (outpassesData) {
-          setOutpasses(outpassesData);
-        }
-        
-        // If the event contains updated user data for this tab's user, update it
-        if (event.data && event.data.userId) {
-          const currentTabUser = storageSync.getUser();
-          if (currentTabUser && currentTabUser.id === event.data.userId) {
-            // Get the latest user data from the updated users array
-            const users = storageSync.getItem<any[]>('users') || [];
-            const updatedUser = users.find(u => u.id === event.data.userId);
-            
-            if (updatedUser) {
-              // Create a safe user object without password
-              const safeUser = { ...updatedUser };
-              delete (safeUser as any).password;
-              
-              // Update session storage with the latest user data
-              sessionStorage.setItem('user', JSON.stringify(safeUser));
-              setCurrentUser(safeUser);
-              
-              // Force synchronize the state with the updated user data
-              if (event.data.forceUpdate) {
-                // Show notification if run from student dashboard
-                if (userRole === 'student') {
-                  toast.info("Your profile information has been updated by an administrator", {
-                    description: "The changes are now visible in your dashboard"
-                  });
-                }
-              }
-            }
-          }
-        }
-      };
+    if (userData) {
+      setCurrentUser(JSON.parse(userData));
     }
     
-    // Monitor for changes to the current user data
-    const checkUserChanges = () => {
-      if (!currentUser || !currentUser.id) return;
-      
-      // Check for updates in the users array
-      const users = storageSync.getItem<any[]>('users') || [];
-      const latestUserData = users.find(u => u.id === currentUser.id);
-      
-      if (latestUserData && JSON.stringify(latestUserData) !== JSON.stringify(currentUser)) {
-        // Create a safe user object without password
-        const safeUser = { ...latestUserData };
-        delete (safeUser as any).password;
+    if (userRoleData) {
+      setUserRole(userRoleData);
+    }
+  }, []);
+
+  // Load initial outpass data and set up real-time subscription
+  useEffect(() => {
+    setIsLoading(true);
+    
+    // Initial fetch of outpasses
+    const fetchOutpasses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('outpasses')
+          .select('*');
         
-        // Update session storage with the latest user data
-        sessionStorage.setItem('user', JSON.stringify(safeUser));
-        setCurrentUser(safeUser);
-        
-        // Show notification if run from student dashboard
-        if (userRole === 'student') {
-          toast.info("Your profile information has been updated by an administrator", {
-            description: "The changes are now visible in your dashboard"
-          });
+        if (error) {
+          console.error('Error fetching outpasses:', error);
+          return;
         }
+        
+        if (data) {
+          setOutpasses(data as Outpass[]);
+        }
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error in fetchOutpasses:', error);
+        setIsLoading(false);
       }
     };
     
-    // Check for user changes every 500ms
-    const userCheckInterval = setInterval(checkUserChanges, 500);
+    fetchOutpasses();
     
+    // Subscribe to outpass changes
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outpasses' },
+        (payload) => {
+          const { eventType, new: newRecord, old: oldRecord } = payload;
+          
+          if (eventType === 'INSERT') {
+            setOutpasses(prev => [...prev, newRecord as Outpass]);
+          } else if (eventType === 'UPDATE') {
+            setOutpasses(prev => 
+              prev.map(outpass => outpass.id === newRecord.id ? newRecord as Outpass : outpass)
+            );
+            
+            // Show toast notification based on status change
+            if (userRole === 'student' && newRecord.status === 'approved' && oldRecord.status === 'pending') {
+              toast.success(`Your outpass has been approved!`);
+            } else if (userRole === 'student' && newRecord.status === 'denied' && oldRecord.status === 'pending') {
+              toast.error(`Your outpass was denied: ${newRecord.deny_reason}`);
+            }
+          } else if (eventType === 'DELETE') {
+            setOutpasses(prev => prev.filter(outpass => outpass.id !== oldRecord.id));
+          }
+        }
+      )
+      .subscribe();
+      
+    // Cleanup subscription on unmount
     return () => {
-      unsubscribe();
-      userUnsubscribe();
-      if (userChangeChannel) {
-        userChangeChannel.close();
-      }
-      clearInterval(userCheckInterval);
+      supabase.removeChannel(channel);
     };
   }, [userRole]);
+  
+  // If user role changes, update profile data from database
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!currentUser || !userRole) return;
+      
+      try {
+        let userData;
+        
+        if (userRole === 'student') {
+          const { data, error } = await supabase
+            .from('students')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (error) throw error;
+          userData = data;
+          
+        } else if (userRole === 'mentor') {
+          const { data, error } = await supabase
+            .from('mentors')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (error) throw error;
+          userData = data;
+          
+        } else if (userRole === 'admin') {
+          const { data, error } = await supabase
+            .from('admins')
+            .select('*')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (error) throw error;
+          userData = data;
+        }
+        
+        if (userData) {
+          // Remove password for security
+          const safeUser = { ...userData };
+          delete safeUser.password;
+          
+          // Update session storage
+          sessionStorage.setItem('user', JSON.stringify(safeUser));
+          setCurrentUser(safeUser);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [currentUser?.id, userRole]);
 
   // Get filtered outpasses based on user role
   const filteredOutpasses = outpasses.filter(outpass => {
     if (!currentUser) return false;
     
     if (userRole === 'student') {
-      return outpass.studentId === currentUser.id;
+      return outpass.student_id === currentUser.id;
     } else if (userRole === 'mentor') {
       const mentor = currentUser as Mentor;
       // Show outpasses for sections that the mentor manages
-      return outpass.studentSection && mentor.sections.includes(outpass.studentSection);
+      return outpass.student_section && mentor.sections.includes(outpass.student_section);
     } else if (userRole === 'admin') {
       // Admin can see all outpasses
       return true;
@@ -164,107 +171,130 @@ export function useOutpasses() {
   });
 
   // Function to update outpasses with real-time syncing
-  const updateOutpass = useCallback((updatedOutpass: Outpass) => {
-    const updatedOutpasses = outpasses.map(outpass => 
-      outpass.id === updatedOutpass.id ? updatedOutpass : outpass
-    );
-    
-    // Update timestamp
-    updatedOutpass.updatedAt = new Date().toISOString();
-    
-    storageSync.setItem('outpasses', updatedOutpasses);
-    
-    // Show toast for real-time feedback with tab ID
-    const toastMessage = `[Tab: ${tabId.substring(0, 5)}] `;
-    
-    if (userRole === 'mentor' && updatedOutpass.status === 'approved') {
-      toast.success(`${toastMessage}Outpass for ${updatedOutpass.studentName} approved`);
-    } else if (userRole === 'mentor' && updatedOutpass.status === 'denied') {
-      toast.error(`${toastMessage}Outpass for ${updatedOutpass.studentName} denied`);
-    } else if (userRole === 'student' && updatedOutpass.status === 'approved') {
-      toast.success(`${toastMessage}Your outpass has been approved!`);
-    } else if (userRole === 'student' && updatedOutpass.status === 'denied') {
-      toast.error(`${toastMessage}Your outpass was denied: ${updatedOutpass.denyReason}`);
+  const updateOutpass = useCallback(async (updatedOutpass: Outpass) => {
+    try {
+      // Update timestamp
+      updatedOutpass.updated_at = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('outpasses')
+        .update(updatedOutpass)
+        .eq('id', updatedOutpass.id);
+      
+      if (error) throw error;
+      
+      // Show toast for real-time feedback with tab ID
+      const toastMessage = `[Tab: ${tabId}] `;
+      
+      if (userRole === 'mentor' && updatedOutpass.status === 'approved') {
+        toast.success(`${toastMessage}Outpass for ${updatedOutpass.student_name} approved`);
+      } else if (userRole === 'mentor' && updatedOutpass.status === 'denied') {
+        toast.error(`${toastMessage}Outpass for ${updatedOutpass.student_name} denied`);
+      }
+    } catch (error) {
+      console.error('Error updating outpass:', error);
+      toast.error('Failed to update outpass. Please try again.');
     }
-  }, [outpasses, userRole, tabId]);
+  }, [userRole, tabId]);
 
   // Function to add a new outpass with real-time syncing
-  const addOutpass = useCallback((newOutpass: Outpass) => {
-    const updatedOutpasses = [...outpasses, newOutpass];
-    storageSync.setItem('outpasses', updatedOutpasses);
-    
-    // Show toast for real-time feedback
-    if (userRole === 'student') {
-      toast.success(`[Tab: ${tabId.substring(0, 5)}] Outpass request submitted successfully`);
+  const addOutpass = useCallback(async (newOutpass: Outpass) => {
+    try {
+      const { error } = await supabase
+        .from('outpasses')
+        .insert(newOutpass);
+      
+      if (error) throw error;
+      
+      // Show toast for real-time feedback
+      if (userRole === 'student') {
+        toast.success(`[Tab: ${tabId}] Outpass request submitted successfully`);
+      }
+    } catch (error) {
+      console.error('Error adding outpass:', error);
+      toast.error('Failed to submit outpass request. Please try again.');
     }
-  }, [outpasses, userRole, tabId]);
+  }, [userRole, tabId]);
 
   // Function to delete an outpass with real-time syncing
-  const deleteOutpass = useCallback((outpassId: string) => {
-    const updatedOutpasses = outpasses.filter(outpass => outpass.id !== outpassId);
-    storageSync.setItem('outpasses', updatedOutpasses);
-    
-    toast.success(`[Tab: ${tabId.substring(0, 5)}] Outpass deleted successfully`);
-  }, [outpasses, tabId]);
+  const deleteOutpass = useCallback(async (outpassId: string) => {
+    try {
+      const { error } = await supabase
+        .from('outpasses')
+        .delete()
+        .eq('id', outpassId);
+      
+      if (error) throw error;
+      
+      toast.success(`[Tab: ${tabId}] Outpass deleted successfully`);
+    } catch (error) {
+      console.error('Error deleting outpass:', error);
+      toast.error('Failed to delete outpass. Please try again.');
+    }
+  }, [tabId]);
 
   // Function to update the user
-  const updateUser = useCallback((updatedUser: Student | Mentor | any) => {
-    // Force convert semester to string if it exists
-    if (updatedUser && updatedUser.semester !== undefined) {
-      updatedUser.semester = String(updatedUser.semester);
-    }
-    
-    // Set local state immediately for real-time updates
-    setCurrentUser(updatedUser);
-    
-    // Update users array in localStorage
-    const users = storageSync.getItem<any[]>('users') || [];
-    const existingUserIndex = users.findIndex(user => user.id === updatedUser.id);
-    
-    let updatedUsers;
-    if (existingUserIndex >= 0) {
-      // Preserve the password if it exists
-      const existingPassword = users[existingUserIndex].password;
-      const existingEnrollmentNumber = users[existingUserIndex].enrollmentNumber;
-      
-      // Update existing user
-      updatedUsers = [...users];
-      updatedUsers[existingUserIndex] = {
-        ...updatedUser,
-        // Preserve the password and enrollment number if they exist in the original user
-        password: existingPassword || updatedUser.password,
-        enrollmentNumber: existingEnrollmentNumber || updatedUser.enrollmentNumber
-      };
-    } else {
-      // Add user if not found
-      updatedUsers = [...users, updatedUser];
-    }
-    
-    // Update localStorage with the updated users array
-    storageSync.setItem('users', updatedUsers);
-    
-    // Create a safe user object without password
-    const safeUser = { ...updatedUser };
-    delete (safeUser as any).password;
-    
-    // Update session storage for this tab - for immediate effect
-    if (updatedUser.id === storageSync.getUser()?.id) {
-      sessionStorage.setItem('user', JSON.stringify(safeUser));
-    }
-    
-    // Notify other tabs about the user update via broadcast channel
-    if (typeof BroadcastChannel !== 'undefined') {
-      try {
-        const userChangeChannel = new BroadcastChannel('amipass_user_changed');
-        userChangeChannel.postMessage({ userId: updatedUser.id, forceUpdate: true });
-        userChangeChannel.close();
-      } catch (error) {
-        console.error("Error with BroadcastChannel:", error);
+  const updateUser = useCallback(async (updatedUser: Student | Mentor | any) => {
+    try {
+      // Force convert semester to string if it exists
+      if (updatedUser && updatedUser.semester !== undefined) {
+        updatedUser.semester = String(updatedUser.semester);
       }
+      
+      // Determine which table to update based on user role
+      let tableName;
+      if (updatedUser.role === 'student') {
+        tableName = 'students';
+      } else if (updatedUser.role === 'mentor') {
+        tableName = 'mentors';
+      } else if (updatedUser.role === 'admin') {
+        tableName = 'admins';
+      } else {
+        throw new Error('Invalid user role');
+      }
+      
+      // Create a copy without the password for safety
+      const safeUser = { ...updatedUser };
+      if (!safeUser.password) {
+        // If updating without a password, get current password
+        const { data } = await supabase
+          .from(tableName)
+          .select('password')
+          .eq('id', updatedUser.id)
+          .single();
+          
+        if (data) {
+          safeUser.password = data.password;
+        }
+      }
+      
+      // Update the database
+      const { error } = await supabase
+        .from(tableName)
+        .update(safeUser)
+        .eq('id', updatedUser.id);
+      
+      if (error) throw error;
+      
+      // Create a safe user object without password for session storage
+      delete safeUser.password;
+      
+      // Update session storage for this tab
+      if (updatedUser.id === currentUser?.id) {
+        sessionStorage.setItem('user', JSON.stringify(safeUser));
+      }
+      
+      // Show toast notification for user updates
+      if (userRole === 'student' && updatedUser.id === currentUser?.id) {
+        toast.info("Your profile information has been updated");
+      }
+      
+      return safeUser;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      toast.error('Failed to update user information. Please try again.');
     }
-    
-    return safeUser;
-  }, []);
+  }, [currentUser?.id, userRole]);
 
   return {
     outpasses: filteredOutpasses,

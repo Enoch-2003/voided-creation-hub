@@ -1,1 +1,11 @@
+
 project_id = "uzqxvwavuokaytrluqee"
+
+[api]
+enabled = true
+
+[db]
+enabled = true
+
+[realtime]
+enabled = true
