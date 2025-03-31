@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TabsContent, Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UserRole } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
+import { handleApiError } from "@/lib/errorHandler";
 
 // Define specific login props interface
 export interface LoginProps {
@@ -39,7 +41,7 @@ export default function Login({ onLogin }: LoginProps) {
       // Select the appropriate credentials based on active tab
       let email = "";
       let password = "";
-      let tableName = "";
+      let tableName: "students" | "mentors" | "admins";
       let usernameField = "email";
       
       if (activeTab === "student") {
@@ -79,15 +81,19 @@ export default function Login({ onLogin }: LoginProps) {
         return;
       }
       
-      // Check if password matches
-      if (data.password !== password) {
+      // Check if password matches - data must have password property since we're querying user tables
+      if ('password' in data && data.password !== password) {
         toast.error("Incorrect password");
         setIsLoading(false);
         return;
       }
       
       // Login successful
-      toast.success(`Welcome back, ${data.name}`);
+      if ('name' in data) {
+        toast.success(`Welcome back, ${data.name}`);
+      } else {
+        toast.success(`Login successful`);
+      }
       
       // Store user data in session storage
       sessionStorage.setItem('user', JSON.stringify(data));
@@ -97,8 +103,7 @@ export default function Login({ onLogin }: LoginProps) {
       // Call the login callback
       onLogin(data.id, activeTab);
     } catch (error) {
-      console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
+      handleApiError(error, "Login");
     } finally {
       setIsLoading(false);
     }

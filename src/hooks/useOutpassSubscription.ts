@@ -1,119 +1,96 @@
 
 import { useState, useEffect } from 'react';
-import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
+import { handleApiError } from '@/lib/errorHandler';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
- * Custom hook for real-time outpass data using Supabase
+ * Custom hook for subscribing to outpass updates in real-time
  */
 export function useOutpassSubscription() {
   const [outpasses, setOutpasses] = useState<Outpass[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [tabId, setTabId] = useState<string>('');
+  
+  // Generate a unique ID for this tab/session
+  // This helps to ensure we don't get duplicate events across tabs
+  const [tabId] = useState(() => uuidv4());
 
-  // Generate a unique tab ID for notifications
+  // Fetch initial outpasses and set up real-time subscription
   useEffect(() => {
-    setTabId(crypto.randomUUID().substring(0, 5));
-  }, []);
-
-  // Load initial outpass data and set up real-time subscription
-  useEffect(() => {
-    setIsLoading(true);
-    
-    // Initial fetch of outpasses
+    // Fetch all outpasses on component mount
     const fetchOutpasses = async () => {
       try {
+        setIsLoading(true);
         const { data, error } = await supabase
           .from('outpasses')
-          .select('*');
+          .select('*')
+          .order('created_at', { ascending: false });
         
-        if (error) {
-          console.error('Error fetching outpasses:', error);
-          return;
-        }
+        if (error) throw error;
         
-        if (data) {
-          // Convert database column names to camelCase for our frontend
-          const mappedData: Outpass[] = data.map(item => dbToOutpassFormat(item as OutpassDB));
-          setOutpasses(mappedData);
-        }
-        setIsLoading(false);
+        // Convert outpasses to the frontend format
+        const formattedOutpasses = (data || []).map((item: OutpassDB) => dbToOutpassFormat(item));
+        
+        setOutpasses(formattedOutpasses);
       } catch (error) {
-        console.error('Error in fetchOutpasses:', error);
+        handleApiError(error, 'Fetching outpasses');
+      } finally {
         setIsLoading(false);
       }
     };
-    
-    fetchOutpasses();
-    
-    // Subscribe to outpass changes
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'outpasses' },
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('outpasses-changes')
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'outpasses' 
+        },
         (payload) => {
-          const { eventType } = payload;
-          
-          // Safely cast the payload data to OutpassDB or add validation
-          if (eventType === 'INSERT') {
-            // Type assertion with proper validation
-            if (isValidOutpassDB(payload.new)) {
-              const mappedRecord = dbToOutpassFormat(payload.new as OutpassDB);
-              setOutpasses(prev => [...prev, mappedRecord]);
-            }
-          } else if (eventType === 'UPDATE') {
-            // Type assertion with proper validation for both new and old records
-            if (isValidOutpassDB(payload.new) && payload.old && 'id' in payload.old) {
-              const mappedRecord = dbToOutpassFormat(payload.new as OutpassDB);
-              
-              setOutpasses(prev => 
-                prev.map(outpass => outpass.id === mappedRecord.id ? mappedRecord : outpass)
-              );
-              
-              // Show toast notification based on status change
-              const userRole = sessionStorage.getItem('userRole');
-              
-              if (userRole === 'student' && 
-                  payload.new.status === 'approved' && 
-                  payload.old.status === 'pending') {
-                toast.success(`Your outpass has been approved!`);
-              } else if (userRole === 'student' && 
-                        payload.new.status === 'denied' && 
-                        payload.old.status === 'pending') {
-                toast.error(`Your outpass was denied: ${payload.new.deny_reason}`);
-              }
-            }
-          } else if (eventType === 'DELETE' && payload.old && 'id' in payload.old) {
-            setOutpasses(prev => prev.filter(outpass => outpass.id !== payload.old.id));
-          }
-        }
-      )
+          // Ensure the payload data follows the OutpassDB structure
+          const newOutpass = dbToOutpassFormat(payload.new as OutpassDB);
+          setOutpasses(prev => [newOutpass, ...prev]);
+        })
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'outpasses' 
+        },
+        (payload) => {
+          // Ensure the payload data follows the OutpassDB structure
+          const updatedOutpass = dbToOutpassFormat(payload.new as OutpassDB);
+          setOutpasses(prev => 
+            prev.map(outpass => 
+              outpass.id === updatedOutpass.id ? updatedOutpass : outpass
+            )
+          );
+        })
+      .on('postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'outpasses'
+        },
+        (payload) => {
+          // Delete the outpass from state
+          setOutpasses(prev => 
+            prev.filter(outpass => outpass.id !== payload.old.id)
+          );
+        })
       .subscribe();
-      
-    // Cleanup subscription on unmount
+
+    // Fetch initial data
+    fetchOutpasses();
+
+    // Clean up subscription on unmount
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(subscription);
     };
   }, []);
 
-  // Helper function to validate if an object conforms to OutpassDB structure
-  function isValidOutpassDB(obj: any): obj is OutpassDB {
-    return obj && 
-      typeof obj === 'object' && 
-      'id' in obj &&
-      'student_id' in obj &&
-      'student_name' in obj &&
-      'enrollment_number' in obj &&
-      'exit_date_time' in obj &&
-      'reason' in obj &&
-      'status' in obj;
-  }
-
-  return {
-    outpasses,
-    isLoading,
-    tabId
-  };
+  return { outpasses, isLoading, tabId };
 }
