@@ -61,12 +61,19 @@ export function useUserProfile() {
         if (userData) {
           // Map database column names to camelCase for our frontend when needed
           if (userRole === 'student') {
+            const studentData = userData as {
+              guardian_email?: string;
+              enrollment_number: string;
+              contact_number?: string;
+              [key: string]: any;
+            };
+            
             const mappedUser: Student = {
               ...userData,
               role: 'student',
-              guardianEmail: userData.guardian_email,
-              enrollmentNumber: userData.enrollment_number,
-              contactNumber: userData.contact_number
+              guardianEmail: studentData.guardian_email,
+              enrollmentNumber: studentData.enrollment_number,
+              contactNumber: studentData.contact_number
             };
             delete mappedUser.password; // Remove password for security
             setCurrentUser(mappedUser);
@@ -148,15 +155,15 @@ export function useUserProfile() {
       // Handle special fields for student
       if (updatedUser.role === 'student') {
         const student = updatedUser as Student;
-        if (student.guardianEmail) {
+        if (student.guardianEmail !== undefined) {
           dbUser.guardian_email = student.guardianEmail;
           delete dbUser.guardianEmail;
         }
-        if (student.enrollmentNumber) {
+        if (student.enrollmentNumber !== undefined) {
           dbUser.enrollment_number = student.enrollmentNumber;
           delete dbUser.enrollmentNumber;
         }
-        if (student.contactNumber) {
+        if (student.contactNumber !== undefined) {
           dbUser.contact_number = student.contactNumber;
           delete dbUser.contactNumber;
         }
@@ -196,7 +203,13 @@ export function useUserProfile() {
       if (updatedUser.id === currentUser?.id) {
         // Remap fields from DB format to frontend format for students
         if (updatedUser.role === 'student' && data && data[0]) {
-          const dbStudent = data[0];
+          const dbStudent = data[0] as {
+            guardian_email?: string;
+            enrollment_number: string;
+            contact_number?: string;
+            [key: string]: any;
+          };
+          
           const mappedUser: Student = {
             ...dbStudent,
             role: 'student',

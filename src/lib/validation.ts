@@ -74,7 +74,8 @@ export function validateOutpass(outpass: any): Outpass | null {
     });
 
     // Parse and validate the outpass object
-    return outpassSchema.parse(outpass);
+    const validOutpass = outpassSchema.parse(outpass);
+    return validOutpass as Outpass;
   } catch (error) {
     console.error("Outpass validation error:", error);
     return null;
