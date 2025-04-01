@@ -1,3 +1,4 @@
+
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Admin, Mentor, Student } from "@/lib/types";
@@ -15,7 +16,7 @@ import {
 
 interface LayoutProps {
   children: ReactNode;
-  user: Student | Mentor | Admin;
+  user: Student | Mentor | Admin | null;
   onLogout: () => void;
   activeTab?: string;
 }
@@ -25,6 +26,9 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
   const { pathname } = location;
   
   const getNavigation = () => {
+    // Add null check before accessing user.role
+    if (!user) return [];
+    
     if (user.role === "student") {
       return [
         { name: "Dashboard", href: "/student", icon: HomeIcon },
@@ -49,6 +53,15 @@ export function Layout({ children, user, onLogout, activeTab }: LayoutProps) {
   };
   
   const navigation = getNavigation();
+
+  // Add loading or error state if user is null
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
