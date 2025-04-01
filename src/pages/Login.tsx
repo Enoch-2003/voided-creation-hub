@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { UserRole } from "@/lib/types";
+import { handleApiError } from "@/lib/errorHandler";
 
 interface LoginProps {
   onLogin: (userId: string, userRole: string) => void;
@@ -92,11 +92,17 @@ export default function Login({ onLogin }: LoginProps) {
       // Call the onLogin callback
       onLogin(data.id, userType);
 
-      toast.success(`Logged in as ${data.name || data.username}`);
+      // Display the appropriate message based on user type and available properties
+      let displayName = data.name; // All user types have name
+      if (userType === 'admin' && 'username' in data) {
+        // Only use username for admin users if it exists
+        displayName = data.username || data.name;
+      }
       
+      toast.success(`Logged in as ${displayName}`);
+      setIsLoading(false);
     } catch (error) {
-      console.error("Login error:", error);
-      toast.error("An error occurred during login. Please try again.");
+      handleApiError(error, "Login");
       setIsLoading(false);
     }
   };
