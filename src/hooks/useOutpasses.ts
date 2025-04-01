@@ -12,8 +12,8 @@ import { handleApiError } from '@/lib/errorHandler';
  * to provide a unified interface for outpass functionality
  */
 export function useOutpasses() {
-  const { outpasses: allOutpasses, isLoading, tabId } = useOutpassSubscription();
-  const { currentUser, userRole, updateUser } = useUserProfile();
+  const { outpasses: allOutpasses, isLoading: subscriptionLoading, tabId } = useOutpassSubscription();
+  const { currentUser, userRole, updateUser, isLoading: profileLoading } = useUserProfile();
   const { updateOutpass, addOutpass, deleteOutpass } = useOutpassOperations(tabId);
   
   // Get filtered outpasses based on user role
@@ -35,6 +35,9 @@ export function useOutpasses() {
       return true;
     }
   });
+
+  // Combine loading states
+  const isLoading = subscriptionLoading || profileLoading;
 
   return {
     outpasses: filteredOutpasses,

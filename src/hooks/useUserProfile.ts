@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function useUserProfile() {
   const [currentUser, setCurrentUser] = useState<Student | Mentor | Admin | null>(null);
   const [userRole, setUserRole] = useState<UserRole | "admin" | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load user data from session storage
   useEffect(() => {
@@ -23,6 +24,8 @@ export function useUserProfile() {
     if (userRoleData) {
       setUserRole(userRoleData);
     }
+    
+    setIsLoading(false);
   }, []);
 
   // If user role changes, update profile data from database
@@ -31,6 +34,7 @@ export function useUserProfile() {
       if (!currentUser || !userRole) return;
       
       try {
+        setIsLoading(true);
         let userData;
         let tableName: "students" | "mentors" | "admins";
         
@@ -41,6 +45,7 @@ export function useUserProfile() {
         } else if (userRole === 'admin') {
           tableName = 'admins';
         } else {
+          setIsLoading(false);
           return; // Invalid role
         }
         
@@ -78,6 +83,8 @@ export function useUserProfile() {
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -172,7 +179,8 @@ export function useUserProfile() {
 
   return { 
     currentUser, 
-    userRole, 
+    userRole,
+    isLoading, 
     updateUser 
   };
 }
