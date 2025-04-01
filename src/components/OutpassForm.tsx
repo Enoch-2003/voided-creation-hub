@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -137,6 +138,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
+      const now = new Date().toISOString();
+      
       // Create the outpass request using the DB schema format
       const outpassRequest: OutpassDB = {
         id: crypto.randomUUID(),
@@ -146,18 +149,26 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         exit_date_time: exitDateTime,
         reason: reason,
         status: "pending",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
         student_section: student.section || '',
         serial_code: serialCode
       };
       
-      // Save to database
-      const { error } = await supabase
-        .from("outpasses")
-        .insert(outpassRequest);
+      console.log("Submitting outpass request:", outpassRequest);
       
-      if (error) throw error;
+      // Save to database
+      const { data, error } = await supabase
+        .from("outpasses")
+        .insert(outpassRequest)
+        .select();
+      
+      if (error) {
+        console.error("Error submitting outpass:", error);
+        throw error;
+      }
+      
+      console.log("Outpass submission response:", data);
       
       // Notify success
       toast.success("Outpass request submitted successfully");

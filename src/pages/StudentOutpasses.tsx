@@ -7,6 +7,8 @@ import { QRCode } from "@/components/QRCode";
 import { Student, Outpass } from "@/lib/types";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { CalendarCheck, CalendarX, Clock } from "lucide-react";
+import { useOutpasses } from "@/hooks/useOutpasses";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface StudentOutpassesProps {
   user: Student;
@@ -14,23 +16,10 @@ interface StudentOutpassesProps {
 }
 
 export default function StudentOutpasses({ user, onLogout }: StudentOutpassesProps) {
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
+  const { outpasses, isLoading } = useOutpasses();
   const [activeTab, setActiveTab] = useState("all");
   const [selectedOutpass, setSelectedOutpass] = useState<Outpass | null>(null);
   const [showQRDialog, setShowQRDialog] = useState(false);
-  
-  useEffect(() => {
-    // Load outpasses from localStorage
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (storedOutpasses) {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      // Filter outpasses for the current student
-      const studentOutpasses = allOutpasses.filter(
-        (outpass: Outpass) => outpass.studentId === user.id
-      );
-      setOutpasses(studentOutpasses);
-    }
-  }, [user.id]);
   
   const filteredOutpasses = outpasses.filter(outpass => {
     if (activeTab === "all") return true;
@@ -65,6 +54,31 @@ export default function StudentOutpasses({ user, onLogout }: StudentOutpassesPro
       </div>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar userRole="student" userName={user.name} onLogout={onLogout} />
+        
+        <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
+          <div className="mb-6">
+            <Skeleton className="h-8 w-64 mb-2" />
+            <Skeleton className="h-4 w-80" />
+          </div>
+          
+          <div className="mb-6">
+            <Skeleton className="h-10 w-full max-w-md mb-6" />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-64 w-full rounded-lg" />
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col">

@@ -1,135 +1,82 @@
 
 import { z } from 'zod';
-import { Outpass, OutpassStatus, User } from './types';
-
-// Basic schemas
-const userRoleSchema = z.enum(['student', 'mentor', 'admin']);
-const outpassStatusSchema = z.enum(['pending', 'approved', 'denied']);
-const uuidSchema = z.string().uuid();
-const emailSchema = z.string().email();
-const dateTimeSchema = z.string().datetime();
-
-// User schema
-export const userSchema = z.object({
-  id: uuidSchema,
-  name: z.string().min(1, "Name is required"),
-  email: emailSchema,
-  role: userRoleSchema
-});
-
-// Outpass schema for validating outpass objects
-export const outpassSchema = z.object({
-  id: uuidSchema,
-  studentId: uuidSchema,
-  studentName: z.string().min(1, "Student name is required"),
-  enrollmentNumber: z.string().min(1, "Enrollment number is required"),
-  exitDateTime: dateTimeSchema.or(z.date()),
-  reason: z.string().min(1, "Reason is required"),
-  status: outpassStatusSchema,
-  mentorId: uuidSchema.optional().nullable(),
-  mentorName: z.string().optional().nullable(),
-  qrCode: z.string().optional().nullable(),
-  createdAt: dateTimeSchema.or(z.date()),
-  updatedAt: dateTimeSchema.or(z.date()),
-  scanTimestamp: dateTimeSchema.optional().nullable(),
-  denyReason: z.string().optional().nullable(),
-  studentSection: z.string().optional().nullable(),
-  serialCode: z.string().optional().nullable()
-});
-
-// Student schema
-export const studentSchema = userSchema.extend({
-  role: z.literal('student'),
-  enrollmentNumber: z.string().min(1, "Enrollment number is required"),
-  contactNumber: z.string().optional().nullable(),
-  guardianEmail: emailSchema.optional().nullable(),
-  department: z.string().optional().nullable(),
-  course: z.string().optional().nullable(),
-  branch: z.string().optional().nullable(),
-  semester: z.string().optional().nullable(),
-  section: z.string().optional().nullable()
-});
-
-// Mentor schema
-export const mentorSchema = userSchema.extend({
-  role: z.literal('mentor'),
-  contactNumber: z.string().optional().nullable(),
-  department: z.string().optional().nullable(),
-  branches: z.array(z.string()).optional().nullable(),
-  courses: z.array(z.string()).optional().nullable(),
-  semesters: z.array(z.string()).optional().nullable(),
-  sections: z.array(z.string()).optional().nullable()
-});
-
-// Login form schema
-export const loginFormSchema = z.object({
-  email: emailSchema,
-  password: z.string().min(6, "Password must be at least 6 characters")
-});
-
-// Admin login form schema
-export const adminLoginFormSchema = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(6, "Password must be at least 6 characters")
-});
+import { Outpass } from './types';
 
 /**
- * Validate an outpass object against the schema
- * 
- * @param outpass The outpass object to validate
- * @returns Validated outpass or null if invalid
+ * Validates email format
  */
-export function validateOutpass(outpass: unknown): Outpass | null {
+export function validateEmail(email: string): boolean {
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailPattern.test(email);
+}
+
+/**
+ * Validates phone number format (simple)
+ */
+export function validatePhone(phone: string): boolean {
+  const phonePattern = /^\d{10,15}$/;
+  return phonePattern.test(phone);
+}
+
+/**
+ * Validates password strength
+ * - At least 6 characters
+ */
+export function validatePassword(password: string): boolean {
+  return password.length >= 6;
+}
+
+/**
+ * Validates outpass request form data
+ */
+export function validateOutpassRequest(data: any): string | null {
+  // Check for required fields
+  if (!data.studentId || !data.studentName || !data.enrollmentNumber || !data.exitDateTime || !data.reason) {
+    return "All fields are required";
+  }
+  
+  // Validate exit time is within allowed range (9:15 AM - 3:10 PM)
+  const exitTime = new Date(data.exitDateTime);
+  const hours = exitTime.getHours();
+  const minutes = exitTime.getMinutes();
+  
+  if (hours < 9 || (hours === 9 && minutes < 15) || hours > 15 || (hours === 15 && minutes > 10)) {
+    return "Exit time must be between 9:15 AM and 3:10 PM";
+  }
+  
+  // All validations passed
+  return null;
+}
+
+/**
+ * Validates outpass object structure using Zod
+ */
+export function validateOutpass(outpass: any): Outpass | null {
   try {
-    return outpassSchema.parse(outpass) as Outpass;
+    // Define Zod schema for outpass validation with more flexible date handling
+    const outpassSchema = z.object({
+      id: z.string(),
+      studentId: z.string(),
+      studentName: z.string(),
+      enrollmentNumber: z.string(),
+      exitDateTime: z.string(),
+      reason: z.string(),
+      status: z.enum(['pending', 'approved', 'denied']),
+      mentorId: z.string().optional().nullable(),
+      mentorName: z.string().optional().nullable(),
+      qrCode: z.string().optional().nullable(),
+      createdAt: z.string(),
+      updatedAt: z.string(),
+      scanTimestamp: z.string().optional().nullable(),
+      denyReason: z.string().optional().nullable(),
+      studentSection: z.string().optional().nullable(),
+      serialCode: z.string().optional().nullable(),
+    });
+
+    // Parse and validate the outpass object
+    return outpassSchema.parse(outpass);
   } catch (error) {
-    console.error('Outpass validation error:', error);
+    console.error("Outpass validation error:", error);
     return null;
   }
-}
-
-/**
- * Validate an user object against the schema
- * 
- * @param user The user object to validate
- * @returns Validated user or null if invalid
- */
-export function validateUser(user: unknown): User | null {
-  try {
-    return userSchema.parse(user) as User;
-  } catch (error) {
-    console.error('User validation error:', error);
-    return null;
-  }
-}
-
-/**
- * Check if a string is a valid outpass status
- */
-export function isValidOutpassStatus(status: string): status is OutpassStatus {
-  return ['pending', 'approved', 'denied'].includes(status);
-}
-
-/**
- * Check if a string is a valid user role
- */
-export function isValidUserRole(role: string): boolean {
-  return ['student', 'mentor', 'admin'].includes(role);
-}
-
-/**
- * Ensure timestamps are in ISO format
- */
-export function ensureISODateString(date: string | Date): string {
-  if (date instanceof Date) {
-    return date.toISOString();
-  }
-  if (typeof date === 'string') {
-    try {
-      return new Date(date).toISOString();
-    } catch (error) {
-      console.error('Invalid date string:', error);
-    }
-  }
-  return new Date().toISOString();
 }

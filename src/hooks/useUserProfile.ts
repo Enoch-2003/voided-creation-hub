@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Student, Mentor, Admin, UserRole } from '@/lib/types';
 import { toast } from 'sonner';
@@ -88,6 +89,34 @@ export function useUserProfile() {
     };
     
     fetchUserProfile();
+    
+    // Set up real-time subscription for user profile updates
+    let tableName: "students" | "mentors" | "admins" | null = null;
+    if (userRole === 'student') tableName = 'students';
+    else if (userRole === 'mentor') tableName = 'mentors';
+    else if (userRole === 'admin') tableName = 'admins';
+    
+    if (tableName && currentUser) {
+      const channel = supabase
+        .channel(`${tableName}-changes-${currentUser.id}`)
+        .on('postgres_changes', 
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: tableName,
+            filter: `id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            console.log(`${tableName} profile updated:`, payload.new);
+            // Refetch user profile data to update the state
+            fetchUserProfile();
+          })
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [currentUser?.id, userRole]);
 
   // Function to update the user
@@ -147,32 +176,55 @@ export function useUserProfile() {
         }
       }
       
+      console.log(`Updating ${tableName} with data:`, dbUser);
+      
       // Update the database
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from(tableName)
         .update(dbUser)
-        .eq('id', updatedUser.id);
+        .eq('id', updatedUser.id)
+        .select();
       
       if (error) throw error;
+      console.log(`${tableName} update result:`, data);
       
       // Create a safe user object without password for session storage
-      delete dbUser.password;
+      const safeUser = { ...dbUser };
+      delete safeUser.password;
       
       // Update session storage for this tab
       if (updatedUser.id === currentUser?.id) {
-        sessionStorage.setItem('user', JSON.stringify(dbUser));
-        setCurrentUser(dbUser);
+        // Remap fields from DB format to frontend format for students
+        if (updatedUser.role === 'student' && data && data[0]) {
+          const dbStudent = data[0];
+          const mappedUser: Student = {
+            ...dbStudent,
+            role: 'student',
+            guardianEmail: dbStudent.guardian_email,
+            enrollmentNumber: dbStudent.enrollment_number,
+            contactNumber: dbStudent.contact_number
+          };
+          delete mappedUser.password; // Remove password for security
+          sessionStorage.setItem('user', JSON.stringify(mappedUser));
+          setCurrentUser(mappedUser);
+        } else {
+          sessionStorage.setItem('user', JSON.stringify(safeUser));
+          setCurrentUser(safeUser);
+        }
       }
       
       // Show toast notification for user updates
       if (userRole === 'student' && updatedUser.id === currentUser?.id) {
         toast.info("Your profile information has been updated");
+      } else {
+        toast.info(`User ${updatedUser.name} has been updated`);
       }
       
       return dbUser;
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('Failed to update user information. Please try again.');
+      throw error;
     }
   }, [currentUser?.id, userRole]);
 

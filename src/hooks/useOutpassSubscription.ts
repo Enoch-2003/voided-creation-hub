@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
 import { handleApiError } from '@/lib/errorHandler';
+import { toast } from 'sonner';
 
 /**
  * Custom hook for subscribing to outpass updates in real-time
@@ -28,9 +29,13 @@ export function useOutpassSubscription() {
         if (error) throw error;
         
         // Convert outpasses to the frontend format
-        const formattedOutpasses = (data || []).map((item: OutpassDB) => dbToOutpassFormat(item));
+        const formattedOutpasses = (data || []).map((item: OutpassDB) => {
+          const outpass = dbToOutpassFormat(item);
+          return outpass;
+        });
         
         setOutpasses(formattedOutpasses);
+        console.log("Fetched outpasses:", formattedOutpasses);
       } catch (error) {
         handleApiError(error, 'Fetching outpasses');
       } finally {
@@ -48,10 +53,15 @@ export function useOutpassSubscription() {
           table: 'outpasses' 
         },
         (payload) => {
-          // Ensure the payload data follows the OutpassDB structure
-          const payloadData = payload.new as OutpassDB;
-          const newOutpass = dbToOutpassFormat(payloadData);
-          setOutpasses(prev => [newOutpass, ...prev]);
+          try {
+            // Ensure the payload data follows the OutpassDB structure
+            const payloadData = payload.new as OutpassDB;
+            const newOutpass = dbToOutpassFormat(payloadData);
+            console.log("Inserted new outpass:", newOutpass);
+            setOutpasses(prev => [newOutpass, ...prev]);
+          } catch (error) {
+            console.error("Error processing inserted outpass:", error);
+          }
         })
       .on('postgres_changes', 
         { 
@@ -60,14 +70,19 @@ export function useOutpassSubscription() {
           table: 'outpasses' 
         },
         (payload) => {
-          // Ensure the payload data follows the OutpassDB structure
-          const payloadData = payload.new as OutpassDB;
-          const updatedOutpass = dbToOutpassFormat(payloadData);
-          setOutpasses(prev => 
-            prev.map(outpass => 
-              outpass.id === updatedOutpass.id ? updatedOutpass : outpass
-            )
-          );
+          try {
+            // Ensure the payload data follows the OutpassDB structure
+            const payloadData = payload.new as OutpassDB;
+            const updatedOutpass = dbToOutpassFormat(payloadData);
+            console.log("Updated outpass:", updatedOutpass);
+            setOutpasses(prev => 
+              prev.map(outpass => 
+                outpass.id === updatedOutpass.id ? updatedOutpass : outpass
+              )
+            );
+          } catch (error) {
+            console.error("Error processing updated outpass:", error);
+          }
         })
       .on('postgres_changes',
         {
@@ -76,12 +91,17 @@ export function useOutpassSubscription() {
           table: 'outpasses'
         },
         (payload) => {
-          // Delete the outpass from state
-          const oldId = payload.old?.id;
-          if (oldId) {
-            setOutpasses(prev => 
-              prev.filter(outpass => outpass.id !== oldId)
-            );
+          try {
+            // Delete the outpass from state
+            const oldId = payload.old?.id;
+            if (oldId) {
+              console.log("Deleted outpass with ID:", oldId);
+              setOutpasses(prev => 
+                prev.filter(outpass => outpass.id !== oldId)
+              );
+            }
+          } catch (error) {
+            console.error("Error processing deleted outpass:", error);
           }
         })
       .subscribe();
