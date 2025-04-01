@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,24 +19,28 @@ interface MentorDashboardProps {
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { outpasses, updateOutpass, isLoading: outpassesLoading } = useOutpasses();
+  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser } = useOutpasses();
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<Mentor | null>(user);
+  const [currentMentor, setCurrentMentor] = useState<Mentor | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
-  // Safety check: if user is null when component mounts, redirect to login
+  // Initialize with the passed user prop
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
+    if (user) {
+      setCurrentMentor(user);
+      setIsLoading(false);
     }
-    
-    setCurrentUser(user);
-    setIsLoading(false);
-  }, [user, navigate]);
+  }, [user]);
   
+  // Update with data from useOutpasses hook when available
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'mentor') {
+      setCurrentMentor(currentUser as Mentor);
+    }
+  }, [currentUser]);
+
   // If we're still loading or missing user data, show a loading indicator
-  if (isLoading || !currentUser) {
+  if (isLoading || !currentMentor) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -48,9 +51,10 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     );
   }
   
+  // Filter outpasses for the mentor's sections - moved outside hooks
   const filteredOutpasses = outpasses.filter((outpass) => {
-    return outpass.studentSection && currentUser.sections && 
-      currentUser.sections.includes(outpass.studentSection);
+    return outpass.studentSection && currentMentor.sections && 
+      currentMentor.sections.includes(outpass.studentSection);
   });
   
   const pendingOutpasses = filteredOutpasses.filter(o => o.status === "pending");
@@ -59,7 +63,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   
   // Handle profile updates
   const handleProfileUpdate = (updatedMentor: Mentor) => {
-    setCurrentUser(updatedMentor);
+    setCurrentMentor(updatedMentor);
   };
 
   const handleApprove = (id: string) => {
@@ -69,8 +73,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "approved",
-        mentorId: currentUser.id,
-        mentorName: currentUser.name,
+        mentorId: currentMentor.id,
+        mentorName: currentMentor.name,
         qrCode: generateQRCode(outpassToUpdate.id),
         updatedAt: new Date().toISOString()
       };
@@ -91,8 +95,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "denied",
-        mentorId: currentUser.id,
-        mentorName: currentUser.name,
+        mentorId: currentMentor.id,
+        mentorName: currentMentor.name,
         denyReason: reason,
         updatedAt: new Date().toISOString()
       };
@@ -106,29 +110,22 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     }
   };
   
-  // Update currentUser when user prop changes
-  useEffect(() => {
-    if (user) {
-      setCurrentUser(user);
-    }
-  }, [user]);
-  
-  // Update currentUser when profile is edited
+  // Handle profile edit
   const handleProfileEdit = () => {
     setIsEditProfileOpen(true);
   };
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar userRole="mentor" userName={currentUser.name} onLogout={onLogout} />
+      <Navbar userRole="mentor" userName={currentMentor.name} onLogout={onLogout} />
       
       <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
           <div className="md:col-span-2">
             <div className="mb-6">
-              <h1 className="text-3xl font-bold font-display">Welcome, {currentUser.name}</h1>
+              <h1 className="text-3xl font-bold font-display">Welcome, {currentMentor.name}</h1>
               <p className="text-muted-foreground">
-                Review and manage student outpass requests for your sections: {currentUser.sections?.map(s => `Section ${s}`).join(", ") || "No sections assigned"}
+                Review and manage student outpass requests for your sections: {currentMentor.sections?.map(s => `Section ${s}`).join(", ") || "No sections assigned"}
               </p>
             </div>
             
@@ -251,31 +248,31 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Name:</span>
-                    <span className="font-medium">{currentUser.name}</span>
+                    <span className="font-medium">{currentMentor.name}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Email:</span>
-                    <span className="font-medium">{currentUser.email}</span>
+                    <span className="font-medium">{currentMentor.email}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Department:</span>
-                    <span className="font-medium">{currentUser.department || "Not specified"}</span>
+                    <span className="font-medium">{currentMentor.department || "Not specified"}</span>
                   </div>
                   
-                  {currentUser.contactNumber && (
+                  {currentMentor.contactNumber && (
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Contact Number:</span>
-                      <span className="font-medium">{currentUser.contactNumber}</span>
+                      <span className="font-medium">{currentMentor.contactNumber}</span>
                     </div>
                   )}
                   
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Branches:</span>
                     <div className="flex flex-wrap gap-1">
-                      {currentUser.branches && currentUser.branches.length > 0 ? (
-                        currentUser.branches.map((branch, idx) => (
+                      {currentMentor.branches && currentMentor.branches.length > 0 ? (
+                        currentMentor.branches.map((branch, idx) => (
                           <span key={`${branch}-${idx}`} className="bg-muted px-2 py-1 rounded text-xs">
                             {branch}
                           </span>
@@ -289,8 +286,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Courses:</span>
                     <div className="flex flex-wrap gap-1">
-                      {currentUser.courses && currentUser.courses.length > 0 ? (
-                        currentUser.courses.map((course, idx) => (
+                      {currentMentor.courses && currentMentor.courses.length > 0 ? (
+                        currentMentor.courses.map((course, idx) => (
                           <span key={`${course}-${idx}`} className="bg-muted px-2 py-1 rounded text-xs">
                             {course}
                           </span>
@@ -304,8 +301,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Semesters:</span>
                     <div className="flex flex-wrap gap-1">
-                      {currentUser.semesters && currentUser.semesters.length > 0 ? (
-                        currentUser.semesters.map((semester, idx) => (
+                      {currentMentor.semesters && currentMentor.semesters.length > 0 ? (
+                        currentMentor.semesters.map((semester, idx) => (
                           <span key={`${semester}-${idx}`} className="bg-muted px-2 py-1 rounded text-xs">
                             {semester}
                           </span>
@@ -319,8 +316,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                   <div className="flex flex-col text-sm mt-2">
                     <span className="text-muted-foreground mb-1">Sections:</span>
                     <div className="flex flex-wrap gap-1">
-                      {currentUser.sections && currentUser.sections.length > 0 ? (
-                        currentUser.sections.map((section, idx) => (
+                      {currentMentor.sections && currentMentor.sections.length > 0 ? (
+                        currentMentor.sections.map((section, idx) => (
                           <span key={`${section}-${idx}`} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
                             Section {section}
                           </span>
@@ -424,7 +421,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         <MentorProfileEdit
           isOpen={isEditProfileOpen}
           onClose={() => setIsEditProfileOpen(false)}
-          mentor={currentUser}
+          mentor={currentMentor}
           onProfileUpdate={handleProfileUpdate}
         />
       )}
