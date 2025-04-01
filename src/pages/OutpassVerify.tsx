@@ -1,18 +1,16 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { formatDateTime } from "@/lib/utils";
-import { Outpass } from "@/lib/types";
-import { ClipboardCopy, CheckCircle, XCircle, Clock, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
-import { jsPDF } from "jspdf";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import storageSync from "@/lib/storageSync";
 import { supabase } from "@/integrations/supabase/client";
+import storageSync from "@/lib/storageSync";
+import { Outpass } from "@/lib/types";
+
+// Import refactored components
+import { VerificationStatus } from "@/components/OutpassVerify/VerificationStatus";
+import { ExpiredDialog } from "@/components/OutpassVerify/ExpiredDialog";
+import { VerificationCard } from "@/components/OutpassVerify/VerificationCard";
+import { generateOutpassPDF } from "@/components/OutpassVerify/PDFGenerator";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -310,57 +308,7 @@ export default function OutpassVerify() {
   
   const handleDownloadPDF = () => {
     if (!outpass) return;
-    
-    // Ensure we have the serial code
-    const actualSerialCode = outpass.serialCode || serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`;
-    
-    const pdf = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
-    
-    pdf.setFontSize(18);
-    pdf.text("AmiPass - Campus Exit Permit", 105, 20, { align: "center" });
-    
-    pdf.setFontSize(14);
-    pdf.text(`Verification Status: ${isVerified ? 'Verified' : 'Newly Verified'}`, 105, 30, { align: "center" });
-    pdf.text(`Verification Time: ${formatDateTime(outpass.scanTimestamp || new Date().toISOString())}`, 105, 38, { align: "center" });
-    
-    pdf.setDrawColor(200, 200, 200);
-    pdf.line(20, 45, 190, 45);
-    
-    pdf.setFontSize(12);
-    pdf.text("Exit Permit Details", 20, 55);
-    
-    pdf.setFontSize(10);
-    pdf.text(`Student Name: ${outpass.studentName}`, 20, 65);
-    pdf.text(`Enrollment Number: ${outpass.enrollmentNumber}`, 20, 73);
-    pdf.text(`Section: ${outpass.studentSection || 'N/A'}`, 20, 81);
-    pdf.text(`Exit Date & Time: ${formatDateTime(outpass.exitDateTime)}`, 20, 89);
-    pdf.text(`Reason: ${outpass.reason}`, 20, 97);
-    pdf.text(`Serial Code: ${actualSerialCode}`, 20, 105);
-    
-    pdf.setFontSize(12);
-    pdf.text("Approval Information", 20, 120);
-    
-    pdf.setFontSize(10);
-    pdf.text(`Status: Approved`, 20, 130);
-    pdf.text(`Approved By: ${outpass.mentorName || "Not specified"}`, 20, 138);
-    pdf.text(`Approved On: ${formatDateTime(outpass.updatedAt)}`, 20, 146);
-    
-    pdf.setFontSize(8);
-    pdf.setTextColor(255, 0, 0);
-    pdf.text("THIS OUTPASS IS VALID FOR ONE-TIME USE ONLY", 105, 170, { align: "center" });
-    pdf.setTextColor(0, 0, 0);
-    
-    pdf.setFontSize(8);
-    pdf.text("This outpass has been verified by the AmiPass system.", 105, 220, { align: "center" });
-    pdf.text("Please show this to the security personnel when exiting the campus.", 105, 225, { align: "center" });
-    pdf.text(`Generated on: ${new Date().toLocaleString()}`, 105, 230, { align: "center" });
-    
-    pdf.save(`AmiPass-Verification-${outpass.id}.pdf`);
-    
+    generateOutpassPDF(outpass, serialCode, isVerified);
     toast.success("Verification PDF downloaded successfully");
   };
   
@@ -377,212 +325,35 @@ export default function OutpassVerify() {
     navigateBack();
   };
   
-  if (isLoading) {
+  if (isLoading || error || !outpass) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Clock className="h-16 w-16 mx-auto text-blue-500 animate-pulse mb-4" />
-          <h2 className="text-xl font-medium text-gray-900">Verifying outpass...</h2>
-          <p className="mt-2 text-gray-500">Please wait while we check your outpass</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto text-center p-6">
-          <XCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-xl font-medium text-gray-900">Verification Failed</h2>
-          <p className="mt-2 text-gray-500">{error}</p>
-          <Button 
-            variant="outline" 
-            className="mt-6"
-            onClick={navigateBack}
-          >
-            Go Back
-          </Button>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!outpass) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full mx-auto text-center p-6">
-          <XCircle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-xl font-medium text-gray-900">Outpass Not Found</h2>
-          <p className="mt-2 text-gray-500">The requested outpass could not be found</p>
-          <Button 
-            variant="outline" 
-            className="mt-6"
-            onClick={navigateBack}
-          >
-            Go Back
-          </Button>
-        </div>
-      </div>
+      <VerificationStatus 
+        isLoading={isLoading} 
+        error={error} 
+        navigateBack={navigateBack} 
+      />
     );
   }
   
   return (
     <>
-      <Dialog open={showExpiredDialog} onOpenChange={setShowExpiredDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Outpass Already Verified</DialogTitle>
-            <DialogDescription>
-              This outpass has already been verified and cannot be used again.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center p-4">
-            <XCircle className="h-16 w-16 text-red-500 mb-4" />
-            <p className="text-center mb-2"><strong>Verification Status:</strong> Expired after scan</p>
-            <p className="text-center text-sm text-muted-foreground">
-              This outpass was first verified on: {formatDateTime(outpass?.scanTimestamp || "")}
-            </p>
-            {outpass?.serialCode && (
-              <p className="text-center mt-2"><strong>Serial Code:</strong> {outpass.serialCode}</p>
-            )}
-          </div>
-          <DialogFooter className="flex sm:justify-between">
-            <Button variant="outline" onClick={handleExpiredDialogClose}>
-              Return to Dashboard
-            </Button>
-            <Button onClick={handleDownloadPDF}>
-              <Download className="h-4 w-4 mr-1" />
-              Download PDF
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExpiredDialog
+        open={showExpiredDialog}
+        onOpenChange={setShowExpiredDialog}
+        scanTimestamp={outpass?.scanTimestamp}
+        serialCode={outpass?.serialCode}
+        onClose={handleExpiredDialogClose}
+        onDownload={handleDownloadPDF}
+      />
       
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full mx-auto">
-          <div className="text-center mb-6">
-            <div className="mx-auto w-20 h-20 mb-4 relative">
-              <img
-                src="/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png"
-                alt="Amity University"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <h1 className="text-2xl font-bold">AmiPass Verification</h1>
-            {isVerified ? (
-              <Badge className="mt-2 px-3 py-1 bg-blue-100 text-blue-800 border-blue-200">
-                Previously Verified
-              </Badge>
-            ) : (
-              <Badge className="mt-2 px-3 py-1 bg-green-100 text-green-800 border-green-200">
-                Verified Now
-              </Badge>
-            )}
-          </div>
-          
-          <Card className="shadow-lg">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle>Exit Permit</CardTitle>
-                  <CardDescription>
-                    This outpass has been verified and is valid
-                  </CardDescription>
-                </div>
-                <CheckCircle className="h-7 w-7 text-green-500" />
-              </div>
-            </CardHeader>
-            
-            <CardContent className="pb-2 space-y-6">
-              <div className="space-y-1">
-                <div className="font-medium text-sm text-muted-foreground">Serial Code</div>
-                <div className="flex justify-between items-center">
-                  <div className="font-mono font-bold">{serialCode}</div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={handleCopyToClipboard}
-                    className="h-8 w-8"
-                  >
-                    <ClipboardCopy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="space-y-1">
-                <div className="font-medium text-sm text-muted-foreground">Student Details</div>
-                <div className="font-bold">{outpass?.studentName}</div>
-                <div className="text-sm">{outpass?.enrollmentNumber}</div>
-                {outpass?.studentSection && (
-                  <div className="text-sm">Section: {outpass.studentSection}</div>
-                )}
-              </div>
-              
-              <div className="space-y-1">
-                <div className="font-medium text-sm text-muted-foreground">Exit Details</div>
-                <div>
-                  <span className="font-medium">Date & Time: </span>
-                  <span>{formatDateTime(outpass?.exitDateTime || "")}</span>
-                </div>
-                <div>
-                  <span className="font-medium">Reason: </span>
-                  <span>{outpass?.reason}</span>
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="font-medium text-sm text-muted-foreground">Approval Details</div>
-                <div>
-                  <span className="font-medium">Approved by: </span>
-                  <span>{outpass?.mentorName}</span>
-                </div>
-                <div>
-                  <span className="font-medium">Approved on: </span>
-                  <span>{formatDateTime(outpass?.updatedAt || "")}</span>
-                </div>
-              </div>
-              
-              <div className="space-y-1 pb-3">
-                <div className="font-medium text-sm text-muted-foreground">Verification Details</div>
-                <div>
-                  <span className="font-medium">Verified on: </span>
-                  <span>{formatDateTime(outpass?.scanTimestamp || new Date().toISOString())}</span>
-                </div>
-              </div>
-            </CardContent>
-            
-            <CardFooter className="pt-3 border-t flex flex-col sm:flex-row gap-2">
-              <div className="flex items-center text-sm text-muted-foreground mb-2 sm:mb-0 sm:mr-auto">
-                <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                Valid for this exit only
-              </div>
-              <div className="flex gap-2 w-full sm:w-auto">
-                <Button 
-                  variant="default" 
-                  onClick={handleDownloadPDF}
-                  size="sm"
-                  className="sm:mr-2 flex-1 sm:flex-none"
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download PDF
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={handleNavigateToStudent}
-                  size="sm"
-                  className="flex-1 sm:flex-none"
-                >
-                  Close
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
+      <VerificationCard
+        outpass={outpass}
+        serialCode={serialCode}
+        isVerified={isVerified}
+        onCopyToClipboard={handleCopyToClipboard}
+        onDownloadPDF={handleDownloadPDF}
+        onNavigateToStudent={handleNavigateToStudent}
+      />
     </>
   );
 }

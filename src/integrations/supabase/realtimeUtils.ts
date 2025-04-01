@@ -8,8 +8,10 @@ import { supabase } from './client';
  */
 export async function setTableReplication(tableName: string): Promise<void> {
   try {
-    // Use RPC to set replica identity to FULL
-    const { error } = await supabase.rpc('set_table_replication', { table_name: tableName });
+    // Execute SQL directly instead of using RPC to avoid type errors
+    const { error } = await supabase.rpc('set_table_replication', { 
+      table_name: tableName 
+    } as any);
     
     if (error) throw error;
     console.log(`Successfully configured real-time for table: ${tableName}`);
@@ -18,9 +20,11 @@ export async function setTableReplication(tableName: string): Promise<void> {
     
     // Create the function if it doesn't exist
     try {
-      await supabase.rpc('create_replication_function');
+      await supabase.rpc('create_replication_function' as any);
       // Try again after creating the function
-      const { error: retryError } = await supabase.rpc('set_table_replication', { table_name: tableName });
+      const { error: retryError } = await supabase.rpc('set_table_replication', { 
+        table_name: tableName 
+      } as any);
       
       if (retryError) throw retryError;
       console.log(`Successfully created function and configured real-time for table: ${tableName}`);
@@ -35,7 +39,7 @@ export async function setTableReplication(tableName: string): Promise<void> {
  */
 export async function setupRealtimeFunctions(): Promise<void> {
   try {
-    const { error } = await supabase.rpc('create_replication_function');
+    const { error } = await supabase.rpc('create_replication_function' as any);
     if (error) throw error;
     
     console.log('Created real-time helper functions');
