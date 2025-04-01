@@ -65,15 +65,25 @@ export function useUserProfile() {
               guardian_email?: string;
               enrollment_number: string;
               contact_number?: string;
+              id: string;
+              name: string;
+              email: string;
               [key: string]: any;
             };
             
             const mappedUser: Student = {
-              ...userData,
+              id: studentData.id,
+              name: studentData.name,
+              email: studentData.email,
               role: 'student',
               guardianEmail: studentData.guardian_email,
               enrollmentNumber: studentData.enrollment_number,
-              contactNumber: studentData.contact_number
+              contactNumber: studentData.contact_number,
+              department: studentData.department,
+              course: studentData.course,
+              branch: studentData.branch,
+              semester: studentData.semester,
+              section: studentData.section
             };
             delete mappedUser.password; // Remove password for security
             setCurrentUser(mappedUser);
@@ -207,15 +217,30 @@ export function useUserProfile() {
             guardian_email?: string;
             enrollment_number: string;
             contact_number?: string;
+            id: string;
+            name: string;
+            email: string;
+            department?: string;
+            course?: string;
+            branch?: string;
+            semester?: string;
+            section?: string;
             [key: string]: any;
           };
           
           const mappedUser: Student = {
-            ...dbStudent,
+            id: dbStudent.id,
+            name: dbStudent.name,
+            email: dbStudent.email,
             role: 'student',
             guardianEmail: dbStudent.guardian_email,
             enrollmentNumber: dbStudent.enrollment_number,
-            contactNumber: dbStudent.contact_number
+            contactNumber: dbStudent.contact_number,
+            department: dbStudent.department,
+            course: dbStudent.course,
+            branch: dbStudent.branch,
+            semester: dbStudent.semester,
+            section: dbStudent.section
           };
           delete mappedUser.password; // Remove password for security
           sessionStorage.setItem('user', JSON.stringify(mappedUser));
