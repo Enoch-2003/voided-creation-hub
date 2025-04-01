@@ -23,9 +23,10 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"name" | "enrollment" | "all">("all");
   
-  // Filter outpasses by mentor's sections
+  // Filter outpasses by mentor's sections with safe null/undefined handling
   const sectionFilteredOutpasses = outpasses.filter((outpass) => {
-    return outpass.studentSection && user.sections.includes(outpass.studentSection);
+    const mentorSections = user.sections || [];
+    return outpass.studentSection && mentorSections.includes(outpass.studentSection);
   });
   
   // Filter by status: pending

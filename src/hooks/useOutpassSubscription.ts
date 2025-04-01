@@ -21,7 +21,8 @@ export function useOutpassSubscription() {
     const configureRealtime = async () => {
       try {
         // For PostgreSQL Broadcast, we are using REPLICA IDENTITY FULL to get 'old' value
-        await supabase.rpc('set_table_replication', { table_name: 'outpasses' });
+        const { error } = await supabase.rpc('set_table_replication', { table_name: 'outpasses' });
+        if (error) throw error;
         console.log('Configured real-time for outpasses table');
       } catch (error) {
         console.error('Could not set up realtime:', error);
@@ -145,4 +146,3 @@ export function useOutpassSubscription() {
 
   return { outpasses, isLoading, tabId };
 }
-

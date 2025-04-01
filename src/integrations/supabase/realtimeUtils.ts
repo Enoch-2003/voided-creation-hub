@@ -9,7 +9,9 @@ import { supabase } from './client';
 export async function setTableReplication(tableName: string): Promise<void> {
   try {
     // Use RPC to set replica identity to FULL
-    await supabase.rpc('set_table_replication', { table_name: tableName });
+    const { error } = await supabase.rpc('set_table_replication', { table_name: tableName });
+    
+    if (error) throw error;
     console.log(`Successfully configured real-time for table: ${tableName}`);
   } catch (error) {
     console.error(`Error configuring real-time for table ${tableName}:`, error);
@@ -18,7 +20,9 @@ export async function setTableReplication(tableName: string): Promise<void> {
     try {
       await supabase.rpc('create_replication_function');
       // Try again after creating the function
-      await supabase.rpc('set_table_replication', { table_name: tableName });
+      const { error: retryError } = await supabase.rpc('set_table_replication', { table_name: tableName });
+      
+      if (retryError) throw retryError;
       console.log(`Successfully created function and configured real-time for table: ${tableName}`);
     } catch (innerError) {
       console.error('Could not create real-time configuration function:', innerError);
@@ -31,7 +35,9 @@ export async function setTableReplication(tableName: string): Promise<void> {
  */
 export async function setupRealtimeFunctions(): Promise<void> {
   try {
-    await supabase.rpc('create_replication_function');
+    const { error } = await supabase.rpc('create_replication_function');
+    if (error) throw error;
+    
     console.log('Created real-time helper functions');
     
     // Configure tables that need real-time
@@ -39,6 +45,7 @@ export async function setupRealtimeFunctions(): Promise<void> {
     await setTableReplication('students');
     await setTableReplication('mentors');
     await setTableReplication('admins');
+    await setTableReplication('serial_code_logs');
   } catch (error) {
     console.error('Failed to create real-time helper functions:', error);
   }

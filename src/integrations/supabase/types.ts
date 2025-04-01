@@ -233,7 +233,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_replication_function: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      set_table_replication: {
+        Args: {
+          table_name: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       user_role: "student" | "mentor" | "admin"

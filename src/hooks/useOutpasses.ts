@@ -27,7 +27,7 @@ export function useOutpasses() {
     } else if (isMentor(currentUser)) {
       // Show outpasses for sections that the mentor manages
       return outpass.studentSection && 
-             currentUser.sections?.includes(outpass.studentSection);
+             (currentUser.sections?.includes(outpass.studentSection) || false);
     } else {
       // Admin can see all outpasses
       return true;
