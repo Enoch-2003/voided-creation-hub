@@ -8,6 +8,7 @@ import QRCodeLib from "qrcode";
 import { jsPDF } from "jspdf";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface QRCodeProps {
   outpass: Outpass;
@@ -36,9 +37,26 @@ export function QRCode({ outpass, onClose }: QRCodeProps) {
     const url = `${baseUrl}/outpass/verify/${outpass.id}`;
     setVerificationUrl(url);
     
+    // Update the QR code URL in the database if it's not already set
+    if (!outpass.qrCode) {
+      updateQrCodeInDatabase(url);
+    }
+    
     // Log the URL for debugging
     console.log("Generated verification URL:", url);
-  }, [outpass.id]);
+  }, [outpass.id, outpass.qrCode]);
+  
+  const updateQrCodeInDatabase = async (url: string) => {
+    try {
+      await supabase
+        .from('outpasses')
+        .update({ qr_code: url })
+        .eq('id', outpass.id);
+      console.log("Updated QR code URL in database");
+    } catch (error) {
+      console.error("Error updating QR code URL in database:", error);
+    }
+  };
   
   // Generate QR code once we have the verification URL
   useEffect(() => {

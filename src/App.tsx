@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Index from "@/pages/Index";
@@ -16,6 +17,7 @@ import AdminStudentEdit from "@/pages/AdminStudentEdit";
 import NotFound from "@/pages/NotFound";
 import { Admin, Mentor, Student, User } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
+import { setupRealtimeFunctions } from "@/integrations/supabase/realtimeUtils";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -23,6 +25,11 @@ function App() {
   const [user, setUser] = useState<User | Student | Mentor | Admin | null>(null);
   const navigate = useNavigate();
 
+  // Set up realtime functions when the app loads
+  useEffect(() => {
+    setupRealtimeFunctions().catch(console.error);
+  }, []);
+  
   useEffect(() => {
     const storedUser = sessionStorage.getItem("user") 
       ? JSON.parse(sessionStorage.getItem("user") as string) 

@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, OutpassDB } from "@/lib/types";
+import { Student, OutpassDB, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
+import { useOutpassOperations } from "@/hooks/useOutpassOperations";
 
 interface OutpassFormProps {
   student: Student;
@@ -22,6 +23,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [maxTime, setMaxTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
+  const [tabId] = useState(() => crypto.randomUUID());
+  const { addOutpass } = useOutpassOperations(tabId);
   
   // Set min and max time constraints
   useEffect(() => {
@@ -72,6 +75,25 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       if (data && data.length > 0) {
         setSerialPrefix(data[0].prefix);
+      } else {
+        // Fallback to local storage
+        const serialCodeLogs = localStorage.getItem("serialCodeLogs");
+        if (serialCodeLogs) {
+          try {
+            const logs = JSON.parse(serialCodeLogs);
+            if (logs && logs.length > 0) {
+              const sortedLogs = logs.sort((a: any, b: any) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              
+              if (sortedLogs.length > 0 && sortedLogs[0].prefix) {
+                setSerialPrefix(sortedLogs[0].prefix);
+              }
+            }
+          } catch (error) {
+            console.error("Error parsing serial code logs:", error);
+          }
+        }
       }
     } catch (error) {
       console.error("Error fetching serial code prefix:", error);
@@ -140,38 +162,25 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       const now = new Date().toISOString();
       
-      // Create the outpass request using the DB schema format
-      const outpassRequest: OutpassDB = {
+      // Create outpass object in the frontend format
+      const newOutpass: Outpass = {
         id: crypto.randomUUID(),
-        student_id: student.id,
-        student_name: student.name,
-        enrollment_number: student.enrollmentNumber,
-        exit_date_time: exitDateTime,
+        studentId: student.id,
+        studentName: student.name,
+        enrollmentNumber: student.enrollmentNumber,
+        exitDateTime: exitDateTime,
         reason: reason,
         status: "pending",
-        created_at: now,
-        updated_at: now,
-        student_section: student.section || '',
-        serial_code: serialCode
+        createdAt: now,
+        updatedAt: now,
+        studentSection: student.section || '',
+        serialCode: serialCode
       };
       
-      console.log("Submitting outpass request:", outpassRequest);
+      console.log("Creating new outpass:", newOutpass);
       
-      // Save to database
-      const { data, error } = await supabase
-        .from("outpasses")
-        .insert(outpassRequest)
-        .select();
-      
-      if (error) {
-        console.error("Error submitting outpass:", error);
-        throw error;
-      }
-      
-      console.log("Outpass submission response:", data);
-      
-      // Notify success
-      toast.success("Outpass request submitted successfully");
+      // Use the hook to add the outpass, which will handle both database and local storage
+      await addOutpass(newOutpass);
       
       // Reset form
       setExitDateTime("");

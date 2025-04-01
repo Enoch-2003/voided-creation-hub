@@ -68,6 +68,11 @@ export function useUserProfile() {
               id: string;
               name: string;
               email: string;
+              department?: string;
+              course?: string;
+              branch?: string;
+              semester?: string;
+              section?: string;
               [key: string]: any;
             };
             
@@ -127,6 +132,9 @@ export function useUserProfile() {
             console.log(`${tableName} profile updated:`, payload.new);
             // Refetch user profile data to update the state
             fetchUserProfile();
+            
+            // Show toast notification
+            toast.success("Your profile information has been updated");
           })
         .subscribe();
         
@@ -177,20 +185,18 @@ export function useUserProfile() {
           dbUser.contact_number = student.contactNumber;
           delete dbUser.contactNumber;
         }
+      } else if (updatedUser.role === 'mentor') {
+        const mentor = updatedUser as Mentor;
+        if (mentor.contactNumber !== undefined) {
+          dbUser.contact_number = mentor.contactNumber;
+          delete dbUser.contactNumber;
+        }
       }
       
       // Create a copy without the password for safety if no new password provided
       if (!dbUser.password) {
-        // If updating without a password, get current password
-        const { data } = await supabase
-          .from(tableName)
-          .select('password')
-          .eq('id', updatedUser.id)
-          .single();
-          
-        if (data && data.password) {
-          dbUser.password = data.password;
-        }
+        // If updating without a password, don't send the password field at all
+        delete dbUser.password;
       }
       
       console.log(`Updating ${tableName} with data:`, dbUser);
@@ -247,7 +253,7 @@ export function useUserProfile() {
           setCurrentUser(mappedUser);
         } else {
           sessionStorage.setItem('user', JSON.stringify(safeUser));
-          setCurrentUser(safeUser);
+          setCurrentUser(safeUser as Student | Mentor | Admin);
         }
       }
       
@@ -258,7 +264,7 @@ export function useUserProfile() {
         toast.info(`User ${updatedUser.name} has been updated`);
       }
       
-      return dbUser;
+      return safeUser;
     } catch (error) {
       console.error('Error updating user:', error);
       toast.error('Failed to update user information. Please try again.');

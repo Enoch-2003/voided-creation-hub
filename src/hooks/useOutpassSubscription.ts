@@ -17,6 +17,17 @@ export function useOutpassSubscription() {
 
   // Fetch initial outpasses and set up real-time subscription
   useEffect(() => {
+    // Configure Supabase for real-time updates
+    const configureRealtime = async () => {
+      try {
+        // For PostgreSQL Broadcast, we are using REPLICA IDENTITY FULL to get 'old' value
+        await supabase.rpc('set_table_replication', { table_name: 'outpasses' });
+        console.log('Configured real-time for outpasses table');
+      } catch (error) {
+        console.error('Could not set up realtime:', error);
+      }
+    };
+    
     // Fetch all outpasses on component mount
     const fetchOutpasses = async () => {
       try {
@@ -43,6 +54,9 @@ export function useOutpassSubscription() {
       }
     };
 
+    // Try to enable realtime
+    configureRealtime();
+
     // Set up real-time subscription
     const subscription = supabase
       .channel('outpasses-changes')
@@ -59,6 +73,9 @@ export function useOutpassSubscription() {
             const newOutpass = dbToOutpassFormat(payloadData);
             console.log("Inserted new outpass:", newOutpass);
             setOutpasses(prev => [newOutpass, ...prev]);
+            
+            // Show toast notification for new outpass
+            toast.info(`New outpass request from ${payloadData.student_name}`);
           } catch (error) {
             console.error("Error processing inserted outpass:", error);
           }
@@ -80,6 +97,16 @@ export function useOutpassSubscription() {
                 outpass.id === updatedOutpass.id ? updatedOutpass : outpass
               )
             );
+            
+            // Show appropriate toast based on status change
+            const oldData = payload.old as OutpassDB;
+            if (oldData.status !== payloadData.status) {
+              if (payloadData.status === 'approved') {
+                toast.success(`Outpass for ${payloadData.student_name} has been approved`);
+              } else if (payloadData.status === 'denied') {
+                toast.error(`Outpass for ${payloadData.student_name} has been denied`);
+              }
+            }
           } catch (error) {
             console.error("Error processing updated outpass:", error);
           }
@@ -99,6 +126,7 @@ export function useOutpassSubscription() {
               setOutpasses(prev => 
                 prev.filter(outpass => outpass.id !== oldId)
               );
+              toast.info("An outpass has been deleted");
             }
           } catch (error) {
             console.error("Error processing deleted outpass:", error);
@@ -117,3 +145,4 @@ export function useOutpassSubscription() {
 
   return { outpasses, isLoading, tabId };
 }
+

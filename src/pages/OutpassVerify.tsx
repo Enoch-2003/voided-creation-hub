@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { jsPDF } from "jspdf";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import storageSync from "@/lib/storageSync";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function OutpassVerify() {
   const { id } = useParams<{ id: string }>();
@@ -62,47 +63,103 @@ export default function OutpassVerify() {
       return;
     }
     
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (!storedOutpasses) {
-      setError("No outpasses found in the system");
+    const fetchOutpass = async () => {
+      try {
+        // Fetch from Supabase first
+        const { data: outpassData, error: outpassError } = await supabase
+          .from("outpasses")
+          .select("*")
+          .eq("id", id)
+          .single();
+        
+        if (outpassError || !outpassData) {
+          // If not found in Supabase, try local storage as fallback
+          const storedOutpasses = localStorage.getItem("outpasses");
+          if (!storedOutpasses) {
+            setError("Outpass not found");
+            setIsLoading(false);
+            return;
+          }
+          
+          const allOutpasses = JSON.parse(storedOutpasses);
+          const foundOutpass = allOutpasses.find((o: any) => o.id === id);
+          
+          if (!foundOutpass) {
+            setError("Outpass not found");
+            setIsLoading(false);
+            return;
+          }
+          
+          processOutpass(foundOutpass);
+        } else {
+          // Process the outpass from Supabase
+          const mappedOutpass = {
+            id: outpassData.id,
+            studentId: outpassData.student_id,
+            studentName: outpassData.student_name,
+            enrollmentNumber: outpassData.enrollment_number,
+            exitDateTime: outpassData.exit_date_time,
+            reason: outpassData.reason,
+            status: outpassData.status as "pending" | "approved" | "denied",
+            mentorId: outpassData.mentor_id,
+            mentorName: outpassData.mentor_name,
+            qrCode: outpassData.qr_code,
+            createdAt: outpassData.created_at,
+            updatedAt: outpassData.updated_at,
+            scanTimestamp: outpassData.scan_timestamp,
+            denyReason: outpassData.deny_reason,
+            studentSection: outpassData.student_section,
+            serialCode: outpassData.serial_code
+          };
+          
+          processOutpass(mappedOutpass);
+        }
+      } catch (error) {
+        console.error("Error fetching outpass:", error);
+        setError("Error loading outpass data");
+        setIsLoading(false);
+      }
+    };
+    
+    fetchOutpass();
+  }, [id]);
+  
+  const processOutpass = async (foundOutpass: Outpass) => {
+    if (foundOutpass.status !== "approved") {
+      setError("This outpass has not been approved");
       setIsLoading(false);
       return;
     }
     
-    try {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      const foundOutpass = allOutpasses.find((o: Outpass) => o.id === id);
+    // Check if the outpass has already been scanned before
+    if (foundOutpass.scanTimestamp) {
+      setAlreadyScanned(true);
+      setIsVerified(true);
       
-      if (!foundOutpass) {
-        setError("Outpass not found");
-        setIsLoading(false);
-        return;
+      // Check if this is a return visit by looking for a flag in sessionStorage
+      const hasViewedBefore = sessionStorage.getItem(`outpass_viewed_${id}`);
+      if (hasViewedBefore) {
+        setIsFirstVisit(false);
+        // Immediately show the dialog for subsequent visits
+        setTimeout(() => {
+          setShowExpiredDialog(true);
+        }, 500);
       }
+    }
+    
+    let prefix = "XYZ";
+    
+    // Try to get serial code prefix from database
+    const { data: serialLogs } = await supabase
+      .from("serial_code_logs")
+      .select("prefix")
+      .order("created_at", { ascending: false })
+      .limit(1);
       
-      if (foundOutpass.status !== "approved") {
-        setError("This outpass has not been approved");
-        setIsLoading(false);
-        return;
-      }
-      
-      // Check if the outpass has already been scanned before
-      if (foundOutpass.scanTimestamp) {
-        setAlreadyScanned(true);
-        setIsVerified(true);
-        
-        // Check if this is a return visit by looking for a flag in sessionStorage
-        const hasViewedBefore = sessionStorage.getItem(`outpass_viewed_${id}`);
-        if (hasViewedBefore) {
-          setIsFirstVisit(false);
-          // Immediately show the dialog for subsequent visits
-          setTimeout(() => {
-            setShowExpiredDialog(true);
-          }, 500);
-        }
-      }
-      
-      let prefix = "XYZ";
-      
+    if (serialLogs && serialLogs.length > 0) {
+      prefix = serialLogs[0].prefix;
+    } else {
+      // Fallback to local storage
       const serialCodeLogs = localStorage.getItem("serialCodeLogs");
       if (serialCodeLogs) {
         try {
@@ -120,15 +177,26 @@ export default function OutpassVerify() {
           console.error("Error parsing serial code logs:", error);
         }
       }
+    }
+    
+    if (foundOutpass.serialCode) {
+      setSerialCode(foundOutpass.serialCode);
+    } else {
+      // Generate a random 6-digit number for the serial code
+      const generatedRandomDigits = Math.floor(100000 + Math.random() * 900000).toString();
+      const newSerialCode = `AUMP-${prefix}-${generatedRandomDigits}`;
+      setSerialCode(newSerialCode);
       
-      if (foundOutpass.serialCode) {
-        setSerialCode(foundOutpass.serialCode);
-      } else {
-        // Generate a random 6-digit number for the serial code
-        const generatedRandomDigits = Math.floor(100000 + Math.random() * 900000).toString();
-        const newSerialCode = `AUMP-${prefix}-${generatedRandomDigits}`;
-        setSerialCode(newSerialCode);
-        
+      // Update the outpass with the new serial code in Supabase
+      await supabase
+        .from("outpasses")
+        .update({ serial_code: newSerialCode })
+        .eq("id", foundOutpass.id);
+      
+      // Also update in localStorage if we're using it
+      const storedOutpasses = localStorage.getItem("outpasses");
+      if (storedOutpasses) {
+        const allOutpasses = JSON.parse(storedOutpasses);
         const updatedOutpasses = allOutpasses.map((o: Outpass) => {
           if (o.id === id) {
             return {
@@ -142,10 +210,26 @@ export default function OutpassVerify() {
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
       }
       
-      // If outpass wasn't previously scanned, mark it as scanned now
-      if (!foundOutpass.scanTimestamp) {
-        const scanTimestamp = new Date().toISOString();
-        
+      foundOutpass.serialCode = newSerialCode;
+    }
+    
+    // If outpass wasn't previously scanned, mark it as scanned now
+    if (!foundOutpass.scanTimestamp) {
+      const scanTimestamp = new Date().toISOString();
+      
+      // Update Supabase
+      await supabase
+        .from("outpasses")
+        .update({ 
+          scan_timestamp: scanTimestamp,
+          serial_code: foundOutpass.serialCode || serialCode 
+        })
+        .eq("id", foundOutpass.id);
+      
+      // Update local storage as well
+      const storedOutpasses = localStorage.getItem("outpasses");
+      if (storedOutpasses) {
+        const allOutpasses = JSON.parse(storedOutpasses);
         const updatedOutpasses = allOutpasses.map((o: Outpass) => {
           if (o.id === id) {
             return {
@@ -158,21 +242,17 @@ export default function OutpassVerify() {
         });
         
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
-        
-        foundOutpass.scanTimestamp = scanTimestamp;
-        if (!foundOutpass.serialCode && serialCode) {
-          foundOutpass.serialCode = serialCode;
-        }
       }
       
-      setOutpass(foundOutpass);
-      setIsLoading(false);
-    } catch (error) {
-      console.error(error);
-      setError("Error loading outpass data");
-      setIsLoading(false);
+      foundOutpass.scanTimestamp = scanTimestamp;
+      if (!foundOutpass.serialCode && serialCode) {
+        foundOutpass.serialCode = serialCode;
+      }
     }
-  }, [id, serialCode]);
+    
+    setOutpass(foundOutpass);
+    setIsLoading(false);
+  };
 
   // Set session storage flag on first load if it's already scanned
   useEffect(() => {
