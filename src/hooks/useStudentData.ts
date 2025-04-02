@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Student } from '@/lib/types';
+import { Student, dbToStudentFormat } from '@/lib/types';
 import { toast } from 'sonner';
 
 /**
@@ -26,12 +26,12 @@ export function useStudentData(studentId?: string) {
         
       if (error) throw error;
       
-      // Remove password for security
-      if (data && 'password' in data) {
-        delete (data as any).password;
+      // Convert database format to Student format
+      if (data) {
+        // Use dbToStudentFormat from lib/types to convert the format
+        const studentData = dbToStudentFormat(data);
+        setStudent(studentData);
       }
-      
-      setStudent(data as Student);
     } catch (err) {
       console.error('Error fetching student:', err);
       setError('Failed to load student data');
@@ -57,23 +57,37 @@ export function useStudentData(studentId?: string) {
         delete dataToUpdate.password;
       }
       
+      // Convert to snake_case for database
+      const dbData = {
+        ...(dataToUpdate.name !== undefined && { name: dataToUpdate.name }),
+        ...(dataToUpdate.email !== undefined && { email: dataToUpdate.email }),
+        ...(dataToUpdate.contactNumber !== undefined && { contact_number: dataToUpdate.contactNumber }),
+        ...(dataToUpdate.guardianEmail !== undefined && { guardian_email: dataToUpdate.guardianEmail }),
+        ...(dataToUpdate.department !== undefined && { department: dataToUpdate.department }),
+        ...(dataToUpdate.course !== undefined && { course: dataToUpdate.course }),
+        ...(dataToUpdate.branch !== undefined && { branch: dataToUpdate.branch }),
+        ...(dataToUpdate.semester !== undefined && { semester: dataToUpdate.semester }),
+        ...(dataToUpdate.section !== undefined && { section: dataToUpdate.section }),
+      };
+      
       const { data, error } = await supabase
         .from('students')
-        .update(dataToUpdate)
+        .update(dbData)
         .eq('id', student.id)
         .select()
         .single();
         
       if (error) throw error;
       
-      // Remove password for security
-      if (data && 'password' in data) {
-        delete (data as any).password;
+      // Convert database format to Student format
+      if (data) {
+        const updatedStudentData = dbToStudentFormat(data);
+        setStudent(updatedStudentData);
+        toast.success('Student information updated successfully');
+        return updatedStudentData;
       }
       
-      setStudent(data as Student);
-      toast.success('Student information updated successfully');
-      return data as Student;
+      return null;
     } catch (err) {
       console.error('Error updating student:', err);
       toast.error('Failed to update student information');
