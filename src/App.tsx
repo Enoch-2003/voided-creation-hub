@@ -1,3 +1,4 @@
+
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Index from "@/pages/Index";
@@ -153,7 +154,6 @@ function App() {
   }, [user?.id, userRole]);
 
   return (
-    
     <Routes>
       <Route path="/" element={<Index />} />
       <Route

@@ -1,191 +1,70 @@
 
-/**
- * Utility functions for form handling
- */
+import { Student } from "./types";
 
 /**
- * Ensures a value is a string, converting numbers if necessary
+ * Ensures a value is a string
  */
 export const ensureString = (value: unknown): string => {
-  if (value === null || value === undefined) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number') return value.toString();
+  if (typeof value === 'string') {
+    return value;
+  } else if (value === undefined || value === null) {
+    return '';
+  }
   return String(value);
 };
 
 /**
- * Sanitizes form data to ensure all values are of the correct type
+ * Sanitizes form data by ensuring all values are proper strings
  */
-export const sanitizeFormData = (data: Record<string, any>): Record<string, any> => {
-  const sanitized: Record<string, any> = {};
-  
-  Object.keys(data).forEach(key => {
-    const value = data[key];
-    
-    // Convert null/undefined to empty strings for text fields
-    if (value === null || value === undefined) {
-      sanitized[key] = '';
-    } 
-    // Convert string 'null'/'undefined' to empty strings
-    else if (value === 'null' || value === 'undefined') {
-      sanitized[key] = '';
-    }
-    // Keep all other values as is
-    else {
-      sanitized[key] = value;
-    }
-  });
-  
-  return sanitized;
+export const sanitizeFormData = (data: Record<string, unknown>): Record<string, string> => {
+  return Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [key, ensureString(value)])
+  );
 };
 
 /**
- * Checks if a form has any changes compared to original data
+ * Checks if there are any changes between original data and form data
  */
 export const hasFormChanges = (
-  original: Record<string, any>,
-  current: Record<string, any>
+  originalData: Record<string, unknown>,
+  formData: Record<string, unknown>
 ): boolean => {
-  const relevantKeys = Object.keys(current);
-  
-  return relevantKeys.some(key => {
-    // Convert values to strings for comparison
-    const originalValue = ensureString(original[key]);
-    const currentValue = ensureString(current[key]);
+  const keys = Object.keys(formData);
+  return keys.some(key => {
+    // Handle both undefined and null values
+    const originalValue = originalData[key] ?? '';
+    const formValue = formData[key] ?? '';
     
-    return originalValue !== currentValue;
+    // Convert both to strings for comparison
+    return ensureString(originalValue) !== ensureString(formValue);
   });
 };
 
 /**
- * Normalizes a string for case-insensitive search
- */
-export const normalizeString = (str: string): string => {
-  return str.trim().toLowerCase();
-};
-
-/**
- * Search function to filter students by enrollment number or name
+ * Searches student records by enrollment number, name, or section
  */
 export const searchStudentsByEnrollment = (
-  students: any[],
+  students: Student[],
   searchTerm: string
-): any[] => {
-  if (!searchTerm.trim()) return students;
-  
-  const normalizedSearch = normalizeString(searchTerm);
-  
+): Student[] => {
+  const lowercaseSearch = searchTerm.toLowerCase();
   return students.filter(student => {
-    // Search by enrollment number (exact or partial match)
-    if (student.enrollmentNumber && 
-        normalizeString(student.enrollmentNumber).includes(normalizedSearch)) {
-      return true;
-    }
-    
-    // Search by name (exact or partial match)
-    if (student.name && 
-        normalizeString(student.name).includes(normalizedSearch)) {
-      return true;
-    }
-    
-    // Search by section
-    if (student.section && 
-        normalizeString(student.section).includes(normalizedSearch)) {
-      return true;
-    }
-    
-    return false;
+    return (
+      (student.enrollmentNumber || '').toLowerCase().includes(lowercaseSearch) ||
+      (student.name || '').toLowerCase().includes(lowercaseSearch) ||
+      (student.section || '').toLowerCase().includes(lowercaseSearch)
+    );
   });
 };
 
 /**
- * Loads all student accounts from localStorage
+ * Load all students from Supabase (to be replaced with actual API call)
  */
-export const loadAllStudents = (): any[] => {
-  try {
-    // Get all users from localStorage
-    const usersJson = localStorage.getItem("users");
-    if (!usersJson) return [];
-    
-    const allUsers = JSON.parse(usersJson);
-    
-    // Filter to get only students
-    return allUsers.filter((u: any) => u.role === "student");
-  } catch (error) {
-    console.error("Error loading student data:", error);
-    return [];
-  }
-};
-
-/**
- * MongoDB data conversion utilities
- * Prepares data for MongoDB integration
- */
-
-/**
- * Converts data from localStorage format to MongoDB format
- * Adds _id field and converts dates to MongoDB compatible format
- */
-export const prepareDataForMongoDB = <T extends Record<string, any>>(
-  data: T
-): Record<string, any> => {
-  // Create a deep copy to avoid modifying the original
-  const mongoData: Record<string, any> = JSON.parse(JSON.stringify(data));
+export const loadAllStudents = (): Student[] => {
+  // For now, just get data from localStorage since this will be replaced with Supabase
+  const storedUsers = localStorage.getItem("users");
+  if (!storedUsers) return [];
   
-  // Use the existing id as MongoDB _id if available
-  if ('id' in data && !mongoData._id) {
-    mongoData._id = data.id;
-  }
-  
-  // Process date fields for MongoDB
-  Object.keys(mongoData).forEach(key => {
-    const value = mongoData[key];
-    
-    // Convert ISO date strings to Date objects
-    if (typeof value === 'string' && 
-        /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
-      try {
-        // Only convert if it's a valid date
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          mongoData[key] = date;
-        }
-      } catch (e) {
-        // Keep original value if conversion fails
-      }
-    }
-  });
-  
-  return mongoData;
-};
-
-/**
- * Converts data from MongoDB format back to application format
- */
-export const convertFromMongoDB = <T extends Record<string, any>>(
-  mongoData: Record<string, any> & { _id?: string }
-): Record<string, any> => {
-  // Create a deep copy
-  const appData: Record<string, any> = JSON.parse(JSON.stringify(mongoData));
-  
-  // Use MongoDB _id as the application id if needed
-  if (mongoData._id && !('id' in mongoData)) {
-    appData.id = mongoData._id.toString();
-  }
-  
-  // Clean up MongoDB specific fields
-  if ('_id' in appData) {
-    delete appData._id;
-  }
-  
-  return appData;
-};
-
-/**
- * Prepares a collection of items for MongoDB
- */
-export const prepareCollectionForMongoDB = <T extends Record<string, any>>(
-  items: T[]
-): Record<string, any>[] => {
-  return items.map(item => prepareDataForMongoDB(item));
+  const allUsers = JSON.parse(storedUsers);
+  return allUsers.filter((user: any) => user.role === "student");
 };

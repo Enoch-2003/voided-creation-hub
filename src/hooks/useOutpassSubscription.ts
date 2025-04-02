@@ -48,8 +48,17 @@ export function useOutpassSubscription() {
         
         setOutpasses(formattedOutpasses);
         console.log("Fetched outpasses:", formattedOutpasses);
+        
+        // Store outpasses in localStorage for backup/offline access
+        localStorage.setItem("outpasses", JSON.stringify(formattedOutpasses));
       } catch (error) {
         handleApiError(error, 'Fetching outpasses');
+        
+        // Try to load from localStorage if network request fails
+        const storedOutpasses = localStorage.getItem("outpasses");
+        if (storedOutpasses) {
+          setOutpasses(JSON.parse(storedOutpasses));
+        }
       } finally {
         setIsLoading(false);
       }
@@ -59,7 +68,7 @@ export function useOutpassSubscription() {
     configureRealtime();
 
     // Set up real-time subscription
-    const subscription = supabase
+    const channel = supabase
       .channel('outpasses-changes')
       .on('postgres_changes', 
         { 
@@ -73,7 +82,14 @@ export function useOutpassSubscription() {
             const payloadData = payload.new as OutpassDB;
             const newOutpass = dbToOutpassFormat(payloadData);
             console.log("Inserted new outpass:", newOutpass);
-            setOutpasses(prev => [newOutpass, ...prev]);
+            
+            // Update state with the new outpass
+            setOutpasses(prev => {
+              const updated = [newOutpass, ...prev];
+              // Also update localStorage
+              localStorage.setItem("outpasses", JSON.stringify(updated));
+              return updated;
+            });
             
             // Show toast notification for new outpass
             toast.info(`New outpass request from ${payloadData.student_name}`);
@@ -93,11 +109,16 @@ export function useOutpassSubscription() {
             const payloadData = payload.new as OutpassDB;
             const updatedOutpass = dbToOutpassFormat(payloadData);
             console.log("Updated outpass:", updatedOutpass);
-            setOutpasses(prev => 
-              prev.map(outpass => 
+            
+            // Update state with the updated outpass
+            setOutpasses(prev => {
+              const updated = prev.map(outpass => 
                 outpass.id === updatedOutpass.id ? updatedOutpass : outpass
-              )
-            );
+              );
+              // Also update localStorage
+              localStorage.setItem("outpasses", JSON.stringify(updated));
+              return updated;
+            });
             
             // Show appropriate toast based on status change
             const oldData = payload.old as OutpassDB;
@@ -124,23 +145,32 @@ export function useOutpassSubscription() {
             const oldId = payload.old?.id;
             if (oldId) {
               console.log("Deleted outpass with ID:", oldId);
-              setOutpasses(prev => 
-                prev.filter(outpass => outpass.id !== oldId)
-              );
+              
+              // Update state without the deleted outpass
+              setOutpasses(prev => {
+                const updated = prev.filter(outpass => outpass.id !== oldId);
+                // Also update localStorage
+                localStorage.setItem("outpasses", JSON.stringify(updated));
+                return updated;
+              });
+              
               toast.info("An outpass has been deleted");
             }
           } catch (error) {
             console.error("Error processing deleted outpass:", error);
           }
         })
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Outpasses subscription status:", status);
+      });
 
     // Fetch initial data
     fetchOutpasses();
 
     // Clean up subscription on unmount
     return () => {
-      supabase.removeChannel(subscription);
+      console.log("Cleaning up outpasses subscription");
+      supabase.removeChannel(channel);
     };
   }, []);
 

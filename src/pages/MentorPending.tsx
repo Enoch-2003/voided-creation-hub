@@ -1,11 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass, OutpassStatus } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
-import { Clock, X, Search, User, FileText } from "lucide-react";
+import { Clock, X, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useOutpasses } from "@/hooks/useOutpasses";
@@ -18,7 +18,7 @@ interface MentorPendingProps {
 
 export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   const { toast } = useToast();
-  const { outpasses, updateOutpass } = useOutpasses();
+  const { outpasses, updateOutpass, isLoading } = useOutpasses();
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"name" | "enrollment" | "all">("all");
@@ -108,7 +108,7 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
         <div className="mb-6">
           <h1 className="text-3xl font-bold font-display">Pending Requests</h1>
           <p className="text-muted-foreground">
-            Review and manage pending outpass requests from students in your sections: {user.sections.map(s => `Section ${s}`).join(", ")}
+            Review and manage pending outpass requests from students in your sections: {user.sections?.map(s => `Section ${s}`).join(", ") || "No sections assigned"}
           </p>
         </div>
         
@@ -153,7 +153,11 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
           </div>
         </div>
         
-        {filteredOutpasses.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          </div>
+        ) : filteredOutpasses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredOutpasses
               .sort((a, b) => 

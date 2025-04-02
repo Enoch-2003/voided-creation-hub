@@ -7,7 +7,6 @@ import { Student } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface StudentProfileEditProps {
   isOpen: boolean;
@@ -183,26 +182,24 @@ export default function StudentProfileEdit({ isOpen, onClose, student, onProfile
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="semester">Semester</Label>
-              <Input
-                id="semester"
-                value={semester}
-                onChange={(e) => setSemester(e.target.value)}
-                placeholder="Enter semester"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="section">Section</Label>
-              <Input
-                id="section"
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                placeholder="Enter section"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="semester">Semester</Label>
+            <Input
+              id="semester"
+              value={semester}
+              onChange={(e) => setSemester(e.target.value)}
+              placeholder="Enter semester"
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="section">Section</Label>
+            <Input
+              id="section"
+              value={section}
+              onChange={(e) => setSection(e.target.value)}
+              placeholder="Enter section"
+            />
           </div>
           
           <div className="space-y-2">
@@ -216,18 +213,18 @@ export default function StudentProfileEdit({ isOpen, onClose, student, onProfile
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="guardianEmail">Guardian Email</Label>
+            <Label htmlFor="guardianEmail">Guardian's Email</Label>
             <Input
               id="guardianEmail"
               type="email"
               value={guardianEmail}
               onChange={(e) => setGuardianEmail(e.target.value)}
-              placeholder="Enter guardian email"
+              placeholder="Enter guardian's email"
             />
           </div>
           
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <div className="flex justify-end gap-2 pt-4">
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>

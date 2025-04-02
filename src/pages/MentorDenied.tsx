@@ -1,11 +1,12 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
-import { Mentor, Outpass } from "@/lib/types";
+import { Mentor } from "@/lib/types";
 import { XCircle, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useOutpasses } from "@/hooks/useOutpasses";
 
 interface MentorDeniedProps {
   user: Mentor;
@@ -13,20 +14,17 @@ interface MentorDeniedProps {
 }
 
 export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
-  const [outpasses, setOutpasses] = useState<Outpass[]>([]);
+  const { outpasses, isLoading } = useOutpasses();
   const [searchQuery, setSearchQuery] = useState("");
   
-  useEffect(() => {
-    // Load outpasses from localStorage
-    const storedOutpasses = localStorage.getItem("outpasses");
-    if (storedOutpasses) {
-      const allOutpasses = JSON.parse(storedOutpasses);
-      setOutpasses(allOutpasses);
-    }
-  }, []);
+  // Filter outpasses by mentor's sections with safe null/undefined handling
+  const sectionFilteredOutpasses = outpasses.filter((outpass) => {
+    const mentorSections = user.sections || [];
+    return outpass.studentSection && mentorSections.includes(outpass.studentSection);
+  });
   
   // Filter outpasses by status: denied
-  const deniedOutpasses = outpasses.filter(o => o.status === "denied");
+  const deniedOutpasses = sectionFilteredOutpasses.filter(o => o.status === "denied");
   
   // Apply search filter if query exists
   const filteredOutpasses = searchQuery 
@@ -76,7 +74,11 @@ export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
           </div>
         </div>
         
-        {filteredOutpasses.length > 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center items-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
+          </div>
+        ) : filteredOutpasses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredOutpasses
               .sort((a, b) => 

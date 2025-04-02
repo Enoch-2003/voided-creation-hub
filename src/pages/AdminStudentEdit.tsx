@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -12,7 +13,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Layout } from '@/components/Layout';
-import { Admin } from '@/lib/types';
+import { Admin, Student, dbToStudentFormat } from '@/lib/types';
 import { ChevronLeft, Save, X, Edit, AlertCircle, Check, Search, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useOutpasses } from '@/hooks/useOutpasses';
@@ -20,9 +21,7 @@ import EnhancedInput from '@/components/EnhancedInput';
 import { 
   ensureString, 
   sanitizeFormData, 
-  hasFormChanges, 
-  searchStudentsByEnrollment,
-  loadAllStudents
+  hasFormChanges
 } from '@/lib/formUtils';
 import { 
   Table, 
@@ -40,6 +39,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { supabase } from '@/integrations/supabase/client';
 
 // Form schema for student edit
 const studentFormSchema = z.object({
@@ -69,18 +69,19 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   const { updateUser } = useOutpasses();
   
   // State variables
-  const [students, setStudents] = useState<any[]>([]);
-  const [filteredStudents, setFilteredStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
   const [selectedStudentId, setSelectedStudentId] = useState<string>("");
-  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [updateInProgress, setUpdateInProgress] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateError, setUpdateError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [originalStudentData, setOriginalStudentData] = useState<any>(null);
+  const [originalStudentData, setOriginalStudentData] = useState<Student | null>(null);
   const [viewMode, setViewMode] = useState<'dropdown' | 'table'>('dropdown');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
   const studentsPerPage = 5;
   
   // Initialize form
@@ -100,39 +101,77 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     mode: "onChange",
   });
 
-  // Load student data
+  // Load student data from Supabase
   useEffect(() => {
-    try {
-      const studentUsers = loadAllStudents();
-      setStudents(studentUsers);
-      setFilteredStudents(studentUsers);
-      
-      // Check if there's a student ID in the URL
-      const searchParams = new URLSearchParams(location.search);
-      const studentId = searchParams.get('id');
-      
-      if (studentId) {
-        const student = studentUsers.find((s: any) => s.id === studentId);
-        if (student) {
-          handleStudentSelect(student);
+    const fetchStudents = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('students')
+          .select('*');
+          
+        if (error) {
+          throw error;
         }
+        
+        if (data) {
+          // Convert DB format to frontend format
+          const formattedStudents = data.map(dbToStudentFormat);
+          setStudents(formattedStudents);
+          setFilteredStudents(formattedStudents);
+          
+          // Check if there's a student ID in the URL
+          const searchParams = new URLSearchParams(location.search);
+          const studentId = searchParams.get('id');
+          
+          if (studentId) {
+            const student = formattedStudents.find((s) => s.id === studentId);
+            if (student) {
+              handleStudentSelect(student);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error loading student data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load student data. Please try again.",
+          variant: "destructive",
+        });
+        
+        // Try to load from localStorage as fallback
+        const storedUsers = localStorage.getItem("users");
+        if (storedUsers) {
+          try {
+            const allUsers = JSON.parse(storedUsers);
+            const studentUsers = allUsers.filter((u: any) => u.role === 'student');
+            setStudents(studentUsers);
+            setFilteredStudents(studentUsers);
+          } catch (e) {
+            console.error("Error parsing stored users:", e);
+          }
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error loading student data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load student data. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [location.search, form, toast]);
+    };
+    
+    fetchStudents();
+  }, [location.search, toast]);
 
   // Handle search by enrollment number or name
   useEffect(() => {
     if (searchTerm.trim() === "") {
       setFilteredStudents(students);
     } else {
-      const filtered = searchStudentsByEnrollment(students, searchTerm);
+      const filtered = students.filter(student => {
+        const lowercaseSearch = searchTerm.toLowerCase();
+        return (
+          (student.enrollmentNumber?.toLowerCase() || '').includes(lowercaseSearch) ||
+          (student.name?.toLowerCase() || '').includes(lowercaseSearch) ||
+          (student.section?.toLowerCase() || '').includes(lowercaseSearch)
+        );
+      });
       setFilteredStudents(filtered);
       // Reset to first page when searching
       setCurrentPage(1);
@@ -149,7 +188,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   // Handle student selection
-  const handleStudentSelect = (student: any) => {
+  const handleStudentSelect = (student: Student | null) => {
     if (!student) {
       setSelectedStudentId("");
       setSelectedStudent(null);
@@ -234,8 +273,26 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     setUpdateSuccess(false);
     
     try {
+      // Update in Supabase
+      const { error } = await supabase
+        .from('students')
+        .update({
+          name: data.name,
+          email: data.email,
+          contact_number: data.contactNumber,
+          guardian_email: data.guardianEmail,
+          department: data.department,
+          course: data.course,
+          branch: data.branch,
+          semester: data.semester,
+          section: data.section
+        })
+        .eq('id', selectedStudent.id);
+      
+      if (error) throw error;
+      
       // Prepare updated student data
-      const updatedStudentData = {
+      const updatedStudentData: Student = {
         ...selectedStudent,
         name: data.name,
         email: data.email,
@@ -245,13 +302,8 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         course: data.course,
         branch: data.branch,
         semester: data.semester,
-        section: data.section,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user.name,
+        section: data.section
       };
-      
-      // Update user in local storage
-      updateUser(updatedStudentData);
       
       // Update selected student state
       setSelectedStudent(updatedStudentData);
@@ -262,7 +314,16 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
         s.id === updatedStudentData.id ? updatedStudentData : s
       );
       setStudents(updatedStudents);
-      setFilteredStudents(searchStudentsByEnrollment(updatedStudents, searchTerm));
+      setFilteredStudents(updatedStudents.filter(student => {
+        if (searchTerm.trim() === "") return true;
+        
+        const lowercaseSearch = searchTerm.toLowerCase();
+        return (
+          (student.enrollmentNumber?.toLowerCase() || '').includes(lowercaseSearch) ||
+          (student.name?.toLowerCase() || '').includes(lowercaseSearch) ||
+          (student.section?.toLowerCase() || '').includes(lowercaseSearch)
+        );
+      }));
       
       // Show success message
       setUpdateSuccess(true);
@@ -350,7 +411,11 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                 )}
               </div>
               
-              {viewMode === 'dropdown' ? (
+              {isLoading ? (
+                <div className="py-8 flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : viewMode === 'dropdown' ? (
                 <Select
                   value={selectedStudentId}
                   onValueChange={handleStudentChange}
@@ -364,7 +429,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                     ) : (
                       filteredStudents.map((student) => (
                         <SelectItem key={student.id} value={student.id}>
-                          {student.name} - {student.enrollmentNumber} ({student.section})
+                          {student.name} - {student.enrollmentNumber} ({student.section || 'No section'})
                         </SelectItem>
                       ))
                     )}
@@ -396,7 +461,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
                           >
                             <TableCell>{student.name}</TableCell>
                             <TableCell>{student.enrollmentNumber}</TableCell>
-                            <TableCell>{student.section}</TableCell>
+                            <TableCell>{student.section || 'N/A'}</TableCell>
                             <TableCell className="text-right">
                               <Button
                                 variant="ghost"
@@ -473,7 +538,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
               <div>
                 <CardTitle>{selectedStudent.name}</CardTitle>
                 <CardDescription>
-                  Enrollment: {selectedStudent.enrollmentNumber} | Section: {selectedStudent.section}
+                  Enrollment: {selectedStudent.enrollmentNumber} | Section: {selectedStudent.section || 'Not assigned'}
                 </CardDescription>
               </div>
               <Button 

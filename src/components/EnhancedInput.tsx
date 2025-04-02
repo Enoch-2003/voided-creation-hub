@@ -1,33 +1,35 @@
 
-import React, { forwardRef } from 'react';
+import React from 'react';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 interface EnhancedInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  isEditing?: boolean;
-  className?: string;
+  isEditing: boolean;
   error?: string;
 }
 
-const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
-  ({ isEditing = true, className, error, ...props }, ref) => {
-    return (
-      <div className="space-y-1 w-full">
+const EnhancedInput = React.forwardRef<HTMLInputElement, EnhancedInputProps>(
+  ({ isEditing, error, className, ...props }, ref) => {
+    if (isEditing) {
+      return (
         <Input
           ref={ref}
           className={cn(
-            "w-full transition-all",
-            !isEditing && "bg-gray-50 border-transparent focus:border-transparent focus:ring-0 cursor-not-allowed",
-            error && "border-red-500 focus:border-red-500",
+            error && "border-red-500", 
             className
           )}
-          readOnly={!isEditing}
-          disabled={!isEditing}
           {...props}
         />
-        {error && (
-          <p className="text-xs text-red-500">{error}</p>
-        )}
+      );
+    }
+
+    return (
+      <div className={cn(
+        "h-10 px-3 py-2 rounded-md border border-input bg-muted flex items-center text-sm",
+        props.disabled && "opacity-50 cursor-not-allowed",
+        className
+      )}>
+        {props.value || "Not specified"}
       </div>
     );
   }
