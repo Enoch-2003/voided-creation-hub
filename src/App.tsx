@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Index from "@/pages/Index";
@@ -106,12 +105,11 @@ function App() {
   useEffect(() => {
     if (!user || !userRole) return;
 
-    // Fix: Use explicit table name instead of string variable
-    let tableName: "students" | "mentors" | "admins" | null = null;
-    if (userRole === "student") tableName = "students";
-    else if (userRole === "mentor") tableName = "mentors";
-    else if (userRole === "admin") tableName = "admins";
-    else return;
+    // Use explicit table name based on user role
+    let tableName: "students" | "mentors" | "admins" = 
+      userRole === "student" ? "students" :
+      userRole === "mentor" ? "mentors" :
+      userRole === "admin" ? "admins" : "students"; // default to students as fallback
 
     const channel = supabase
       .channel(`user-updates-${user.id}`)
@@ -133,10 +131,11 @@ function App() {
             .single();
           
           if (!error && data) {
-            // Remove password for security - ensure type safety
+            // Remove password for security - ensure type safety by checking
+            // if password property exists before attempting to delete it
             const updatedUser = { ...data };
             if ('password' in updatedUser) {
-              delete updatedUser.password;
+              delete (updatedUser as any).password;
             }
             
             sessionStorage.setItem('user', JSON.stringify(updatedUser));

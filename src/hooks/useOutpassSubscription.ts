@@ -47,7 +47,7 @@ export function useOutpassSubscription() {
         });
         
         setOutpasses(formattedOutpasses);
-        console.log("Fetched outpasses:", formattedOutpasses);
+        console.log("Fetched outpasses:", formattedOutpasses.length);
         
         // Store outpasses in localStorage for backup/offline access
         localStorage.setItem("outpasses", JSON.stringify(formattedOutpasses));
@@ -69,7 +69,7 @@ export function useOutpassSubscription() {
 
     // Set up real-time subscription
     const channel = supabase
-      .channel('outpasses-changes')
+      .channel('outpasses-realtime')
       .on('postgres_changes', 
         { 
           event: 'INSERT', 

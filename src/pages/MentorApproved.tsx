@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor } from "@/lib/types";
