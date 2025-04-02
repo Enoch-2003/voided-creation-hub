@@ -4,8 +4,6 @@ import { Outpass, Student, Mentor, User, isStudent, isMentor } from '@/lib/types
 import { useOutpassSubscription } from './useOutpassSubscription';
 import { useUserProfile } from './useUserProfile';
 import { useOutpassOperations } from './useOutpassOperations';
-import { validateOutpass } from '@/lib/validation';
-import { handleApiError } from '@/lib/errorHandler';
 
 /**
  * Main hook that combines subscription, user profile, and operations

@@ -18,6 +18,8 @@ export function useOutpassSubscription() {
 
   // Fetch initial outpasses and set up real-time subscription
   useEffect(() => {
+    console.log("Setting up outpass subscription");
+    
     // Configure Supabase for real-time updates
     const configureRealtime = async () => {
       try {
@@ -67,9 +69,9 @@ export function useOutpassSubscription() {
     // Try to enable realtime
     configureRealtime();
 
-    // Set up real-time subscription
+    // Set up real-time subscription with improved channel name and error handling
     const channel = supabase
-      .channel('outpasses-realtime')
+      .channel('outpasses-realtime-' + tabId)
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
@@ -172,7 +174,7 @@ export function useOutpassSubscription() {
       console.log("Cleaning up outpasses subscription");
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [tabId]); // Add tabId as dependency
 
   return { outpasses, isLoading, tabId };
 }
