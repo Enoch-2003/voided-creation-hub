@@ -24,15 +24,16 @@ export const sanitizeFormData = (data: Record<string, unknown>): Record<string, 
 
 /**
  * Checks if there are any changes between original data and form data
+ * Now accepts both Record<string, unknown> and Student types
  */
 export const hasFormChanges = (
-  originalData: Record<string, unknown>,
+  originalData: Record<string, unknown> | Student,
   formData: Record<string, unknown>
 ): boolean => {
   const keys = Object.keys(formData);
   return keys.some(key => {
     // Handle both undefined and null values
-    const originalValue = originalData[key] ?? '';
+    const originalValue = key in originalData ? (originalData as any)[key] : '';
     const formValue = formData[key] ?? '';
     
     // Convert both to strings for comparison
