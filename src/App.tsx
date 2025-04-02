@@ -1,4 +1,3 @@
-
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Index from "@/pages/Index";
@@ -33,7 +32,7 @@ function App() {
         await setupRealtimeFunctions();
         console.log("Realtime functions set up successfully");
       } catch (error) {
-        console.error("Failed to set up realtime functions:", error);
+        console.error("Failed to set up real-time functions:", error);
         toast.error("Failed to set up real-time updates. Some features may not work properly.");
       }
     };
@@ -106,7 +105,8 @@ function App() {
   useEffect(() => {
     if (!user || !userRole) return;
 
-    let tableName = "";
+    // Fix: Use explicit table name instead of string variable
+    let tableName: "students" | "mentors" | "admins" | null = null;
     if (userRole === "student") tableName = "students";
     else if (userRole === "mentor") tableName = "mentors";
     else if (userRole === "admin") tableName = "admins";
@@ -132,9 +132,11 @@ function App() {
             .single();
           
           if (!error && data) {
-            // Remove password for security
+            // Remove password for security - ensure type safety
             const updatedUser = { ...data };
-            delete updatedUser.password;
+            if ('password' in updatedUser) {
+              delete updatedUser.password;
+            }
             
             sessionStorage.setItem('user', JSON.stringify(updatedUser));
             setUser(updatedUser as Student | Mentor | Admin);
@@ -151,6 +153,7 @@ function App() {
   }, [user?.id, userRole]);
 
   return (
+    
     <Routes>
       <Route path="/" element={<Index />} />
       <Route

@@ -1,5 +1,5 @@
 
-import { Outpass, OutpassDB, Student, StudentDB, Mentor, MentorDB, AdminDB, Admin } from './';
+import { Outpass, OutpassDB, Student, StudentDB, Mentor, MentorDB, AdminDB, Admin, OutpassStatus } from './';
 
 // Helper functions to convert between frontend and DB models
 export function outpassToDbFormat(outpass: Outpass): OutpassDB {
