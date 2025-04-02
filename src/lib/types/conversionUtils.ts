@@ -111,6 +111,3 @@ export function dbToMentorFormat(mentorDb: MentorDB): Mentor {
     sections: mentorDb.sections
   };
 }
-
-// Delete the original types.ts after confirming the refactored version works
-<lov-delete file_path="src/lib/types.ts" />

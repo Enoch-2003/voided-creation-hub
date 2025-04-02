@@ -6,12 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Mentor } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MentorProfileEditProps {
   isOpen: boolean;
   onClose: () => void;
   mentor: Mentor;
-  onProfileUpdate?: (updatedMentor: Mentor) => void; // New prop to handle updates
+  onProfileUpdate?: (updatedMentor: Mentor) => void;
 }
 
 export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUpdate }: MentorProfileEditProps) {
@@ -20,6 +21,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
   const [email, setEmail] = useState("");
   const [department, setDepartment] = useState("");
   const [contactNumber, setContactNumber] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Convert arrays to comma-separated strings for easier editing
   const [branchesText, setBranchesText] = useState("");
@@ -49,13 +51,11 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
     return str.split(",").map(item => item.trim()).filter(item => item !== "");
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
     
     try {
-      // Get all users from localStorage
-      const users = JSON.parse(localStorage.getItem("users") || "[]");
-      
       // Convert comma-separated strings back to arrays
       const branches = stringToArray(branchesText);
       const courses = stringToArray(coursesText);
@@ -63,7 +63,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
       const sections = stringToArray(sectionsText);
       
       // Create updated mentor object
-      const updatedMentor = {
+      const updatedMentor: Mentor = {
         ...mentor,
         name,
         email,
@@ -75,42 +75,27 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
         sections,
       };
       
-      // Update the mentor's information
-      const updatedUsers = users.map((user: any) => {
-        if (user.id === mentor?.id) {
-          return {
-            ...user,
-            name,
-            email,
-            department,
-            contactNumber,
-            branches,
-            courses,
-            semesters,
-            sections,
-          };
-        }
-        return user;
-      });
-      
-      // Save back to localStorage
-      localStorage.setItem("users", JSON.stringify(updatedUsers));
-      
-      // Update session storage
-      const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
-      if (currentUser && currentUser.id === mentor?.id) {
-        const updatedUser = {
-          ...currentUser,
+      // Update directly in Supabase database
+      const { error } = await supabase
+        .from('mentors')
+        .update({
           name,
           email,
           department,
-          contactNumber,
+          contact_number: contactNumber,
           branches,
           courses,
           semesters,
-          sections,
-        };
-        sessionStorage.setItem("user", JSON.stringify(updatedUser));
+          sections
+        })
+        .eq('id', mentor.id);
+      
+      if (error) throw error;
+      
+      // Update session storage for this tab
+      const currentUser = JSON.parse(sessionStorage.getItem("user") || "{}");
+      if (currentUser && currentUser.id === mentor.id) {
+        sessionStorage.setItem("user", JSON.stringify(updatedMentor));
       }
       
       // Call the onProfileUpdate callback with the updated mentor data
@@ -131,6 +116,8 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
         description: "Failed to update profile. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
@@ -152,6 +139,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your full name"
+              required
             />
           </div>
           
@@ -163,6 +151,7 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              required
             />
           </div>
           
@@ -227,10 +216,12 @@ export default function MentorProfileEdit({ isOpen, onClose, mentor, onProfileUp
           </div>
           
           <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button type="submit">Save Changes</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </form>
       </DialogContent>

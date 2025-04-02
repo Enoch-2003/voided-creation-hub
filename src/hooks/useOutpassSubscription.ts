@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
 import { handleApiError } from '@/lib/errorHandler';
 import { toast } from 'sonner';
+import { setupRealtimeFunctions } from '@/integrations/supabase/realtimeUtils';
 
 /**
  * Custom hook for subscribing to outpass updates in real-time
@@ -21,8 +22,8 @@ export function useOutpassSubscription() {
     const configureRealtime = async () => {
       try {
         // For PostgreSQL Broadcast, we are using REPLICA IDENTITY FULL to get 'old' value
-        // Removed the Supabase RPC call that was causing type errors
-        console.log('Attempting to configure real-time for outpasses table');
+        await setupRealtimeFunctions();
+        console.log('Configured real-time for outpasses table');
       } catch (error) {
         console.error('Could not set up realtime:', error);
       }

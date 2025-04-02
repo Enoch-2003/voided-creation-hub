@@ -18,6 +18,7 @@ import NotFound from "@/pages/NotFound";
 import { Admin, Mentor, Student, User } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { setupRealtimeFunctions } from "@/integrations/supabase/realtimeUtils";
+import { toast } from "sonner";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -27,7 +28,17 @@ function App() {
 
   // Set up realtime functions when the app loads
   useEffect(() => {
-    setupRealtimeFunctions().catch(console.error);
+    const setupRealtime = async () => {
+      try {
+        await setupRealtimeFunctions();
+        console.log("Realtime functions set up successfully");
+      } catch (error) {
+        console.error("Failed to set up realtime functions:", error);
+        toast.error("Failed to set up real-time updates. Some features may not work properly.");
+      }
+    };
+    
+    setupRealtime();
   }, []);
   
   useEffect(() => {
@@ -90,6 +101,54 @@ function App() {
       navigate('/admin');
     }
   };
+
+  // Set up real-time listeners for user updates
+  useEffect(() => {
+    if (!user || !userRole) return;
+
+    let tableName = "";
+    if (userRole === "student") tableName = "students";
+    else if (userRole === "mentor") tableName = "mentors";
+    else if (userRole === "admin") tableName = "admins";
+    else return;
+
+    const channel = supabase
+      .channel(`user-updates-${user.id}`)
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: tableName,
+          filter: `id=eq.${user.id}`
+        },
+        async (payload) => {
+          console.log(`User profile updated:`, payload.new);
+          
+          // Update the user in session storage and state
+          const { data, error } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          
+          if (!error && data) {
+            // Remove password for security
+            const updatedUser = { ...data };
+            delete updatedUser.password;
+            
+            sessionStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser as Student | Mentor | Admin);
+            
+            // Show toast notification
+            toast.success("Your profile information has been updated");
+          }
+        })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, userRole]);
 
   return (
     <Routes>
