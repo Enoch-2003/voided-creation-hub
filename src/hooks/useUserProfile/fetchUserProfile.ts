@@ -37,11 +37,11 @@ export async function fetchUserProfileData(
     
     // Map database column names to camelCase for our frontend based on role
     if (userRole === 'student') {
-      return mapDbStudentToFrontend(data);
+      return mapDbStudentToFrontend(data as any);
     } else if (userRole === 'mentor') {
-      return mapDbMentorToFrontend(data);
+      return mapDbMentorToFrontend(data as any);
     } else if (userRole === 'admin') {
-      return mapDbAdminToFrontend(data);
+      return mapDbAdminToFrontend(data as any);
     }
     
     return null;

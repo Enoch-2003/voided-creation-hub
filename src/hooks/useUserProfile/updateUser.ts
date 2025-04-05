@@ -56,11 +56,11 @@ export async function updateUserProfile(
     // Return the updated user with proper mappings based on role
     if (data && data[0]) {
       if (updatedUser.role === 'student') {
-        return mapDbStudentToFrontend(data[0]);
+        return mapDbStudentToFrontend(data[0] as any);
       } else if (updatedUser.role === 'mentor') {
-        return mapDbMentorToFrontend(data[0]);
+        return mapDbMentorToFrontend(data[0] as any);
       } else if (updatedUser.role === 'admin') {
-        return mapDbAdminToFrontend(data[0]);
+        return mapDbAdminToFrontend(data[0] as any);
       }
     }
     
