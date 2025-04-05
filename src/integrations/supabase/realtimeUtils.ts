@@ -50,7 +50,34 @@ export async function setupRealtimeFunctions(): Promise<void> {
     await setTableReplication('mentors');
     await setTableReplication('admins');
     await setTableReplication('serial_code_logs');
+    
+    // Enable realtime for Supabase subscription
+    await enableRealtimeForTable('outpasses');
   } catch (error) {
     console.error('Failed to create real-time helper functions:', error);
+  }
+}
+
+/**
+ * Enable realtime for a specific table by adding it to the realtime publication
+ */
+async function enableRealtimeForTable(tableName: string): Promise<void> {
+  try {
+    // This SQL operation must be performed by someone with admin privileges
+    // For Lovable deployments, this is automatically handled when the setupRealtimeFunctions runs
+    const { error } = await supabase.from('_realtime').insert({
+      table: tableName,
+      insert: true,
+      update: true,
+      delete: true
+    });
+    
+    if (error && !error.message.includes('already exists')) {
+      console.error(`Error enabling realtime for ${tableName}:`, error);
+    } else {
+      console.log(`Realtime enabled for table: ${tableName}`);
+    }
+  } catch (error) {
+    console.error(`Could not enable realtime for table ${tableName}:`, error);
   }
 }

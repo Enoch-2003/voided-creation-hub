@@ -71,7 +71,7 @@ export function useOutpassSubscription() {
 
     // Set up real-time subscription with improved channel name and error handling
     const channel = supabase
-      .channel('outpasses-realtime-' + tabId)
+      .channel(`outpasses-realtime-${tabId}`)
       .on('postgres_changes', 
         { 
           event: 'INSERT', 
@@ -94,7 +94,10 @@ export function useOutpassSubscription() {
             });
             
             // Show toast notification for new outpass
-            toast.info(`New outpass request from ${payloadData.student_name}`);
+            const userRole = sessionStorage.getItem('userRole');
+            if (userRole === 'mentor' || userRole === 'admin') {
+              toast.info(`New outpass request from ${payloadData.student_name}`);
+            }
           } catch (error) {
             console.error("Error processing inserted outpass:", error);
           }
@@ -109,6 +112,7 @@ export function useOutpassSubscription() {
           try {
             // Ensure the payload data follows the OutpassDB structure
             const payloadData = payload.new as OutpassDB;
+            const oldData = payload.old as OutpassDB;
             const updatedOutpass = dbToOutpassFormat(payloadData);
             console.log("Updated outpass:", updatedOutpass);
             
@@ -122,13 +126,22 @@ export function useOutpassSubscription() {
               return updated;
             });
             
-            // Show appropriate toast based on status change
-            const oldData = payload.old as OutpassDB;
+            // Show appropriate toast based on status change and user role
+            const userRole = sessionStorage.getItem('userRole');
+            
             if (oldData.status !== payloadData.status) {
-              if (payloadData.status === 'approved') {
-                toast.success(`Outpass for ${payloadData.student_name} has been approved`);
-              } else if (payloadData.status === 'denied') {
-                toast.error(`Outpass for ${payloadData.student_name} has been denied`);
+              if (userRole === 'student' && payloadData.student_id === sessionStorage.getItem('userId')) {
+                if (payloadData.status === 'approved') {
+                  toast.success(`Your outpass has been approved by ${payloadData.mentor_name}`);
+                } else if (payloadData.status === 'denied') {
+                  toast.error(`Your outpass has been denied. Reason: ${payloadData.deny_reason || 'Not provided'}`);
+                }
+              } else if (userRole === 'admin') {
+                if (payloadData.status === 'approved') {
+                  toast.success(`Outpass for ${payloadData.student_name} has been approved by ${payloadData.mentor_name}`);
+                } else if (payloadData.status === 'denied') {
+                  toast.error(`Outpass for ${payloadData.student_name} has been denied by ${payloadData.mentor_name}`);
+                }
               }
             }
           } catch (error) {
@@ -156,7 +169,10 @@ export function useOutpassSubscription() {
                 return updated;
               });
               
-              toast.info("An outpass has been deleted");
+              const userRole = sessionStorage.getItem('userRole');
+              if (userRole === 'mentor' || userRole === 'admin') {
+                toast.info("An outpass has been deleted");
+              }
             }
           } catch (error) {
             console.error("Error processing deleted outpass:", error);

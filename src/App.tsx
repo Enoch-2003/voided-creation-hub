@@ -139,6 +139,7 @@ function App() {
             }
             
             sessionStorage.setItem('user', JSON.stringify(updatedUser));
+            sessionStorage.setItem('userId', updatedUser.id);
             setUser(updatedUser as Student | Mentor | Admin);
             
             // Show toast notification

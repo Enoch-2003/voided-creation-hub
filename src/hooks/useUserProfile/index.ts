@@ -1,90 +1,92 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Student, Mentor, Admin, UserRole } from '@/lib/types';
-import { toast } from 'sonner';
-import { setupUserSubscription } from './userSubscription';
-import { updateUserProfile } from './updateUser';
 import { fetchUserProfileData } from './fetchUserProfile';
+import { updateUserProfile } from './updateUser';
+import { useUserSubscription } from './userSubscription';
 
 /**
- * Custom hook for managing user profile data
+ * Custom hook for user profile management
  */
 export function useUserProfile() {
   const [currentUser, setCurrentUser] = useState<Student | Mentor | Admin | null>(null);
-  const [userRole, setUserRole] = useState<UserRole | "admin" | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Load user data from session storage
+  const [userRole, setUserRole] = useState<UserRole | 'admin' | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  
+  // Use the subscription hook for real-time updates
+  const { userUpdates } = useUserSubscription();
+  
+  // Set initial user data from session storage
   useEffect(() => {
-    const userData = sessionStorage.getItem('user');
-    const userRoleData = sessionStorage.getItem('userRole') as UserRole | "admin" | null;
+    const storedUser = sessionStorage.getItem("user") 
+      ? JSON.parse(sessionStorage.getItem("user") as string) 
+      : null;
+    const storedUserRole = sessionStorage.getItem("userRole") as UserRole | 'admin' | null;
     
-    if (userData) {
-      setCurrentUser(JSON.parse(userData));
-    }
-    
-    if (userRoleData) {
-      setUserRole(userRoleData);
+    if (storedUser && storedUserRole) {
+      setCurrentUser(storedUser);
+      setUserRole(storedUserRole);
     }
     
     setIsLoading(false);
   }, []);
-
-  // If user role changes, update profile data from database
+  
+  // Update user state if real-time update is received
   useEffect(() => {
-    const fetchProfile = async () => {
-      setIsLoading(true);
-      const userData = await fetchUserProfileData(currentUser, userRole);
+    if (userUpdates && currentUser && userUpdates.id === currentUser.id) {
+      console.log('User profile updated via real-time subscription', userUpdates);
+      setCurrentUser(userUpdates);
       
-      if (userData) {
-        // Update session storage
-        sessionStorage.setItem('user', JSON.stringify(userData));
-        setCurrentUser(userData);
-      }
-      
-      setIsLoading(false);
-    };
+      // Also update session storage
+      sessionStorage.setItem("user", JSON.stringify(userUpdates));
+    }
+  }, [userUpdates, currentUser]);
+  
+  // Function to fetch user profile data
+  const fetchUserProfile = async () => {
+    if (!currentUser || !userRole) return null;
     
-    if (currentUser?.id && userRole) {
-      fetchProfile();
-      
-      // Set up real-time subscription for profile updates
-      return setupUserSubscription(
-        currentUser.id, 
-        userRole, 
-        fetchProfile
-      );
-    }
-  }, [currentUser?.id, userRole]);
-
-  // Function to update the user
-  const updateUser = useCallback(async (updatedUser: Student | Mentor | Admin) => {
+    setIsLoading(true);
     try {
-      const updatedUserData = await updateUserProfile(updatedUser, currentUser, userRole);
-      
-      // Update session storage and state if this is the current user
-      if (updatedUser.id === currentUser?.id) {
-        sessionStorage.setItem('user', JSON.stringify(updatedUserData));
-        setCurrentUser(updatedUserData);
+      const data = await fetchUserProfileData(currentUser, userRole);
+      if (data) {
+        setCurrentUser(data);
+        sessionStorage.setItem("user", JSON.stringify(data));
       }
-      
-      // Show toast notification for user updates
-      if (userRole === 'student' && updatedUser.id === currentUser?.id) {
-        toast.info("Your profile information has been updated");
-      } else {
-        toast.info(`User ${updatedUser.name} has been updated`);
-      }
-      
-      return updatedUserData;
+      return data;
     } catch (error) {
-      throw error;
+      console.error('Error fetching user profile:', error);
+      return null;
+    } finally {
+      setIsLoading(false);
     }
-  }, [currentUser, userRole]);
-
-  return { 
-    currentUser, 
+  };
+  
+  // Function to update user profile
+  const updateUser = async (updatedUser: Student | Mentor | Admin) => {
+    if (!currentUser) return null;
+    
+    setIsLoading(true);
+    try {
+      const data = await updateUserProfile(updatedUser, currentUser, userRole);
+      if (data) {
+        setCurrentUser(data);
+        sessionStorage.setItem("user", JSON.stringify(data));
+      }
+      return data;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  return {
+    currentUser,
     userRole,
-    isLoading, 
-    updateUser 
+    isLoading,
+    fetchUserProfile,
+    updateUser
   };
 }

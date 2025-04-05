@@ -42,15 +42,8 @@ export function useOutpassOperations(tabId: string) {
         localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
       }
       
-      // Show toast for real-time feedback with tab ID
-      const toastMessage = `[Tab: ${tabId}] `;
-      const userRole = sessionStorage.getItem('userRole');
-      
-      if (userRole === 'mentor' && updatedOutpass.status === 'approved') {
-        toast.success(`${toastMessage}Outpass for ${updatedOutpass.studentName} approved`);
-      } else if (userRole === 'mentor' && updatedOutpass.status === 'denied') {
-        toast.error(`${toastMessage}Outpass for ${updatedOutpass.studentName} denied`);
-      }
+      // We don't need to show toasts here as the subscription will handle notifications
+      // This prevents duplicate notifications
       
       return data ? data[0] : undefined;
     } catch (error) {
@@ -92,10 +85,11 @@ export function useOutpassOperations(tabId: string) {
         localStorage.setItem("outpasses", JSON.stringify([newOutpass]));
       }
       
-      // Show toast for real-time feedback
+      // We let the subscription handle the notification for mentors
+      // Just show success for student who submitted
       const userRole = sessionStorage.getItem('userRole');
       if (userRole === 'student') {
-        toast.success(`[Tab: ${tabId}] Outpass request submitted successfully`);
+        toast.success(`Outpass request submitted successfully`);
       }
       
       return data ? data[0] : undefined;
@@ -124,7 +118,9 @@ export function useOutpassOperations(tabId: string) {
         localStorage.setItem("outpasses", JSON.stringify(filteredOutpasses));
       }
       
-      toast.success(`[Tab: ${tabId}] Outpass deleted successfully`);
+      // We don't need toast here as the subscription will handle notifications
+      
+      return true;
     } catch (error) {
       console.error('Error deleting outpass:', error);
       toast.error('Failed to delete outpass. Please try again.');

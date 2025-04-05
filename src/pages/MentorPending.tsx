@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass, OutpassStatus } from "@/lib/types";
@@ -22,6 +21,13 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<"name" | "enrollment" | "all">("all");
+  
+  // Save userId in sessionStorage for real-time notifications
+  useEffect(() => {
+    if (user && user.id) {
+      sessionStorage.setItem('userId', user.id);
+    }
+  }, [user]);
   
   // Filter outpasses by mentor's sections with safe null/undefined handling
   const sectionFilteredOutpasses = outpasses.filter((outpass) => {
@@ -65,14 +71,8 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
       updatedAt: new Date().toISOString()
     };
     
-    // Update outpass using the hook
+    // Update outpass using the hook - the real-time subscription will handle UI updates
     updateOutpass(updatedOutpass);
-    
-    // Show success toast
-    toast({
-      title: "Outpass approved",
-      description: "Student has been notified and QR code generated.",
-    });
   };
   
   const handleDeny = (id: string, reason?: string) => {
@@ -90,14 +90,8 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
       updatedAt: new Date().toISOString()
     };
     
-    // Update outpass using the hook
+    // Update outpass using the hook - the real-time subscription will handle UI updates
     updateOutpass(updatedOutpass);
-    
-    // Show success toast
-    toast({
-      title: "Outpass denied",
-      description: "Student has been notified of the denial.",
-    });
   };
   
   return (
