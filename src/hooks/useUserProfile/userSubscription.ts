@@ -20,6 +20,8 @@ export function setupUserSubscription(
   else if (userRole === 'admin') tableName = 'admins';
   
   if (tableName) {
+    console.log(`Setting up real-time subscription for ${tableName} with ID ${userId}`);
+    
     const channel = supabase
       .channel(`${tableName}-changes-${userId}`)
       .on('postgres_changes', 

@@ -18,19 +18,28 @@ export function useStudentData(studentId?: string) {
       setIsLoading(true);
       setError(null);
       
+      console.log("Fetching student data for ID:", id);
+      
       const { data, error } = await supabase
         .from('students')
         .select('*')
         .eq('id', id)
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error fetching student:", error);
+        throw error;
+      }
       
       // Convert database format to Student format
       if (data) {
+        console.log("Student data received:", data);
         // Use dbToStudentFormat from lib/types to convert the format
         const studentData = dbToStudentFormat(data);
         setStudent(studentData);
+        console.log("Transformed student data:", studentData);
+      } else {
+        console.log("No student data found for ID:", id);
       }
     } catch (err) {
       console.error('Error fetching student:', err);
@@ -70,6 +79,8 @@ export function useStudentData(studentId?: string) {
         ...(dataToUpdate.section !== undefined && { section: dataToUpdate.section }),
       };
       
+      console.log("Updating student with data:", dbData);
+      
       const { data, error } = await supabase
         .from('students')
         .update(dbData)
@@ -100,10 +111,41 @@ export function useStudentData(studentId?: string) {
   // Fetch student on mount if ID is provided
   useEffect(() => {
     if (studentId) {
+      console.log("Initiating fetch for student ID:", studentId);
       fetchStudentById(studentId);
     } else {
       setIsLoading(false);
     }
+  }, [studentId]);
+  
+  // Set up a real-time subscription for student updates
+  useEffect(() => {
+    if (!studentId) return;
+    
+    console.log("Setting up real-time subscription for student:", studentId);
+    
+    const channel = supabase
+      .channel(`student-updates-${studentId}`)
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'students',
+          filter: `id=eq.${studentId}`
+        },
+        (payload) => {
+          console.log("Real-time student update received:", payload);
+          if (payload.new) {
+            const updatedStudent = dbToStudentFormat(payload.new as any);
+            setStudent(updatedStudent);
+            toast.success("Your profile information has been updated");
+          }
+        })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [studentId]);
   
   return {

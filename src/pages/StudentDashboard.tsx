@@ -12,6 +12,7 @@ import { Student, Outpass } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useOutpasses } from "@/hooks/useOutpasses";
+import { useStudentData } from "@/hooks/useStudentData";
 
 interface StudentDashboardProps {
   user: Student;
@@ -24,20 +25,23 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Use the outpasses hook for real-time data
-  const { outpasses, isLoading, currentUser } = useOutpasses();
-
+  // Store user info in sessionStorage for real-time updates
   useEffect(() => {
-    // Check if user data is complete
     if (user && user.id) {
+      sessionStorage.setItem('userId', user.id);
+      sessionStorage.setItem('userRole', 'student');
       setIsInitialized(true);
     }
   }, [user]);
 
-  // Get the student user, ensuring the type cast is valid
-  const displayUser = currentUser && currentUser.role === 'student' 
-    ? currentUser as Student 
-    : user;
+  // Use the student data hook to get the latest profile information
+  const { student, isLoading: studentLoading } = useStudentData(user.id);
+  
+  // Use the outpasses hook for real-time data
+  const { outpasses, isLoading: outpassesLoading } = useOutpasses();
+
+  // Get the latest student data, using the fetched data or falling back to the prop
+  const displayUser = student || user;
 
   // Get active outpasses - only pending or approved but not scanned yet
   const activeOutpasses = outpasses.filter(
@@ -74,7 +78,7 @@ export default function StudentDashboard({ user, onLogout }: StudentDashboardPro
   };
 
   // Show loading state while initializing
-  if (!isInitialized || isLoading) {
+  if (!isInitialized || studentLoading || outpassesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

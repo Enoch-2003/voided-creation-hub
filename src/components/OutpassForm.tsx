@@ -9,6 +9,7 @@ import { Student, OutpassDB, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
+import { z } from "zod";
 
 interface OutpassFormProps {
   student: Student;
