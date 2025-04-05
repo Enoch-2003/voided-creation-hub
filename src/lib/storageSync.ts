@@ -1,12 +1,8 @@
-
 /**
  * Storage Sync Service
  * 
  * This service enables real-time data synchronization between multiple browser tabs
- * by using localStorage and the storage event.
- * 
- * When data is updated in localStorage from one tab, the storage event is fired in other tabs,
- * allowing them to update their state accordingly.
+ * by using localStorage, sessionStorage and the BroadcastChannel API.
  */
 
 type StorageSyncCallback = (data: any) => void;
@@ -20,6 +16,7 @@ class StorageSyncService {
   private storageLastUpdated: { [key: string]: number } = {};
   private tabId: string;
   private activeUserRoles: { [tabId: string]: string } = {};
+  private broadcastChannels: { [key: string]: BroadcastChannel } = {};
 
   constructor() {
     // Generate a unique tab ID
@@ -48,22 +45,21 @@ class StorageSyncService {
     // Register this tab on page load
     window.addEventListener('load', () => {
       this.registerTabSession();
+      this.setupBroadcastChannels();
     });
     
     // Cleanup tab data on unload
     window.addEventListener('beforeunload', () => {
       this.unregisterTabSession();
+      this.cleanupBroadcastChannels();
     });
-    
-    // Set up broadcast channel for faster real-time communication
-    this.setupBroadcastChannels();
   }
   
   /**
    * Register this tab's session with user role information
    */
   private registerTabSession(): void {
-    const userRole = localStorage.getItem('userRole');
+    const userRole = sessionStorage.getItem('userRole');
     if (userRole) {
       // Store this tab's user role
       this.activeUserRoles[this.tabId] = userRole;
@@ -86,6 +82,7 @@ class StorageSyncService {
     // Store in session storage (specific to this tab)
     sessionStorage.setItem('user', JSON.stringify(userData));
     sessionStorage.setItem('userRole', userRole);
+    sessionStorage.setItem('userId', userData.id);
     
     // We still keep localStorage for outpass data synchronization
     localStorage.setItem('user_' + this.tabId, JSON.stringify(userData));
@@ -122,11 +119,11 @@ class StorageSyncService {
     }
     
     // Broadcast update about user change for outpass filtering
-    if (window.BroadcastChannel) {
-      const channel = new BroadcastChannel('amipass_user_changed');
-      channel.postMessage({ tabId: this.tabId, userRole, userId: userData.id });
-      channel.close();
-    }
+    this.broadcastMessage('amipass_user_changed', { 
+      tabId: this.tabId, 
+      userRole, 
+      userId: userData.id 
+    });
   }
   
   /**
@@ -217,11 +214,12 @@ class StorageSyncService {
         this.listeners[key].forEach(callback => callback(data));
       }
       
-      // Special broadcast for users updates
-      if (key === 'users' && window.BroadcastChannel) {
-        const channel = new BroadcastChannel('amipass_users_changed');
-        channel.postMessage({ timestamp: Date.now() });
-        channel.close();
+      // Broadcast the change to other tabs for specific important keys
+      if (key === 'outpasses' || key === 'users') {
+        this.broadcastMessage(`amipass_${key}_changed`, { 
+          timestamp: Date.now(),
+          tabId: this.tabId
+        });
       }
     } catch (error) {
       console.error(`Error setting localStorage value for ${key}:`, error);
@@ -236,6 +234,7 @@ class StorageSyncService {
     // Also clear from sessionStorage for user-related items
     if (key === 'user' || key === 'userRole') {
       sessionStorage.removeItem(key);
+      sessionStorage.removeItem('userId');
       
       // Clear from tab-specific storage too
       localStorage.removeItem('user_' + this.tabId);
@@ -308,59 +307,54 @@ class StorageSyncService {
   }
 
   /**
-   * Creates broadcast channels for even faster cross-tab communication
+   * Helper method to broadcast a message using BroadcastChannel API
+   */
+  private broadcastMessage(channel: string, data: any): void {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel(channel);
+        bc.postMessage(data);
+        bc.close();
+      } catch (error) {
+        console.error(`Error broadcasting message on channel ${channel}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Creates broadcast channels for fast cross-tab communication
    */
   private setupBroadcastChannels(): void {
     if (typeof BroadcastChannel !== 'undefined') {
-      // Channel for outpass changes
-      const outpassChannel = new BroadcastChannel('amity-outpass-outpasses');
+      // Close any existing channels first
+      this.cleanupBroadcastChannels();
       
-      // Listen for messages from other tabs
-      outpassChannel.onmessage = (event) => {
-        if (event.data && event.data.type === 'update' && event.data.key === 'outpasses') {
-          // Refresh from localStorage
+      try {
+        // Channel for outpass changes
+        const outpassChannel = new BroadcastChannel('outpass_changes');
+        this.broadcastChannels['outpass_changes'] = outpassChannel;
+        
+        // Listen for outpass changes from other tabs
+        outpassChannel.onmessage = (event) => {
+          if (!event.data) return;
+          
+          console.log("Received outpass change broadcast:", event.data);
           const data = this.getItem('outpasses');
           
-          // Notify listeners
-          if (this.listeners['outpasses']) {
-            this.listeners['outpasses'].forEach(callback => callback(data));
+          // Get current outpasses from localStorage & update
+          const outpasses = this.getItem('outpasses');
+          if (outpasses && this.listeners['outpasses']) {
+            this.listeners['outpasses'].forEach(callback => callback(outpasses));
           }
-        }
-      };
-      
-      // Users change channel
-      const usersChannel = new BroadcastChannel('amipass_users_changed');
-      usersChannel.onmessage = (event) => {
-        // Refresh users data from localStorage
-        const data = this.getItem('users');
+        };
         
-        // Notify listeners
-        if (this.listeners['users']) {
-          this.listeners['users'].forEach(callback => callback(data));
-        }
+        // User changes channel
+        const userChangesChannel = new BroadcastChannel('amipass_user_changed');
+        this.broadcastChannels['amipass_user_changed'] = userChangesChannel;
         
-        // Check if current user needs updating
-        const currentUser = this.getUser();
-        if (currentUser && currentUser.id) {
-          const users = this.getItem<any[]>('users') || [];
-          const updatedUser = users.find(u => u.id === currentUser.id);
+        userChangesChannel.onmessage = (event) => {
+          if (!event.data || !event.data.userId || event.data.tabId === this.tabId) return;
           
-          if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
-            // Update session storage
-            sessionStorage.setItem('user', JSON.stringify(updatedUser));
-            
-            // Notify user listeners
-            if (this.listeners['user']) {
-              this.listeners['user'].forEach(callback => callback(updatedUser));
-            }
-          }
-        }
-      };
-      
-      // User change channel
-      const userChannel = new BroadcastChannel('amipass_user_changed');
-      userChannel.onmessage = (event) => {
-        if (event.data && event.data.userId) {
           const currentUser = this.getUser();
           if (currentUser && currentUser.id === event.data.userId) {
             // Refresh user data from users array
@@ -377,29 +371,79 @@ class StorageSyncService {
               }
             }
           }
-        }
-      };
+        };
+        
+        // Users changes channel
+        const usersChangesChannel = new BroadcastChannel('amipass_users_changed');
+        this.broadcastChannels['amipass_users_changed'] = usersChangesChannel;
+        
+        usersChangesChannel.onmessage = (event) => {
+          if (!event.data || event.data.tabId === this.tabId) return;
+          
+          // Refresh users data
+          const users = this.getItem('users');
+          if (this.listeners['users']) {
+            this.listeners['users'].forEach(callback => callback(users));
+          }
+          
+          // Also update current user if needed
+          const currentUser = this.getUser();
+          if (currentUser && currentUser.id) {
+            const users = this.getItem<any[]>('users') || [];
+            const updatedUser = users.find(u => u.id === currentUser.id);
+            
+            if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(currentUser)) {
+              // Update session storage
+              sessionStorage.setItem('user', JSON.stringify(updatedUser));
+              
+              // Notify user listeners
+              if (this.listeners['user']) {
+                this.listeners['user'].forEach(callback => callback(updatedUser));
+              }
+            }
+          }
+        };
+        
+        // Outpasses changes channel
+        const outpassesChangesChannel = new BroadcastChannel('amipass_outpasses_changed');
+        this.broadcastChannels['amipass_outpasses_changed'] = outpassesChangesChannel;
+        
+        outpassesChangesChannel.onmessage = (event) => {
+          if (!event.data || event.data.tabId === this.tabId) return;
+          
+          // Refresh outpasses data
+          const outpasses = this.getItem('outpasses');
+          if (this.listeners['outpasses']) {
+            this.listeners['outpasses'].forEach(callback => callback(outpasses));
+          }
+        };
+      } catch (error) {
+        console.error("Error setting up broadcast channels:", error);
+      }
     }
+  }
+  
+  /**
+   * Cleanup broadcast channels when tab closes
+   */
+  private cleanupBroadcastChannels(): void {
+    Object.values(this.broadcastChannels).forEach(channel => {
+      try {
+        channel.close();
+      } catch (error) {
+        console.error("Error closing broadcast channel:", error);
+      }
+    });
+    
+    this.broadcastChannels = {};
   }
 
   /**
    * Sets up real-time sync for a specific key
    */
   setupRealtimeSync(key: string): void {
-    if (typeof BroadcastChannel !== 'undefined') {
-      const channel = new BroadcastChannel(`amity-outpass-${key}`);
-      
-      // Enhance setItem to also broadcast changes
-      const originalSetItem = this.setItem;
-      this.setItem = function(itemKey: string, data: any) {
-        originalSetItem.call(this, itemKey, data);
-        
-        // If this is the key we're syncing, broadcast the change
-        if (itemKey === key) {
-          channel.postMessage({ type: 'update', key: itemKey });
-        }
-      };
-    }
+    // We now use BroadcastChannel API for more reliable cross-tab communication
+    this.broadcastMessage(`amipass_${key}_setup`, { tabId: this.tabId });
   }
   
   /**
@@ -409,6 +453,7 @@ class StorageSyncService {
     // Clear session storage (tab-specific)
     sessionStorage.removeItem('user');
     sessionStorage.removeItem('userRole');
+    sessionStorage.removeItem('userId');
     
     // Clear tab-specific localStorage items
     localStorage.removeItem('user_' + this.tabId);
@@ -426,6 +471,9 @@ class StorageSyncService {
     if (this.listeners['userRole']) {
       this.listeners['userRole'].forEach(callback => callback(null));
     }
+    
+    // Broadcast logout to other tabs
+    this.broadcastMessage('amipass_user_logout', { tabId: this.tabId });
   }
 }
 

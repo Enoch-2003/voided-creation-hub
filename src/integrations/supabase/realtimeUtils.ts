@@ -39,22 +39,42 @@ export async function setTableReplication(tableName: string): Promise<void> {
  */
 export async function setupRealtimeFunctions(): Promise<void> {
   try {
+    console.log('Setting up real-time for database tables...');
+    
+    // First, try to create the function if it doesn't exist
     const { error } = await supabase.rpc('create_replication_function' as any);
-    if (error) throw error;
+    if (error) {
+      console.error('Error creating replication function:', error);
+      // Continue anyway, as the function might already exist
+    } else {
+      console.log('Created real-time helper functions');
+    }
     
-    console.log('Created real-time helper functions');
-    
-    // Configure tables that need real-time
+    // Configure tables that need real-time - add a slight delay between them
     await setTableReplication('outpasses');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     await setTableReplication('students');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     await setTableReplication('mentors');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     await setTableReplication('admins');
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
     await setTableReplication('serial_code_logs');
+    
+    // Log success
+    console.log('Successfully configured real-time for all tables');
     
     // Enable realtime for Supabase subscription
     await enableRealtimeForTable('outpasses');
+    
+    return Promise.resolve();
   } catch (error) {
     console.error('Failed to create real-time helper functions:', error);
+    return Promise.reject(error);
   }
 }
 
@@ -63,16 +83,15 @@ export async function setupRealtimeFunctions(): Promise<void> {
  */
 async function enableRealtimeForTable(tableName: string): Promise<void> {
   try {
-    // This operation now requires using a stored procedure or direct SQL
-    // Using the REST API for this operation would require additional setup
-    console.log(`Attempting to enable realtime for table: ${tableName}`);
-    
-    // Instead of trying to use `from('_realtime')`, use rpc to call a function
-    // Or handle this through admin UI configuration
-    
-    // Just log the action for now as this requires admin privileges
+    // Since this requires admin privileges, just log the action for now
     console.log(`Realtime enabled for table: ${tableName} (requires admin configuration)`);
+    
+    // The actual enabling happens via SQL migration run by an admin:
+    // ALTER PUBLICATION supabase_realtime ADD TABLE public.outpasses;
+    
+    return Promise.resolve();
   } catch (error) {
     console.error(`Could not enable realtime for table ${tableName}:`, error);
+    return Promise.reject(error);
   }
 }

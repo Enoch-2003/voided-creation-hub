@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { UserRole, Student, Mentor, Admin } from '@/lib/types';
 import { toast } from 'sonner';
+import storageSync from '@/lib/storageSync';
 
 /**
  * Setup real-time subscription for user profile updates
@@ -22,6 +23,10 @@ export function setupUserSubscription(
   if (tableName) {
     console.log(`Setting up real-time subscription for ${tableName} with ID ${userId}`);
     
+    // Save userId to sessionStorage for cross-tab notifications
+    sessionStorage.setItem('userId', userId);
+    sessionStorage.setItem('userRole', userRole);
+    
     const channel = supabase
       .channel(`${tableName}-changes-${userId}`)
       .on('postgres_changes', 
@@ -33,8 +38,25 @@ export function setupUserSubscription(
         },
         (payload) => {
           console.log(`${tableName} profile updated:`, payload.new);
+          
+          // Store the userId in sessionStorage for real-time notifications
+          sessionStorage.setItem('userId', userId);
+          sessionStorage.setItem('userRole', userRole);
+          
           // Refetch user profile data to update the state
           onProfileUpdate();
+          
+          // Update user in localStorage for cross-tab communication
+          const users = storageSync.getItem<any[]>('users') || [];
+          const userIndex = users.findIndex(u => u.id === userId);
+          
+          if (userIndex >= 0) {
+            users[userIndex] = { ...users[userIndex], ...payload.new };
+          } else {
+            users.push(payload.new);
+          }
+          
+          storageSync.setItem('users', users);
           
           // Show toast notification
           toast.success("Your profile information has been updated");
@@ -56,9 +78,37 @@ export function useUserSubscription() {
   const [userUpdates, setUserUpdates] = useState<Student | Mentor | Admin | null>(null);
   
   useEffect(() => {
-    // This effect is just a placeholder for the subscription setup
-    // The actual subscription is set up in the useUserProfile hook
-    return () => {};
+    // Register a BroadcastChannel listener for user updates across tabs
+    let broadcastChannel: BroadcastChannel | null = null;
+    
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        broadcastChannel = new BroadcastChannel('amipass_user_changed');
+        
+        broadcastChannel.onmessage = (event) => {
+          if (!event.data || !event.data.userId) return;
+          
+          const userId = sessionStorage.getItem('userId');
+          if (userId === event.data.userId) {
+            // This update is for the current user, trigger a refresh
+            const users = storageSync.getItem<any[]>('users') || [];
+            const updatedUser = users.find(u => u.id === userId);
+            
+            if (updatedUser) {
+              setUserUpdates(updatedUser);
+            }
+          }
+        };
+      } catch (error) {
+        console.error("Error setting up user subscription broadcast channel:", error);
+      }
+    }
+    
+    return () => {
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
+    };
   }, []);
   
   return { userUpdates, setUserUpdates };

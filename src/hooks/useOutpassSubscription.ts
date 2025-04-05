@@ -5,6 +5,7 @@ import { Outpass, OutpassDB, dbToOutpassFormat } from '@/lib/types';
 import { handleApiError } from '@/lib/errorHandler';
 import { toast } from 'sonner';
 import { setupRealtimeFunctions } from '@/integrations/supabase/realtimeUtils';
+import storageSync from '@/lib/storageSync';
 
 /**
  * Custom hook for subscribing to outpass updates in real-time
@@ -51,15 +52,15 @@ export function useOutpassSubscription() {
         setOutpasses(formattedOutpasses);
         console.log("Fetched outpasses:", formattedOutpasses.length);
         
-        // Store outpasses in localStorage for backup/offline access
-        localStorage.setItem("outpasses", JSON.stringify(formattedOutpasses));
+        // Store outpasses in localStorage for backup/offline access and cross-tab sync
+        storageSync.setItem("outpasses", formattedOutpasses);
       } catch (error) {
         handleApiError(error, 'Fetching outpasses');
         
         // Try to load from localStorage if network request fails
-        const storedOutpasses = localStorage.getItem("outpasses");
+        const storedOutpasses = storageSync.getItem<Outpass[]>("outpasses");
         if (storedOutpasses) {
-          setOutpasses(JSON.parse(storedOutpasses));
+          setOutpasses(storedOutpasses);
         }
       } finally {
         setIsLoading(false);
@@ -88,15 +89,33 @@ export function useOutpassSubscription() {
             // Update state with the new outpass
             setOutpasses(prev => {
               const updated = [newOutpass, ...prev];
-              // Also update localStorage
-              localStorage.setItem("outpasses", JSON.stringify(updated));
+              // Also update localStorage for cross-tab sync
+              storageSync.setItem("outpasses", updated);
               return updated;
             });
             
             // Show toast notification for new outpass
             const userRole = sessionStorage.getItem('userRole');
-            if (userRole === 'mentor' || userRole === 'admin') {
+            const userId = sessionStorage.getItem('userId');
+            
+            // Only show notifications if user should see this outpass
+            if (userRole === 'mentor') {
+              // Check if mentor manages this section
+              const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+              const mentorSections = currentUser.sections || [];
+              
+              if (mentorSections.includes(payloadData.student_section)) {
+                toast.info(`New outpass request from ${payloadData.student_name}`);
+              }
+            } else if (userRole === 'admin') {
               toast.info(`New outpass request from ${payloadData.student_name}`);
+            }
+            
+            // Broadcast this change to update all tabs
+            if (window.BroadcastChannel) {
+              const bc = new BroadcastChannel('outpass_changes');
+              bc.postMessage({ type: 'insert', outpass: newOutpass });
+              bc.close();
             }
           } catch (error) {
             console.error("Error processing inserted outpass:", error);
@@ -121,10 +140,17 @@ export function useOutpassSubscription() {
               const updated = prev.map(outpass => 
                 outpass.id === updatedOutpass.id ? updatedOutpass : outpass
               );
-              // Also update localStorage
-              localStorage.setItem("outpasses", JSON.stringify(updated));
+              // Also update localStorage for cross-tab sync
+              storageSync.setItem("outpasses", updated);
               return updated;
             });
+            
+            // Broadcast this change to update all tabs
+            if (window.BroadcastChannel) {
+              const bc = new BroadcastChannel('outpass_changes');
+              bc.postMessage({ type: 'update', outpass: updatedOutpass, oldStatus: oldData.status });
+              bc.close();
+            }
             
             // Show appropriate toast based on status change and user role
             const userRole = sessionStorage.getItem('userRole');
@@ -144,10 +170,15 @@ export function useOutpassSubscription() {
                   toast.error(`You denied the outpass for ${payloadData.student_name}`);
                 } else if (payloadData.mentor_id !== userId) {
                   // Notification for other mentors
-                  if (payloadData.status === 'approved') {
-                    toast.info(`Outpass for ${payloadData.student_name} was approved by ${payloadData.mentor_name}`);
-                  } else if (payloadData.status === 'denied') {
-                    toast.info(`Outpass for ${payloadData.student_name} was denied by ${payloadData.mentor_name}`);
+                  const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+                  const mentorSections = currentUser.sections || [];
+                  
+                  if (mentorSections.includes(payloadData.student_section)) {
+                    if (payloadData.status === 'approved') {
+                      toast.info(`Outpass for ${payloadData.student_name} was approved by ${payloadData.mentor_name}`);
+                    } else if (payloadData.status === 'denied') {
+                      toast.info(`Outpass for ${payloadData.student_name} was denied by ${payloadData.mentor_name}`);
+                    }
                   }
                 }
               } else if (userRole === 'admin') {
@@ -178,10 +209,17 @@ export function useOutpassSubscription() {
               // Update state without the deleted outpass
               setOutpasses(prev => {
                 const updated = prev.filter(outpass => outpass.id !== oldId);
-                // Also update localStorage
-                localStorage.setItem("outpasses", JSON.stringify(updated));
+                // Also update localStorage for cross-tab sync
+                storageSync.setItem("outpasses", updated);
                 return updated;
               });
+              
+              // Broadcast this change to update all tabs
+              if (window.BroadcastChannel) {
+                const bc = new BroadcastChannel('outpass_changes');
+                bc.postMessage({ type: 'delete', id: oldId });
+                bc.close();
+              }
               
               const userRole = sessionStorage.getItem('userRole');
               if (userRole === 'mentor' || userRole === 'admin') {
@@ -195,6 +233,31 @@ export function useOutpassSubscription() {
       .subscribe((status) => {
         console.log("Outpasses subscription status:", status);
       });
+      
+    // Set up BroadcastChannel for cross-tab communication
+    let broadcastChannel: BroadcastChannel | null = null;
+    if (window.BroadcastChannel) {
+      broadcastChannel = new BroadcastChannel('outpass_changes');
+      broadcastChannel.onmessage = (event) => {
+        const { type, outpass, id, oldStatus } = event.data;
+        
+        if (type === 'insert') {
+          setOutpasses(prev => {
+            // Check if we already have this outpass
+            if (prev.some(o => o.id === outpass.id)) {
+              return prev;
+            }
+            return [outpass, ...prev];
+          });
+        } else if (type === 'update') {
+          setOutpasses(prev => 
+            prev.map(o => o.id === outpass.id ? outpass : o)
+          );
+        } else if (type === 'delete') {
+          setOutpasses(prev => prev.filter(o => o.id !== id));
+        }
+      };
+    }
 
     // Fetch initial data
     fetchOutpasses();
@@ -203,6 +266,9 @@ export function useOutpassSubscription() {
     return () => {
       console.log("Cleaning up outpasses subscription");
       supabase.removeChannel(channel);
+      if (broadcastChannel) {
+        broadcastChannel.close();
+      }
     };
   }, [tabId]); // Add tabId as dependency
 

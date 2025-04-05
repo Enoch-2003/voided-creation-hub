@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { Outpass, outpassToDbFormat } from '@/lib/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import storageSync from '@/lib/storageSync';
 
 /**
  * Custom hook for outpass CRUD operations
@@ -29,21 +30,28 @@ export function useOutpassOperations(tabId: string) {
       
       console.log("Database update response:", data);
       
-      // Also update in localStorage for backup purposes
-      const storedOutpasses = localStorage.getItem("outpasses");
+      // Also update in localStorage for backup purposes and cross-tab sync
+      const storedOutpasses = storageSync.getItem<Outpass[]>("outpasses");
       if (storedOutpasses) {
-        const outpasses = JSON.parse(storedOutpasses);
-        const updatedOutpasses = outpasses.map((o: Outpass) => {
+        const updatedOutpasses = storedOutpasses.map((o: Outpass) => {
           if (o.id === updatedOutpass.id) {
             return updatedOutpass;
           }
           return o;
         });
-        localStorage.setItem("outpasses", JSON.stringify(updatedOutpasses));
+        storageSync.setItem("outpasses", updatedOutpasses);
       }
       
-      // We don't need to show toasts here as the subscription will handle notifications
-      // This prevents duplicate notifications
+      // Broadcast the changes to other tabs
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel('outpass_changes');
+        bc.postMessage({ 
+          type: 'update', 
+          outpass: updatedOutpass,
+          oldStatus: storedOutpasses?.find(o => o.id === updatedOutpass.id)?.status || 'pending'
+        });
+        bc.close();
+      }
       
       return data ? data[0] : undefined;
     } catch (error) {
@@ -75,18 +83,23 @@ export function useOutpassOperations(tabId: string) {
       
       console.log("Database insert response:", data);
       
-      // Also store in localStorage for backup purposes
-      const storedOutpasses = localStorage.getItem("outpasses");
+      // Also store in localStorage for backup purposes and cross-tab sync
+      const storedOutpasses = storageSync.getItem<Outpass[]>("outpasses");
       if (storedOutpasses) {
-        const outpasses = JSON.parse(storedOutpasses);
-        outpasses.unshift(newOutpass);
-        localStorage.setItem("outpasses", JSON.stringify(outpasses));
+        const updatedOutpasses = [newOutpass, ...storedOutpasses];
+        storageSync.setItem("outpasses", updatedOutpasses);
       } else {
-        localStorage.setItem("outpasses", JSON.stringify([newOutpass]));
+        storageSync.setItem("outpasses", [newOutpass]);
       }
       
-      // We let the subscription handle the notification for mentors
-      // Just show success for student who submitted
+      // Broadcast the changes to other tabs
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel('outpass_changes');
+        bc.postMessage({ type: 'insert', outpass: newOutpass });
+        bc.close();
+      }
+      
+      // Show success for student who submitted
       const userRole = sessionStorage.getItem('userRole');
       if (userRole === 'student') {
         toast.success(`Outpass request submitted successfully`);
@@ -111,14 +124,18 @@ export function useOutpassOperations(tabId: string) {
       if (error) throw error;
       
       // Also delete from localStorage
-      const storedOutpasses = localStorage.getItem("outpasses");
+      const storedOutpasses = storageSync.getItem<Outpass[]>("outpasses");
       if (storedOutpasses) {
-        const outpasses = JSON.parse(storedOutpasses);
-        const filteredOutpasses = outpasses.filter((o: Outpass) => o.id !== outpassId);
-        localStorage.setItem("outpasses", JSON.stringify(filteredOutpasses));
+        const filteredOutpasses = storedOutpasses.filter((o: Outpass) => o.id !== outpassId);
+        storageSync.setItem("outpasses", filteredOutpasses);
       }
       
-      // We don't need toast here as the subscription will handle notifications
+      // Broadcast the changes to other tabs
+      if (window.BroadcastChannel) {
+        const bc = new BroadcastChannel('outpass_changes');
+        bc.postMessage({ type: 'delete', id: outpassId });
+        bc.close();
+      }
       
       return true;
     } catch (error) {
