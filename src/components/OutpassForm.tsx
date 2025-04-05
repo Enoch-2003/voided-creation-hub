@@ -60,6 +60,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     fetchSerialCodePrefix();
   }, [minTime]);
   
+  // Log student info to debug
+  useEffect(() => {
+    console.log("Student data in OutpassForm:", student);
+  }, [student]);
+  
   // Fetch the latest serial code prefix from database
   const fetchSerialCodePrefix = async () => {
     try {
@@ -121,6 +126,12 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     
     if (!reason) {
       toast.error("Please provide a reason for your outpass request");
+      return;
+    }
+    
+    if (!student.enrollmentNumber) {
+      toast.error("Student enrollment number is missing");
+      console.error("Missing enrollment number for student:", student);
       return;
     }
     
@@ -214,9 +225,14 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             <Label htmlFor="enrollment">Enrollment Number</Label>
             <Input 
               id="enrollment" 
-              value={student.enrollmentNumber} 
+              value={student.enrollmentNumber || 'Not available'} 
               disabled 
             />
+            {!student.enrollmentNumber && (
+              <p className="text-xs text-red-500">
+                Enrollment number is missing. Please update your profile.
+              </p>
+            )}
           </div>
         </div>
         
@@ -270,7 +286,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         </div>
       </div>
       
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+      <Button 
+        type="submit" 
+        className="w-full" 
+        disabled={isSubmitting || !student.enrollmentNumber}
+      >
         {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
       </Button>
     </form>

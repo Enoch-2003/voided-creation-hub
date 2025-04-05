@@ -36,8 +36,14 @@ export function useStudentData(studentId?: string) {
         console.log("Student data received:", data);
         // Use dbToStudentFormat from lib/types to convert the format
         const studentData = dbToStudentFormat(data);
-        setStudent(studentData);
         console.log("Transformed student data:", studentData);
+        
+        // Ensure enrollment number is set
+        if (!studentData.enrollmentNumber && data.enrollment_number) {
+          studentData.enrollmentNumber = data.enrollment_number;
+        }
+        
+        setStudent(studentData);
       } else {
         console.log("No student data found for ID:", id);
       }
@@ -77,6 +83,7 @@ export function useStudentData(studentId?: string) {
         ...(dataToUpdate.branch !== undefined && { branch: dataToUpdate.branch }),
         ...(dataToUpdate.semester !== undefined && { semester: dataToUpdate.semester }),
         ...(dataToUpdate.section !== undefined && { section: dataToUpdate.section }),
+        ...(dataToUpdate.enrollmentNumber !== undefined && { enrollment_number: dataToUpdate.enrollmentNumber }),
       };
       
       console.log("Updating student with data:", dbData);

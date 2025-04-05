@@ -7,7 +7,8 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useStudentData } from "@/hooks/useStudentData";
 
 interface StudentRequestProps {
   user: Student;
@@ -16,6 +17,7 @@ interface StudentRequestProps {
 
 export default function StudentRequest({ user, onLogout }: StudentRequestProps) {
   const navigate = useNavigate();
+  const { student, isLoading } = useStudentData(user.id);
   
   // Store user info in sessionStorage for real-time updates
   useEffect(() => {
@@ -35,9 +37,12 @@ export default function StudentRequest({ user, onLogout }: StudentRequestProps) 
     navigate("/student/outpasses");
   };
   
+  // Use the complete student data from the hook when available, otherwise fallback to the user prop
+  const studentData = student || user;
+  
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar userRole="student" userName={user.name} onLogout={onLogout} />
+      <Navbar userRole="student" userName={studentData.name} onLogout={onLogout} />
       
       <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="mb-6">
@@ -58,7 +63,11 @@ export default function StudentRequest({ user, onLogout }: StudentRequestProps) 
           </Alert>
           
           <Card className="p-6">
-            <OutpassForm student={user} onSuccess={handleSuccess} />
+            {isLoading ? (
+              <div className="p-4 text-center">Loading student information...</div>
+            ) : (
+              <OutpassForm student={studentData} onSuccess={handleSuccess} />
+            )}
           </Card>
         </div>
       </main>
