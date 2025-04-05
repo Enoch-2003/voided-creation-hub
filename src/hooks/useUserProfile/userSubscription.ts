@@ -1,10 +1,11 @@
 
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { UserRole } from '@/lib/types';
+import { UserRole, Student, Mentor, Admin } from '@/lib/types';
 import { toast } from 'sonner';
 
 /**
- * Set up real-time subscription for user profile updates
+ * Setup real-time subscription for user profile updates
  */
 export function setupUserSubscription(
   userId: string | undefined, 
@@ -44,4 +45,20 @@ export function setupUserSubscription(
   }
   
   return () => {};
+}
+
+/**
+ * Hook to subscribe to real-time user profile updates
+ */
+export function useUserSubscription() {
+  const [userUpdates, setUserUpdates] = useState<Student | Mentor | Admin | null>(null);
+  
+  useEffect(() => {
+    // This effect is just a placeholder for the subscription setup
+    // The actual subscription is set up in the useUserProfile hook
+    // This is just to expose the userUpdates state
+    return () => {};
+  }, []);
+  
+  return { userUpdates };
 }

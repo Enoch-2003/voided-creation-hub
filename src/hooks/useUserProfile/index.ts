@@ -1,9 +1,9 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Student, Mentor, Admin, UserRole } from '@/lib/types';
 import { fetchUserProfileData } from './fetchUserProfile';
 import { updateUserProfile } from './updateUser';
-import { useUserSubscription } from './userSubscription';
+import { useUserSubscription, setupUserSubscription } from './userSubscription';
 
 /**
  * Custom hook for user profile management
@@ -30,6 +30,34 @@ export function useUserProfile() {
     
     setIsLoading(false);
   }, []);
+  
+  // Callback to fetch the latest user profile data
+  const fetchProfileUpdate = useCallback(async () => {
+    if (currentUser && userRole) {
+      console.log('Fetching updated profile data for', currentUser.id);
+      const updatedProfile = await fetchUserProfileData(currentUser, userRole);
+      if (updatedProfile) {
+        console.log('Updated profile data:', updatedProfile);
+        setCurrentUser(updatedProfile);
+        sessionStorage.setItem("user", JSON.stringify(updatedProfile));
+      }
+    }
+  }, [currentUser, userRole]);
+  
+  // Set up real-time subscription when user data is available
+  useEffect(() => {
+    if (!currentUser || !userRole) return;
+    
+    const cleanupSubscription = setupUserSubscription(
+      currentUser.id,
+      userRole,
+      fetchProfileUpdate
+    );
+    
+    return () => {
+      cleanupSubscription();
+    };
+  }, [currentUser, userRole, fetchProfileUpdate]);
   
   // Update user state if real-time update is received
   useEffect(() => {
