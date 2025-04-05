@@ -1,7 +1,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { Student, Mentor, Admin, UserRole } from '@/lib/types';
-import { mapDbStudentToFrontend, createSafeUser } from './transformUtils';
+import { mapDbStudentToFrontend, mapDbMentorToFrontend, mapDbAdminToFrontend } from './transformUtils';
 
 /**
  * Fetch user profile data from the database
@@ -35,13 +35,16 @@ export async function fetchUserProfileData(
     
     if (!data) return null;
     
-    // Map database column names to camelCase for our frontend when needed
+    // Map database column names to camelCase for our frontend based on role
     if (userRole === 'student') {
       return mapDbStudentToFrontend(data);
-    } else {
-      // For other roles, just create a safe user object
-      return createSafeUser(data) as Mentor | Admin;
+    } else if (userRole === 'mentor') {
+      return mapDbMentorToFrontend(data);
+    } else if (userRole === 'admin') {
+      return mapDbAdminToFrontend(data);
     }
+    
+    return null;
   } catch (error) {
     console.error('Error fetching user profile:', error);
     return null;

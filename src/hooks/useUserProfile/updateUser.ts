@@ -2,7 +2,12 @@
 import { Student, Mentor, Admin } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { transformUserForDb, mapDbStudentToFrontend, createSafeUser } from './transformUtils';
+import { 
+  transformUserForDb, 
+  mapDbStudentToFrontend, 
+  mapDbMentorToFrontend, 
+  mapDbAdminToFrontend 
+} from './transformUtils';
 
 /**
  * Function to update user data in the database
@@ -48,15 +53,20 @@ export async function updateUserProfile(
     if (error) throw error;
     console.log(`${tableName} update result:`, data);
     
-    // Create a safe user object without password
-    const safeUser = createSafeUser(dbUser);
-    
-    // Return the updated user with proper mappings
-    if (updatedUser.role === 'student' && data && data[0]) {
-      return mapDbStudentToFrontend(data[0]);
+    // Return the updated user with proper mappings based on role
+    if (data && data[0]) {
+      if (updatedUser.role === 'student') {
+        return mapDbStudentToFrontend(data[0]);
+      } else if (updatedUser.role === 'mentor') {
+        return mapDbMentorToFrontend(data[0]);
+      } else if (updatedUser.role === 'admin') {
+        return mapDbAdminToFrontend(data[0]);
+      }
     }
     
-    // For other roles, just return the safe user
+    // If we couldn't get updated data, return original user without password
+    const safeUser = { ...updatedUser };
+    delete safeUser.password;
     return safeUser;
   } catch (error) {
     console.error('Error updating user:', error);
