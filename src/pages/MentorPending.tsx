@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
@@ -26,6 +27,7 @@ export default function MentorPending({ user, onLogout }: MentorPendingProps) {
   useEffect(() => {
     if (user && user.id) {
       sessionStorage.setItem('userId', user.id);
+      sessionStorage.setItem('userRole', 'mentor');
     }
   }, [user]);
   

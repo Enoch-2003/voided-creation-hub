@@ -128,13 +128,27 @@ export function useOutpassSubscription() {
             
             // Show appropriate toast based on status change and user role
             const userRole = sessionStorage.getItem('userRole');
+            const userId = sessionStorage.getItem('userId');
             
             if (oldData.status !== payloadData.status) {
-              if (userRole === 'student' && payloadData.student_id === sessionStorage.getItem('userId')) {
+              if (userRole === 'student' && payloadData.student_id === userId) {
                 if (payloadData.status === 'approved') {
                   toast.success(`Your outpass has been approved by ${payloadData.mentor_name}`);
                 } else if (payloadData.status === 'denied') {
                   toast.error(`Your outpass has been denied. Reason: ${payloadData.deny_reason || 'Not provided'}`);
+                }
+              } else if (userRole === 'mentor') {
+                if (payloadData.status === 'approved' && payloadData.mentor_id === userId) {
+                  toast.success(`You approved the outpass for ${payloadData.student_name}`);
+                } else if (payloadData.status === 'denied' && payloadData.mentor_id === userId) {
+                  toast.error(`You denied the outpass for ${payloadData.student_name}`);
+                } else if (payloadData.mentor_id !== userId) {
+                  // Notification for other mentors
+                  if (payloadData.status === 'approved') {
+                    toast.info(`Outpass for ${payloadData.student_name} was approved by ${payloadData.mentor_name}`);
+                  } else if (payloadData.status === 'denied') {
+                    toast.info(`Outpass for ${payloadData.student_name} was denied by ${payloadData.mentor_name}`);
+                  }
                 }
               } else if (userRole === 'admin') {
                 if (payloadData.status === 'approved') {

@@ -7,6 +7,7 @@ import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface StudentRequestProps {
   user: Student;
@@ -15,6 +16,14 @@ interface StudentRequestProps {
 
 export default function StudentRequest({ user, onLogout }: StudentRequestProps) {
   const navigate = useNavigate();
+  
+  // Store user info in sessionStorage for real-time updates
+  useEffect(() => {
+    if (user && user.id) {
+      sessionStorage.setItem('userId', user.id);
+      sessionStorage.setItem('userRole', 'student');
+    }
+  }, [user]);
   
   const handleSuccess = () => {
     // Show success toast

@@ -56,9 +56,8 @@ export function useUserSubscription() {
   useEffect(() => {
     // This effect is just a placeholder for the subscription setup
     // The actual subscription is set up in the useUserProfile hook
-    // This is just to expose the userUpdates state
     return () => {};
   }, []);
   
-  return { userUpdates };
+  return { userUpdates, setUserUpdates };
 }
