@@ -41,7 +41,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailResponse = await resend.emails.send({
       from: "Outpass System <onboarding@resend.dev>",
-      to: [guardianEmail],
+      to: [guardianEmail], // Ensure this is an array as required by the Resend API
       subject: `Outpass Request Approval Required - ${studentName}`,
       html: `
         <h2>Outpass Request Approval Required</h2>
