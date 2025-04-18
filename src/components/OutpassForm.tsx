@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -115,6 +114,46 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     }
     return result;
   };
+
+  const sendGuardianEmail = async (outpass: Outpass) => {
+    try {
+      // Fetch mentor details
+      const { data: mentorData, error: mentorError } = await supabase
+        .from('mentors')
+        .select('name, email, contact_number')
+        .eq('sections', student.section)
+        .single();
+
+      if (mentorError || !mentorData) {
+        console.error('Error fetching mentor details:', mentorError);
+        throw new Error('Could not fetch mentor details');
+      }
+
+      // Send email using the edge function
+      const response = await supabase.functions.invoke('send-guardian-email', {
+        body: {
+          studentName: student.name,
+          exitDateTime: outpass.exitDateTime,
+          reason: outpass.reason,
+          guardianEmail: student.guardianEmail,
+          mentorName: mentorData.name,
+          mentorEmail: mentorData.email,
+          mentorContact: mentorData.contact_number || 'Not provided'
+        },
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      console.log('Guardian email sent successfully');
+      toast.success('Guardian notification email sent successfully');
+    } catch (error) {
+      console.error('Error sending guardian email:', error);
+      toast.error('Failed to send guardian notification email');
+      // Don't block the outpass submission if email fails
+    }
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +171,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     if (!student.enrollmentNumber) {
       toast.error("Student enrollment number is missing");
       console.error("Missing enrollment number for student:", student);
+      return;
+    }
+
+    if (!student.guardianEmail) {
+      toast.error("Guardian email is not configured. Please update your profile.");
       return;
     }
     
@@ -193,6 +237,9 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       // Use the hook to add the outpass, which will handle both database and local storage
       await addOutpass(newOutpass);
+
+      // Send guardian email
+      await sendGuardianEmail(newOutpass);
       
       // Reset form
       setExitDateTime("");

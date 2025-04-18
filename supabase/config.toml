@@ -9,3 +9,7 @@ enabled = true
 
 [realtime]
 enabled = true
+
+[functions.send-guardian-email]
+verify_jwt = false
+
