@@ -12,4 +12,6 @@ enabled = true
 
 [functions.send-guardian-email]
 verify_jwt = false
+[functions.send-guardian-email.secrets]
+RESEND_API_KEY = "re_BPW7vV2z_7Ly7iiv7HTp1t7c4HcJZrdpo"
 

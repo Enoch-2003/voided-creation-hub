@@ -115,46 +115,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     return result;
   };
 
-  const sendGuardianEmail = async (outpass: Outpass) => {
-    try {
-      // Fetch mentor details
-      const { data: mentorData, error: mentorError } = await supabase
-        .from('mentors')
-        .select('name, email, contact_number')
-        .eq('sections', student.section)
-        .single();
-
-      if (mentorError || !mentorData) {
-        console.error('Error fetching mentor details:', mentorError);
-        throw new Error('Could not fetch mentor details');
-      }
-
-      // Send email using the edge function
-      const response = await supabase.functions.invoke('send-guardian-email', {
-        body: {
-          studentName: student.name,
-          exitDateTime: outpass.exitDateTime,
-          reason: outpass.reason,
-          guardianEmail: student.guardianEmail,
-          mentorName: mentorData.name,
-          mentorEmail: mentorData.email,
-          mentorContact: mentorData.contact_number || 'Not provided'
-        },
-      });
-
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
-      console.log('Guardian email sent successfully');
-      toast.success('Guardian notification email sent successfully');
-    } catch (error) {
-      console.error('Error sending guardian email:', error);
-      toast.error('Failed to send guardian notification email');
-      // Don't block the outpass submission if email fails
-    }
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -238,8 +198,25 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       // Use the hook to add the outpass, which will handle both database and local storage
       await addOutpass(newOutpass);
 
-      // Send guardian email
-      await sendGuardianEmail(newOutpass);
+      // Send guardian email using the edge function
+      const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
+        body: {
+          studentName: student.name,
+          exitDateTime: exitDateTime,
+          reason: reason,
+          guardianEmail: student.guardianEmail,
+          mentorName: "", // Will be fetched in the edge function
+          mentorEmail: "", // Will be fetched in the edge function
+          mentorContact: "" // Will be fetched in the edge function
+        },
+      });
+
+      if (emailError) {
+        console.error('Error sending guardian email:', emailError);
+        toast.error('Failed to send guardian notification email');
+      } else {
+        toast.success('Guardian has been notified via email');
+      }
       
       // Reset form
       setExitDateTime("");
