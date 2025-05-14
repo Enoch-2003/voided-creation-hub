@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,6 @@ import { Student, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
-// import { z } from "zod"; // Not used, can be removed
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +30,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [minTime, setMinTime] = useState("");
   const [maxTime, setMaxTime] = useState("");
-  // const [currentDate, setCurrentDate] = useState(""); // Not directly used after setting initial values
   const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
   const [tabId] = useState(() => crypto.randomUUID());
   const { addOutpass } = useOutpassOperations(tabId);
@@ -42,7 +41,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     
     // Format current date for date input (YYYY-MM-DD)
     const formattedDate = format(today, "yyyy-MM-dd");
-    // setCurrentDate(formattedDate); // Not strictly necessary to store in state if only used here
     
     // Set minimum time (9:15 AM)
     const minTimeDate = new Date(today);
@@ -62,14 +60,13 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       setExitDateTime(`${formattedDate}T${currentHour}:${currentMinute}`);
     } else {
       // Default to min time if outside the range
-      setExitDateTime(`${formattedDate}T09:15`); // Use formattedDate here too
+      setExitDateTime(`${formattedDate}T09:15`); 
     }
     
     // Fetch the latest serial code prefix
     fetchSerialCodePrefix();
-  }, []); // Removed minTime from dependencies as it causes re-runs; initial setup is enough
+  }, []); 
   
-  // Log student info to debug
   useEffect(() => {
     console.log("Student data in OutpassForm:", student);
   }, [student]);
@@ -103,12 +100,12 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
                 setSerialPrefix(sortedLogs[0].prefix);
               }
             }
-          } catch (error_parsing) { // Renamed to avoid conflict with outer error
+          } catch (error_parsing) { 
             console.error("Error parsing serial code logs:", error_parsing);
           }
         }
       }
-    } catch (error_fetching) { // Renamed to avoid conflict
+    } catch (error_fetching) { 
       console.error("Error fetching serial code prefix:", error_fetching);
     }
   };
@@ -150,6 +147,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       toast.error("Your section is not set. Please update your profile before submitting an outpass.");
       return;
     }
+
+    if (!student.semester) { // Added check for semester
+      toast.error("Your semester is not set. Please update your profile before submitting an outpass.");
+      return;
+    }
     
     // Validate exit time is within allowed range
     const selectedDateTime = new Date(exitDateTime);
@@ -174,11 +176,12 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     setIsSubmitting(true);
     
     try {
-      // Check for mentor assignment to the student's section
+      // Check for mentor assignment to the student's section and semester
       const { count, error: mentorCheckError } = await supabase
         .from('mentors')
-        .select('*', { count: 'exact', head: true }) // head:true to only get count
-        .contains('sections', [student.section]);
+        .select('*', { count: 'exact', head: true }) 
+        .contains('sections', [student.section]) // Check if mentor manages this section
+        .contains('semesters', [student.semester]); // Check if mentor manages this semester
 
       if (mentorCheckError) {
         console.error("Error checking mentor assignment:", mentorCheckError);
@@ -209,8 +212,10 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         status: "pending",
         createdAt: now,
         updatedAt: now,
-        studentSection: student.section || '', // Ensure studentSection is not null
-        serialCode: serialCode
+        studentSection: student.section || '', 
+        serialCode: serialCode,
+        // Ensure studentSemester is passed if your Outpass type and DB expect it
+        // studentSemester: student.semester || '', // Example if needed
       };
       
       console.log("Creating new outpass:", newOutpass);
@@ -222,8 +227,9 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
           studentName: student.name,
           exitDateTime: exitDateTime,
           reason: reason.trim(),
-          guardianEmail: student.guardianEmail, // This should be a string
-          studentSection: student.section // Pass student section to edge function
+          guardianEmail: student.guardianEmail,
+          studentSection: student.section,
+          // studentSemester: student.semester, // Pass semester if edge function needs it
         },
       });
 
@@ -286,6 +292,31 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             </div>
             
             <div className="space-y-2">
+              <Label htmlFor="course">Course</Label> {/* Assuming Course is relevant */}
+              <Input 
+                id="course" 
+                value={student.course || 'N/A'} 
+                disabled 
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="semester">Semester</Label>
+              <Input 
+                id="semester" 
+                value={student.semester || 'N/A'} 
+                disabled 
+              />
+               {!student.semester && (
+                <p className="text-xs text-red-500">
+                  Semester is not assigned. Please update your profile.
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="section">Section</Label>
               <Input 
                 id="section" 
@@ -335,7 +366,13 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isSubmitting || !student.enrollmentNumber || !student.guardianEmail || !student.section}
+          disabled={
+            isSubmitting || 
+            !student.enrollmentNumber || 
+            !student.guardianEmail || 
+            !student.section ||
+            !student.semester // Added semester check to disabled state
+          }
         >
           {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
         </Button>
@@ -346,7 +383,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Mentor Not Assigned</AlertDialogTitle>
             <AlertDialogDescription>
-              A mentor has not yet been assigned to your section (Section {student.section}). 
+              A mentor has not yet been assigned to your section (Section {student.section}, Semester {student.semester}). 
               Your outpass request cannot be submitted at this time. Please contact the administration.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -358,3 +395,4 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     </>
   );
 }
+
