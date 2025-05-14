@@ -3,17 +3,21 @@
     import { createClient } from '@supabase/supabase-js';
     import type { Database } from './types';
 
-    // Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your Netlify environment variables
-    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // Default values for Lovable preview (publishable keys)
+    const DEFAULT_SUPABASE_URL = "https://uzqxvwavuokaytrluqee.supabase.co";
+    const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6cXh2d2F2dW9rYXl0cmx1cWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM0MDUzNjgsImV4cCI6MjA1ODk4MTM2OH0.a6EE98u5YM6D603draFqNb8abRDbYPGNXIegynO1mJ8";
+
+    // Use environment variables if available (for Netlify), otherwise use defaults
+    const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
     if (!SUPABASE_URL) {
-      console.error("Error: VITE_SUPABASE_URL is not defined. Please set it in your environment variables.");
+      console.error("Error: Supabase URL is not defined. Please set VITE_SUPABASE_URL in your environment variables or ensure defaults are correct.");
       // You could throw an error here or provide a fallback, but for deployment, it must be set.
     }
 
     if (!SUPABASE_PUBLISHABLE_KEY) {
-      console.error("Error: VITE_SUPABASE_ANON_KEY is not defined. Please set it in your environment variables.");
+      console.error("Error: Supabase Anon Key is not defined. Please set VITE_SUPABASE_ANON_KEY in your environment variables or ensure defaults are correct.");
     }
 
     // Import the supabase client like this:
