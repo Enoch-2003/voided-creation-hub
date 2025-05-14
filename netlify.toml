@@ -1,0 +1,14 @@
+
+    [[redirects]]
+      from = "/*"
+      to = "/index.html"
+      status = 200
+
+    [build]
+      command = "npm run build"
+      publish = "dist" # Vite's default output directory
+
+    [build.environment] # Optional: if you want to set them in toml instead of Netlify UI, but UI is usually preferred for secrets/keys
+      # VITE_SUPABASE_URL = "YOUR_SUPABASE_URL"
+      # VITE_SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY"
+    
