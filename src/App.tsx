@@ -87,16 +87,22 @@ function App() {
     navigate("/login");
   };
 
-  const handleLogin = (userId: string, userRole: string) => {
+  const handleLogin = (userId: string, loggedInUserRole: string) => {
+    // Retrieve user data from sessionStorage, as Login.tsx has just set it
+    const storedUser = sessionStorage.getItem("user")
+      ? JSON.parse(sessionStorage.getItem("user") as string)
+      : null;
+
     setIsAuthenticated(true);
-    setUserRole(userRole);
+    setUserRole(loggedInUserRole);
+    setUser(storedUser as User | Student | Mentor | Admin | null); // Set user state here
     
     // Redirect based on user role
-    if (userRole === "student") {
+    if (loggedInUserRole === "student") {
       navigate('/student');
-    } else if (userRole === "mentor") {
+    } else if (loggedInUserRole === "mentor") {
       navigate('/mentor');
-    } else if (userRole === "admin") {
+    } else if (loggedInUserRole === "admin") {
       navigate('/admin');
     }
   };
@@ -167,7 +173,7 @@ function App() {
             ) : userRole === "admin" ? (
               <Navigate to="/admin" />
             ) : (
-              <Navigate to="/not-found" />
+              <Navigate to="/not-found" /> // Should not happen if userRole is set
             )
           ) : (
             <Login onLogin={handleLogin} />
@@ -178,7 +184,7 @@ function App() {
       <Route
         path="/student"
         element={
-          isAuthenticated && userRole === "student" ? (
+          isAuthenticated && userRole === "student" && user ? ( // Added user check
             <StudentDashboard user={user as Student} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -188,7 +194,7 @@ function App() {
       <Route
         path="/student/outpasses"
         element={
-          isAuthenticated && userRole === "student" ? (
+          isAuthenticated && userRole === "student" && user ? ( // Added user check
             <StudentOutpasses user={user as Student} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -198,7 +204,7 @@ function App() {
       <Route
         path="/student/request"
         element={
-          isAuthenticated && userRole === "student" ? (
+          isAuthenticated && userRole === "student" && user ? ( // Added user check
             <StudentRequest user={user as Student} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -208,7 +214,7 @@ function App() {
       <Route
         path="/mentor"
         element={
-          isAuthenticated && userRole === "mentor" ? (
+          isAuthenticated && userRole === "mentor" && user ? ( // Added user check
             <MentorDashboard user={user as Mentor} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -218,7 +224,7 @@ function App() {
       <Route
         path="/mentor/pending"
         element={
-          isAuthenticated && userRole === "mentor" ? (
+          isAuthenticated && userRole === "mentor" && user ? ( // Added user check
             <MentorPending user={user as Mentor} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -228,7 +234,7 @@ function App() {
       <Route
         path="/mentor/approved"
         element={
-          isAuthenticated && userRole === "mentor" ? (
+          isAuthenticated && userRole === "mentor" && user ? ( // Added user check
             <MentorApproved user={user as Mentor} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -238,7 +244,7 @@ function App() {
       <Route
         path="/mentor/denied"
         element={
-          isAuthenticated && userRole === "mentor" ? (
+          isAuthenticated && userRole === "mentor" && user ? ( // Added user check
             <MentorDenied user={user as Mentor} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -251,7 +257,7 @@ function App() {
       <Route 
         path="/admin" 
         element={
-          isAuthenticated && userRole === "admin" ? (
+          isAuthenticated && userRole === "admin" && user ? ( // Added user check
             <AdminDashboard user={user as Admin} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
@@ -261,7 +267,7 @@ function App() {
       <Route 
         path="/admin/student/edit" 
         element={
-          isAuthenticated && userRole === "admin" ? (
+          isAuthenticated && userRole === "admin" && user ? ( // Added user check
             <AdminStudentEdit user={user as Admin} onLogout={handleLogout} />
           ) : (
             <Navigate to="/login" />
