@@ -4,11 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, OutpassDB, Outpass } from "@/lib/types";
+import { Student, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
-import { z } from "zod";
+// import { z } from "zod"; // Not used, can be removed
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface OutpassFormProps {
   student: Student;
@@ -21,10 +30,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [minTime, setMinTime] = useState("");
   const [maxTime, setMaxTime] = useState("");
-  const [currentDate, setCurrentDate] = useState("");
+  // const [currentDate, setCurrentDate] = useState(""); // Not directly used after setting initial values
   const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
   const [tabId] = useState(() => crypto.randomUUID());
   const { addOutpass } = useOutpassOperations(tabId);
+  const [showMentorNotAssignedDialog, setShowMentorNotAssignedDialog] = useState(false);
   
   // Set min and max time constraints
   useEffect(() => {
@@ -32,7 +42,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     
     // Format current date for date input (YYYY-MM-DD)
     const formattedDate = format(today, "yyyy-MM-dd");
-    setCurrentDate(formattedDate);
+    // setCurrentDate(formattedDate); // Not strictly necessary to store in state if only used here
     
     // Set minimum time (9:15 AM)
     const minTimeDate = new Date(today);
@@ -52,19 +62,18 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       setExitDateTime(`${formattedDate}T${currentHour}:${currentMinute}`);
     } else {
       // Default to min time if outside the range
-      setExitDateTime(minTime);
+      setExitDateTime(`${formattedDate}T09:15`); // Use formattedDate here too
     }
     
     // Fetch the latest serial code prefix
     fetchSerialCodePrefix();
-  }, [minTime]);
+  }, []); // Removed minTime from dependencies as it causes re-runs; initial setup is enough
   
   // Log student info to debug
   useEffect(() => {
     console.log("Student data in OutpassForm:", student);
   }, [student]);
   
-  // Fetch the latest serial code prefix from database
   const fetchSerialCodePrefix = async () => {
     try {
       const { data, error } = await supabase
@@ -81,7 +90,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       if (data && data.length > 0) {
         setSerialPrefix(data[0].prefix);
       } else {
-        // Fallback to local storage
         const serialCodeLogs = localStorage.getItem("serialCodeLogs");
         if (serialCodeLogs) {
           try {
@@ -95,18 +103,17 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
                 setSerialPrefix(sortedLogs[0].prefix);
               }
             }
-          } catch (error) {
-            console.error("Error parsing serial code logs:", error);
+          } catch (error_parsing) { // Renamed to avoid conflict with outer error
+            console.error("Error parsing serial code logs:", error_parsing);
           }
         }
       }
-    } catch (error) {
-      console.error("Error fetching serial code prefix:", error);
+    } catch (error_fetching) { // Renamed to avoid conflict
+      console.error("Error fetching serial code prefix:", error_fetching);
     }
   };
   
   const generateSerialNumber = () => {
-    // Generate a random 6-character alphanumeric string
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
     for (let i = 0; i < 6; i++) {
@@ -123,7 +130,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       return;
     }
     
-    if (!reason) {
+    if (!reason.trim()) {
       toast.error("Please provide a reason for your outpass request");
       return;
     }
@@ -138,6 +145,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       toast.error("Guardian email is not configured. Please update your profile.");
       return;
     }
+
+    if (!student.section) {
+      toast.error("Your section is not set. Please update your profile before submitting an outpass.");
+      return;
+    }
     
     // Validate exit time is within allowed range
     const selectedDateTime = new Date(exitDateTime);
@@ -145,26 +157,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     const selectedDateOnly = new Date(selectedDateTime.getFullYear(), selectedDateTime.getMonth(), selectedDateTime.getDate());
     const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    // Check if selected date is today
     if (selectedDateOnly.getTime() !== todayDateOnly.getTime()) {
       toast.error("You can only select the current day for exit");
       return;
     }
     
-    // Check if selected time is between 9:15 AM and 3:10 PM
-    const minTimeDate = new Date(today);
-    minTimeDate.setHours(9, 15, 0);
-    
-    const maxTimeDate = new Date(today);
-    maxTimeDate.setHours(15, 10, 0);
-    
-    const selectedTimeOnly = new Date();
-    selectedTimeOnly.setHours(selectedDateTime.getHours(), selectedDateTime.getMinutes(), 0);
-    
-    if (selectedDateTime.getHours() < 9 || 
-        (selectedDateTime.getHours() === 9 && selectedDateTime.getMinutes() < 15) ||
-        selectedDateTime.getHours() > 15 ||
-        (selectedDateTime.getHours() === 15 && selectedDateTime.getMinutes() > 10)) {
+    const selectedHour = selectedDateTime.getHours();
+    const selectedMinute = selectedDateTime.getMinutes();
+
+    if (selectedHour < 9 || (selectedHour === 9 && selectedMinute < 15) ||
+        selectedHour > 15 || (selectedHour === 15 && selectedMinute > 10)) {
       toast.error("Exit time must be between 9:15 AM and 3:10 PM");
       return;
     }
@@ -172,58 +174,70 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     setIsSubmitting(true);
     
     try {
+      // Check for mentor assignment to the student's section
+      const { count, error: mentorCheckError } = await supabase
+        .from('mentors')
+        .select('*', { count: 'exact', head: true }) // head:true to only get count
+        .contains('sections', [student.section]);
+
+      if (mentorCheckError) {
+        console.error("Error checking mentor assignment:", mentorCheckError);
+        toast.error("Could not verify mentor assignment. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (count === 0) {
+        setShowMentorNotAssignedDialog(true);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Generate serial code
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
       const now = new Date().toISOString();
       
-      // Create outpass object in the frontend format
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
         studentId: student.id,
         studentName: student.name,
         enrollmentNumber: student.enrollmentNumber,
         exitDateTime: exitDateTime,
-        reason: reason,
+        reason: reason.trim(),
         status: "pending",
         createdAt: now,
         updatedAt: now,
-        studentSection: student.section || '',
+        studentSection: student.section || '', // Ensure studentSection is not null
         serialCode: serialCode
       };
       
       console.log("Creating new outpass:", newOutpass);
       
-      // Use the hook to add the outpass, which will handle both database and local storage
       await addOutpass(newOutpass);
 
-      // Send guardian email using the edge function
       const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: {
           studentName: student.name,
           exitDateTime: exitDateTime,
-          reason: reason,
-          guardianEmail: student.guardianEmail,
-          mentorName: "", // Will be fetched in the edge function
-          mentorEmail: "", // Will be fetched in the edge function
-          mentorContact: "" // Will be fetched in the edge function
+          reason: reason.trim(),
+          guardianEmail: student.guardianEmail, // This should be a string
+          studentSection: student.section // Pass student section to edge function
         },
       });
 
       if (emailError) {
         console.error('Error sending guardian email:', emailError);
-        toast.error('Failed to send guardian notification email');
+        toast.error('Failed to send guardian notification email. Your outpass request was still submitted.');
       } else {
         toast.success('Guardian has been notified via email');
       }
       
-      // Reset form
       setExitDateTime("");
       setReason("");
-      
-      // Call the success callback
       onSuccess();
+
     } catch (error) {
       console.error("Error submitting outpass:", error);
       toast.error("Failed to submit outpass request. Please try again.");
@@ -233,90 +247,114 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   };
   
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Student Name</Label>
-            <Input 
-              id="name" 
-              value={student.name} 
-              disabled 
-            />
+    <>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Student Name</Label>
+              <Input 
+                id="name" 
+                value={student.name} 
+                disabled 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="enrollment">Enrollment Number</Label>
+              <Input 
+                id="enrollment" 
+                value={student.enrollmentNumber || 'Not available'} 
+                disabled 
+              />
+              {!student.enrollmentNumber && (
+                <p className="text-xs text-red-500">
+                  Enrollment number is missing. Please update your profile.
+                </p>
+              )}
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="department">Department</Label>
+              <Input 
+                id="department" 
+                value={student.department || 'N/A'} 
+                disabled 
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="section">Section</Label>
+              <Input 
+                id="section" 
+                value={student.section ? `Section ${student.section}` : 'N/A'} 
+                disabled 
+              />
+               {!student.section && (
+                <p className="text-xs text-red-500">
+                  Section is not assigned. Please update your profile.
+                </p>
+              )}
+            </div>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="enrollment">Enrollment Number</Label>
+            <Label htmlFor="exitTime">Exit Date and Time (9:15 AM - 3:10 PM today only)</Label>
             <Input 
-              id="enrollment" 
-              value={student.enrollmentNumber || 'Not available'} 
-              disabled 
+              id="exitTime" 
+              type="datetime-local"
+              value={exitDateTime}
+              onChange={(e) => setExitDateTime(e.target.value)}
+              min={minTime}
+              max={maxTime}
+              disabled={isSubmitting}
+              required
             />
-            {!student.enrollmentNumber && (
-              <p className="text-xs text-red-500">
-                Enrollment number is missing. Please update your profile.
-              </p>
-            )}
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="department">Department</Label>
-            <Input 
-              id="department" 
-              value={student.department || ''} 
-              disabled 
-            />
+            <p className="text-xs text-muted-foreground">
+              You can only select today's date ({format(new Date(), "MMMM d, yyyy")}) 
+              between 9:15 AM and 3:10 PM
+            </p>
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="section">Section</Label>
-            <Input 
-              id="section" 
-              value={`Section ${student.section || ''}`} 
-              disabled 
+            <Label htmlFor="reason">Reason for Outpass</Label>
+            <Textarea 
+              id="reason" 
+              placeholder="Please provide a detailed reason for your outpass request"
+              rows={4}
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={isSubmitting}
+              required
             />
           </div>
         </div>
         
-        <div className="space-y-2">
-          <Label htmlFor="exitTime">Exit Date and Time (9:15 AM - 3:10 PM today only)</Label>
-          <Input 
-            id="exitTime" 
-            type="datetime-local"
-            value={exitDateTime}
-            onChange={(e) => setExitDateTime(e.target.value)}
-            min={minTime}
-            max={maxTime}
-            disabled={isSubmitting}
-          />
-          <p className="text-xs text-muted-foreground">
-            You can only select today's date ({format(new Date(), "MMMM d, yyyy")}) 
-            between 9:15 AM and 3:10 PM
-          </p>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="reason">Reason for Outpass</Label>
-          <Textarea 
-            id="reason" 
-            placeholder="Please provide a detailed reason for your outpass request"
-            rows={4}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            disabled={isSubmitting}
-          />
-        </div>
-      </div>
-      
-      <Button 
-        type="submit" 
-        className="w-full" 
-        disabled={isSubmitting || !student.enrollmentNumber}
-      >
-        {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
-      </Button>
-    </form>
+        <Button 
+          type="submit" 
+          className="w-full" 
+          disabled={isSubmitting || !student.enrollmentNumber || !student.guardianEmail || !student.section}
+        >
+          {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
+        </Button>
+      </form>
+
+      <AlertDialog open={showMentorNotAssignedDialog} onOpenChange={setShowMentorNotAssignedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mentor Not Assigned</AlertDialogTitle>
+            <AlertDialogDescription>
+              A mentor has not yet been assigned to your section (Section {student.section}). 
+              Your outpass request cannot be submitted at this time. Please contact the administration.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowMentorNotAssignedDialog(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

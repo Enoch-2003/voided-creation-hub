@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor } from "@/lib/types";
-import { XCircle, X } from "lucide-react";
+import { XCircle, X, Search } from "lucide-react"; // Added Search
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useOutpasses } from "@/hooks/useOutpasses";
@@ -14,20 +14,18 @@ interface MentorDeniedProps {
 }
 
 export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
-  const { outpasses, isLoading } = useOutpasses();
+  // `outpasses` from this hook are already filtered by section for the current mentor
+  const { outpasses, isLoading, currentUser } = useOutpasses();
   const [searchQuery, setSearchQuery] = useState("");
-  
-  // Filter outpasses by mentor's sections with safe null/undefined handling
-  const sectionFilteredOutpasses = outpasses.filter((outpass) => {
-    const mentorSections = user.sections || [];
-    return outpass.studentSection && mentorSections.includes(outpass.studentSection);
-  });
-  
-  // Filter outpasses by status: denied
-  const deniedOutpasses = sectionFilteredOutpasses.filter(o => o.status === "denied");
+
+  const currentMentor = (currentUser?.role === 'mentor' ? currentUser : user) as Mentor;
+
+  // `outpasses` from the hook is already filtered by the mentor's sections.
+  // Filter only by status: denied
+  const deniedOutpasses = outpasses.filter(o => o.status === "denied");
   
   // Apply search filter if query exists
-  const filteredOutpasses = searchQuery 
+  const displayOutpasses = searchQuery 
     ? deniedOutpasses.filter(o => 
         o.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
         o.enrollmentNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -38,39 +36,39 @@ export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
   
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar userRole="mentor" userName={user.name} onLogout={onLogout} />
+      <Navbar userRole="mentor" userName={currentMentor.name} onLogout={onLogout} />
       
       <main className="flex-1 container mx-auto px-4 pt-20 pb-10">
         <div className="mb-6">
           <h1 className="text-3xl font-bold font-display">Denied Outpasses</h1>
           <p className="text-muted-foreground">
-            View a history of outpass requests you've denied
+            View a history of outpass requests you've denied for your sections
           </p>
         </div>
         
-        <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between">
-          <div className="relative max-w-sm w-full">
+        <div className="mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
+          <div className="relative flex-1 w-full md:max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, enrollment no, or reason..."
-              className="pl-3 pr-10"
+              placeholder="Search by name, enrollment, reason..."
+              className="pl-9 pr-10 w-full"
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-0 top-0 h-full"
-              onClick={() => setSearchQuery("")}
-              disabled={!searchQuery}
-            >
-              {searchQuery && <X className="h-4 w-4" />}
-            </Button>
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full"
+                onClick={() => setSearchQuery("")}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              Showing {filteredOutpasses.length} of {deniedOutpasses.length} denied outpasses
-            </span>
+          <div className="flex items-center text-sm text-muted-foreground">
+            Showing {displayOutpasses.length} of {deniedOutpasses.length} denied
           </div>
         </div>
         
@@ -78,11 +76,11 @@ export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
           <div className="flex justify-center items-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500"></div>
           </div>
-        ) : filteredOutpasses.length > 0 ? (
+        ) : displayOutpasses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredOutpasses
+            {displayOutpasses
               .sort((a, b) => 
-                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() // Show most recent first
               )
               .map(outpass => (
                 <OutpassCard 
@@ -99,7 +97,7 @@ export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
             <p className="text-muted-foreground text-center max-w-md">
               {searchQuery 
                 ? "No denied outpasses match your search criteria. Try a different search."
-                : "You haven't denied any outpass requests yet."}
+                : "You haven't denied any outpass requests yet for your sections."}
             </p>
             {searchQuery && (
               <Button 
@@ -116,3 +114,4 @@ export default function MentorDenied({ user, onLogout }: MentorDeniedProps) {
     </div>
   );
 }
+

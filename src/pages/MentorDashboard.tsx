@@ -6,41 +6,29 @@ import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast"; // Assuming this is shadcn's older toast, not sonner
 import { PanelRight, Clock, CheckCheck, XCircle, Edit, Loader2 } from "lucide-react";
 import { useOutpasses } from "@/hooks/useOutpasses";
 import MentorProfileEdit from "@/components/MentorProfileEdit";
 
 interface MentorDashboardProps {
-  user: Mentor;
+  user: Mentor; // This is the initially loaded user from auth
   onLogout: () => void;
 }
 
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser } = useOutpasses();
+  // `outpasses` from this hook are already filtered by section for the current mentor
+  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUser } = useOutpasses();
+  
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
-  const [currentMentor, setCurrentMentor] = useState<Mentor | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   
-  // Initialize with the passed user prop
-  useEffect(() => {
-    if (user) {
-      setCurrentMentor(user);
-      setIsLoading(false);
-    }
-  }, [user]);
-  
-  // Update with data from useOutpasses hook when available
-  useEffect(() => {
-    if (currentUser && currentUser.role === 'mentor') {
-      setCurrentMentor(currentUser as Mentor);
-    }
-  }, [currentUser]);
+  // Determine the mentor data to display, prioritizing the dynamically fetched `currentUser`
+  // The `user` prop can serve as an initial value or fallback.
+  const currentMentor = (currentUser?.role === 'mentor' ? currentUser : user) as Mentor;
 
-  // If we're still loading or missing user data, show a loading indicator
-  if (isLoading || !currentMentor) {
+  if (outpassesLoading || !currentMentor) { // Simplified loading check
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
@@ -51,25 +39,23 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     );
   }
   
-  // Filter outpasses for the mentor's sections - moved outside hooks
-  const filteredOutpasses = outpasses.filter((outpass) => {
-    return outpass.studentSection && currentMentor.sections && 
-      currentMentor.sections.includes(outpass.studentSection);
-  });
+  // `outpasses` from useOutpasses hook is already filtered for the current mentor's sections.
+  // No need for additional local `filteredOutpasses`.
+  const pendingOutpasses = outpasses.filter(o => o.status === "pending");
+  const approvedOutpasses = outpasses.filter(o => o.status === "approved");
+  const deniedOutpasses = outpasses.filter(o => o.status === "denied");
   
-  const pendingOutpasses = filteredOutpasses.filter(o => o.status === "pending");
-  const approvedOutpasses = filteredOutpasses.filter(o => o.status === "approved");
-  const deniedOutpasses = filteredOutpasses.filter(o => o.status === "denied");
-  
-  // Handle profile updates
   const handleProfileUpdate = (updatedMentor: Mentor) => {
-    setCurrentMentor(updatedMentor);
+    // Call the updateUser function from the useOutpasses (which re-exports from useUserProfile)
+    updateUser(updatedMentor); 
+    // The UI should reactively update based on `currentUser` changes from the hook.
+    setIsEditProfileOpen(false); // Close dialog after update
   };
 
   const handleApprove = (id: string) => {
     const outpassToUpdate = outpasses.find(o => o.id === id);
     
-    if (outpassToUpdate) {
+    if (outpassToUpdate && currentMentor) {
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "approved",
@@ -91,13 +77,13 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const handleDeny = (id: string, reason: string) => {
     const outpassToUpdate = outpasses.find(o => o.id === id);
     
-    if (outpassToUpdate) {
+    if (outpassToUpdate && currentMentor) {
       const updatedOutpass: Outpass = {
         ...outpassToUpdate,
         status: "denied",
         mentorId: currentMentor.id,
         mentorName: currentMentor.name,
-        denyReason: reason,
+        denyReason: reason.trim() || "No reason provided",
         updatedAt: new Date().toISOString()
       };
       
@@ -110,7 +96,6 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
     }
   };
   
-  // Handle profile edit
   const handleProfileEdit = () => {
     setIsEditProfileOpen(true);
   };
@@ -156,7 +141,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                     </div>
                   ) : pendingOutpasses.length > 0 ? (
                     <div className="space-y-4">
-                      {pendingOutpasses
+                      {pendingOutpasses // Already filtered by section via useOutpasses
                         .sort((a, b) => 
                           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
                         )
@@ -203,7 +188,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                     </div>
                   ) : approvedOutpasses.length > 0 || deniedOutpasses.length > 0 ? (
                     <div className="space-y-4">
-                      {[...approvedOutpasses, ...deniedOutpasses]
+                      {[...approvedOutpasses, ...deniedOutpasses] // Already filtered by section
                         .sort((a, b) => 
                           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
                         )
@@ -382,7 +367,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
                       </div>
                       
                       <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        {approvedOutpasses.length > 0 || deniedOutpasses.length > 0 ? (
+                        {(approvedOutpasses.length > 0 || deniedOutpasses.length > 0) && (approvedOutpasses.length + deniedOutpasses.length > 0) ? (
                           <>
                             <div 
                               className="bg-green-500 h-1.5 rounded-l-full" 
@@ -417,7 +402,7 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
         </div>
       </main>
       
-      {isEditProfileOpen && (
+      {isEditProfileOpen && currentMentor && ( // Ensure currentMentor is available
         <MentorProfileEdit
           isOpen={isEditProfileOpen}
           onClose={() => setIsEditProfileOpen(false)}
