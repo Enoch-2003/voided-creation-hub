@@ -1,7 +1,7 @@
 
 import { useCallback } from 'react';
 import { Outpass, outpassToDbFormat } from '@/lib/types';
-import { toast } from 'sonner';
+import { toast } from '@/hooks/use-toast'; // Updated import path
 import { supabase } from '@/integrations/supabase/client';
 import storageSync from '@/lib/storageSync';
 
@@ -56,7 +56,11 @@ export function useOutpassOperations(tabId: string) {
       return data ? data[0] : undefined;
     } catch (error) {
       console.error('Error updating outpass:', error);
-      toast.error('Failed to update outpass. Please try again.');
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: "Failed to update outpass. Please try again."
+      });
       throw error;
     }
   }, [tabId]);
@@ -79,7 +83,10 @@ export function useOutpassOperations(tabId: string) {
         .insert(dbOutpass)
         .select();
       
-      if (error) throw error;
+      if (error) {
+        console.error("Database insert error:", error);
+        throw error;
+      }
       
       console.log("Database insert response:", data);
       
@@ -102,13 +109,20 @@ export function useOutpassOperations(tabId: string) {
       // Show success for student who submitted
       const userRole = sessionStorage.getItem('userRole');
       if (userRole === 'student') {
-        toast.success(`Outpass request submitted successfully`);
+        toast({
+          title: "Request submitted",
+          description: "Outpass request submitted successfully"
+        });
       }
       
       return data ? data[0] : undefined;
     } catch (error) {
       console.error('Error adding outpass:', error);
-      toast.error('Failed to submit outpass request. Please try again.');
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Failed to submit outpass request. Please try again."
+      });
       throw error;
     }
   }, [tabId]);
@@ -140,7 +154,11 @@ export function useOutpassOperations(tabId: string) {
       return true;
     } catch (error) {
       console.error('Error deleting outpass:', error);
-      toast.error('Failed to delete outpass. Please try again.');
+      toast({
+        variant: "destructive",
+        title: "Delete failed",
+        description: "Failed to delete outpass. Please try again."
+      });
       throw error;
     }
   }, [tabId]);

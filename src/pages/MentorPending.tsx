@@ -1,9 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass, OutpassStatus } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast"; // Updated import path
 import { Clock, X, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

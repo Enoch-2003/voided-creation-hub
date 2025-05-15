@@ -6,7 +6,7 @@ import { Student } from "@/lib/types";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast"; // Updated import path
 import { useEffect, useState } from "react";
 import { useStudentData } from "@/hooks/useStudentData";
 
@@ -24,12 +24,15 @@ export default function StudentRequest({ user, onLogout }: StudentRequestProps) 
     if (user && user.id) {
       sessionStorage.setItem('userId', user.id);
       sessionStorage.setItem('userRole', 'student');
+      // Also store the whole user object for easier access
+      sessionStorage.setItem('user', JSON.stringify(user));
     }
   }, [user]);
   
   const handleSuccess = () => {
-    // Show success toast
-    toast.success("Your outpass request has been submitted successfully", {
+    // Show success toast using the shadcn toast
+    toast({
+      title: "Outpass request submitted",
       description: "Your request has been sent to your mentor for approval.",
     });
     

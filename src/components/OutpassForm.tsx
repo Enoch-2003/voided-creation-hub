@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast"; // Updated import path
 import { Student, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -176,7 +176,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       console.log("Creating new outpass:", newOutpass);
       
-      await addOutpass(newOutpass);
+      const outpassResult = await addOutpass(newOutpass);
+      console.log("Outpass creation result:", outpassResult);
 
       const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: {
@@ -190,9 +191,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
       if (emailError) {
         console.error('Error sending guardian email:', emailError);
-        toast.error('Failed to send guardian notification email. Your outpass request was still submitted.');
+        toast({
+          variant: "destructive",
+          title: "Email notification failed",
+          description: "Failed to send guardian notification email. Your outpass request was still submitted."
+        });
       } else {
-        toast.success('Guardian has been notified via email');
+        toast({
+          title: "Guardian notified",
+          description: "Guardian has been notified via email"
+        });
       }
       
       setExitDateTime("");
@@ -201,7 +209,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
     } catch (error) {
       console.error("Error submitting outpass:", error);
-      toast.error("Failed to submit outpass request. Please try again.");
+      toast({
+        variant: "destructive",
+        title: "Submission failed",
+        description: "Failed to submit outpass request. Please try again."
+      });
     } finally {
       setIsSubmitting(false);
     }

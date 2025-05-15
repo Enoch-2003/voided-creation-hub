@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,7 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast"; // Assuming this is shadcn's older toast, not sonner
+import { useToast } from "@/hooks/use-toast"; // Updated import path
 import { PanelRight, Clock, CheckCheck, XCircle, Edit, Loader2 } from "lucide-react";
 import { useOutpasses } from "@/hooks/useOutpasses";
 import MentorProfileEdit from "@/components/MentorProfileEdit";
@@ -18,7 +19,7 @@ interface MentorDashboardProps {
 
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
-  const { toast } = useToast(); // Assuming this is shadcn's older toast, not sonner
+  const { toast } = useToast(); // Using shadcn's toast from the correct path
   // `outpasses` from this hook are already filtered by section for the current mentor
   const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUserProfile } = useOutpasses();
   
