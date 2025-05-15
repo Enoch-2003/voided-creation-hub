@@ -1,44 +1,96 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
-import { SerialCodeLog } from '@/lib/types';
-import { toast } from '@/components/ui/use-toast';
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { SerialCodeLog } from '@/lib/types'; // Ensure this type is correctly defined
 
-export function useSerialPrefix() {
-  const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
-  const [prefixLogs, setPrefixLogs] = useState<SerialCodeLog[]>([]);
+const SERIAL_CODE_CONFIG_KEY = 'serialCodeConfig';
+
+interface SerialCodeConfig {
+  prefix: string;
+  updatedAt: string;
+  updatedBy: string;
+}
+
+export function useSerialPrefix(adminId?: string) {
+  const [serialPrefix, setSerialPrefix] = useState<string>('A'); // Default prefix
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [prefixLogs, setPrefixLogs] = useState<SerialCodeLog[]>([]);
+  const [currentAdminId, setCurrentAdminId] = useState<string | null>(adminId || null);
 
-  // Fetch the latest prefix and logs on mount
-  useEffect(() => {
-    fetchSerialCodeData();
+  const fetchLatestPrefixAndLogs = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      // Fetch the most recent prefix log
+      const { data: latestLogData, error: latestLogError } = await supabase
+        .from('serial_code_logs')
+        .select('prefix, created_at, created_by, id')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestLogError && latestLogError.code !== 'PGRST116') { // PGRST116: no rows found
+        throw latestLogError;
+      }
+
+      if (latestLogData) {
+        setSerialPrefix(latestLogData.prefix);
+      } else {
+        // If no logs, check local storage or set default
+        const storedConfig = localStorage.getItem(SERIAL_CODE_CONFIG_KEY);
+        if (storedConfig) {
+          const config = JSON.parse(storedConfig) as SerialCodeConfig;
+          setSerialPrefix(config.prefix);
+        } else {
+          setSerialPrefix('A'); // Default if nothing is found
+        }
+      }
+
+      // Fetch all logs
+      const { data: logsData, error: logsError } = await supabase
+        .from('serial_code_logs')
+        .select('id, prefix, created_at, created_by')
+        .order('created_at', { ascending: false });
+
+      if (logsError) {
+        throw logsError;
+      }
+      
+      // Map snake_case to camelCase for logs
+      const mappedLogs = logsData.map(log => ({
+        id: log.id,
+        prefix: log.prefix,
+        createdAt: log.created_at, // Map here
+        createdBy: log.created_by, // Map here
+      }));
+      setPrefixLogs(mappedLogs);
+
+    } catch (error: any) {
+      console.error('Error fetching serial prefix or logs:', error);
+      toast.error(error.message || 'Failed to fetch serial prefix configuration.');
+      // Fallback to local storage or default if DB fetch fails for prefix
+      const storedConfig = localStorage.getItem(SERIAL_CODE_CONFIG_KEY);
+      if (storedConfig) {
+        const config = JSON.parse(storedConfig) as SerialCodeConfig;
+        setSerialPrefix(config.prefix);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
-  
-  // Subscribe to realtime changes in the serial_code_logs table
+
   useEffect(() => {
+    fetchLatestPrefixAndLogs();
+
+    // Set up Supabase real-time subscription for logs
     const channel = supabase
-      .channel('serial-prefix-changes')
+      .channel('serial_code_logs_changes')
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'serial_code_logs'
-        },
+        { event: '*', schema: 'public', table: 'serial_code_logs' },
         (payload) => {
-          console.log("New serial code prefix log:", payload);
-          const newLog = payload.new as SerialCodeLog;
-          
-          // Update the current prefix to the new one
-          setSerialPrefix(newLog.prefix);
-          
-          // Add the new log to the beginning of our logs array
-          setPrefixLogs(currentLogs => [newLog, ...currentLogs]);
-          
-          toast({
-            title: "Serial Code Prefix Updated",
-            description: `Prefix changed to ${newLog.prefix} by ${newLog.createdBy}`,
-          });
+          console.log('Serial code log change received!', payload);
+          fetchLatestPrefixAndLogs(); // Refetch logs and latest prefix on any change
         }
       )
       .subscribe();
@@ -46,103 +98,60 @@ export function useSerialPrefix() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchLatestPrefixAndLogs]);
 
-  const fetchSerialCodeData = async () => {
+  useEffect(() => {
+    if (adminId) {
+      setCurrentAdminId(adminId);
+    }
+  }, [adminId]);
+
+  const updateSerialPrefix = async (newPrefix: string) => {
+    if (!currentAdminId) {
+      toast.error("Admin ID is not set. Cannot update prefix.");
+      console.error("Admin ID not set for prefix update.");
+      return;
+    }
+    if (!newPrefix.trim()) {
+      toast.error("Prefix cannot be empty.");
+      return;
+    }
     setIsLoading(true);
     try {
-      // Fetch all logs sorted by creation date (newest first)
-      const { data: logs, error: logsError } = await supabase
+      const newLogEntry = {
+        prefix: newPrefix.trim().toUpperCase(),
+        created_by: currentAdminId, 
+      };
+
+      const { data, error } = await supabase
         .from('serial_code_logs')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .insert(newLogEntry)
+        .select('prefix, created_at, created_by, id') // Ensure new log is returned with all fields
+        .single();
 
-      if (logsError) {
-        console.error("Error fetching serial code logs:", logsError);
-        throw logsError;
+      if (error) throw error;
+
+      if (data) {
+        setSerialPrefix(data.prefix); // Update state with the prefix from the new log
+         // No need to manually update prefixLogs here, subscription will handle it.
+        toast.success(`Serial prefix updated to ${data.prefix}`);
       }
-
-      setPrefixLogs(logs || []);
       
-      // Set the current prefix to the most recent one
-      if (logs && logs.length > 0) {
-        setSerialPrefix(logs[0].prefix);
-      }
-    } catch (error) {
-      console.error("Error in fetchSerialCodeData:", error);
-      // Fallback to localStorage for backward compatibility
-      try {
-        const serialCodeSettings = localStorage.getItem("serialCodeSettings");
-        if (serialCodeSettings) {
-          const settings = JSON.parse(serialCodeSettings);
-          setSerialPrefix(settings.prefix || "XYZ");
-        }
-      } catch (localStorageError) {
-        console.error("Error parsing localStorage data:", localStorageError);
-      }
+      // Update local storage as a fallback/legacy
+      const config: SerialCodeConfig = {
+        prefix: newPrefix.trim().toUpperCase(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentAdminId,
+      };
+      localStorage.setItem(SERIAL_CODE_CONFIG_KEY, JSON.stringify(config));
+
+    } catch (error: any) {
+      console.error('Error updating serial prefix:', error);
+      toast.error(error.message || 'Failed to update serial prefix.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const updateSerialPrefix = async (newPrefix: string, adminName: string) => {
-    if (!newPrefix || !adminName) {
-      toast({
-        title: "Error",
-        description: "Prefix and admin name are required",
-        variant: "destructive",
-      });
-      return false;
-    }
-
-    try {
-      // Insert the new prefix log into the database
-      const { data, error } = await supabase
-        .from('serial_code_logs')
-        .insert({
-          prefix: newPrefix.toUpperCase(),
-          created_by: adminName
-        })
-        .select();
-
-      if (error) {
-        console.error("Error updating serial prefix:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update serial code prefix",
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Update local state
-      setSerialPrefix(newPrefix.toUpperCase());
-      
-      // For backward compatibility, also update localStorage
-      const settings = { prefix: newPrefix.toUpperCase() };
-      localStorage.setItem("serialCodeSettings", JSON.stringify(settings));
-
-      toast({
-        title: "Success",
-        description: "Serial code prefix updated successfully",
-      });
-      return true;
-    } catch (error) {
-      console.error("Error in updateSerialPrefix:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update serial code prefix",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  return {
-    serialPrefix,
-    prefixLogs,
-    isLoading,
-    updateSerialPrefix,
-    refreshData: fetchSerialCodeData
-  };
+  return { serialPrefix, prefixLogs, isLoading, updateSerialPrefix, fetchLatestPrefixAndLogs };
 }
