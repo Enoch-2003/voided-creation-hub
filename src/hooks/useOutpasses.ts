@@ -11,7 +11,7 @@ import { useOutpassOperations } from './useOutpassOperations';
  */
 export function useOutpasses() {
   const { outpasses: allOutpasses, isLoading: subscriptionLoading, tabId } = useOutpassSubscription();
-  const { currentUser, userRole, updateUserProfile, loading: profileLoading } = useUserProfile();
+  const { currentUser, userRole, updateUser, isLoading: profileLoading } = useUserProfile();
   const { updateOutpass, addOutpass, deleteOutpass } = useOutpassOperations(tabId);
   
   // Get filtered outpasses based on user role
@@ -44,6 +44,6 @@ export function useOutpasses() {
     deleteOutpass,
     tabId,
     currentUser,
-    updateUserProfile
+    updateUser
   };
 }

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "@/hooks/use-toast"; // Updated import path
+import { toast } from "sonner";
 import { Student, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,33 +81,33 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     e.preventDefault();
     
     if (!exitDateTime) {
-      toast({ variant: "destructive", title: "Error", description: "Please select an exit date and time" });
+      toast.error("Please select an exit date and time");
       return;
     }
     
     if (!reason.trim()) {
-      toast({ variant: "destructive", title: "Error", description: "Please provide a reason for your outpass request" });
+      toast.error("Please provide a reason for your outpass request");
       return;
     }
     
     if (!student.enrollmentNumber) {
-      toast({ variant: "destructive", title: "Error", description: "Student enrollment number is missing" });
+      toast.error("Student enrollment number is missing");
       console.error("Missing enrollment number for student:", student);
       return;
     }
 
     if (!student.guardianEmail) {
-      toast({ variant: "destructive", title: "Error", description: "Guardian email is not configured. Please update your profile." });
+      toast.error("Guardian email is not configured. Please update your profile.");
       return;
     }
 
     if (!student.section) {
-      toast({ variant: "destructive", title: "Error", description: "Your section is not set. Please update your profile before submitting an outpass." });
+      toast.error("Your section is not set. Please update your profile before submitting an outpass.");
       return;
     }
 
     if (!student.semester) { // Added check for semester
-      toast({ variant: "destructive", title: "Error", description: "Your semester is not set. Please update your profile before submitting an outpass." });
+      toast.error("Your semester is not set. Please update your profile before submitting an outpass.");
       return;
     }
     
@@ -118,7 +118,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
     if (selectedDateOnly.getTime() !== todayDateOnly.getTime()) {
-      toast({ variant: "destructive", title: "Error", description: "You can only select the current day for exit" });
+      toast.error("You can only select the current day for exit");
       return;
     }
     
@@ -127,7 +127,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
     if (selectedHour < 9 || (selectedHour === 9 && selectedMinute < 15) ||
         selectedHour > 15 || (selectedHour === 15 && selectedMinute > 10)) {
-      toast({ variant: "destructive", title: "Error", description: "Exit time must be between 9:15 AM and 3:10 PM" });
+      toast.error("Exit time must be between 9:15 AM and 3:10 PM");
       return;
     }
     
@@ -143,7 +143,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
       if (mentorCheckError) {
         console.error("Error checking mentor assignment:", mentorCheckError);
-        toast({ variant: "destructive", title: "Error", description: "Could not verify mentor assignment. Please try again." });
+        toast.error("Could not verify mentor assignment. Please try again.");
         setIsSubmitting(false);
         return;
       }
@@ -176,8 +176,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       console.log("Creating new outpass:", newOutpass);
       
-      const outpassResult = await addOutpass(newOutpass);
-      console.log("Outpass creation result:", outpassResult);
+      await addOutpass(newOutpass);
 
       const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: {
@@ -191,16 +190,9 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
       if (emailError) {
         console.error('Error sending guardian email:', emailError);
-        toast({
-          variant: "destructive",
-          title: "Email notification failed",
-          description: "Failed to send guardian notification email. Your outpass request was still submitted."
-        });
+        toast.error('Failed to send guardian notification email. Your outpass request was still submitted.');
       } else {
-        toast({
-          title: "Guardian notified",
-          description: "Guardian has been notified via email"
-        });
+        toast.success('Guardian has been notified via email');
       }
       
       setExitDateTime("");
@@ -209,11 +201,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
     } catch (error) {
       console.error("Error submitting outpass:", error);
-      toast({
-        variant: "destructive",
-        title: "Submission failed",
-        description: "Failed to submit outpass request. Please try again."
-      });
+      toast.error("Failed to submit outpass request. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -65,7 +66,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { updateUserProfile } = useOutpasses(); // Changed from updateUser to updateUserProfile
+  const { updateUser } = useOutpasses();
   
   // State variables
   const [students, setStudents] = useState<Student[]>([]);
@@ -272,22 +273,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
     setUpdateSuccess(false);
     
     try {
-      // Prepare updated student data for the updateUserProfile function
-      // The updateUserProfile hook expects the full student object, but we only pass partial data here.
-      // It also needs the ID and role if not already part of the `data` object.
-      // The hook itself will merge this with currentUserProfile.
-      // For admin editing a student, we directly update Supabase and then update local state.
-      // The updateUserProfile from useOutpasses is designed for the *current* logged-in user's profile.
-      // Here, we are an admin editing *another* user (student).
-      // So, direct Supabase update is more appropriate, as originally implemented.
-
-      // Reverted: const updatedStudentForHook = { ...selectedStudent, ...data, role: 'student' as const, id: selectedStudent.id };
-      // Reverted: const result = await updateUserProfile(updatedStudentForHook);
-      // Reverted: if (!result) {
-      // Reverted:   throw new Error("Profile update via hook failed.");
-      // Reverted: }
-
-      // Keep direct Supabase update for admin editing students
+      // Update in Supabase
       const { error } = await supabase
         .from('students')
         .update({
@@ -298,7 +284,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
           department: data.department,
           course: data.course,
           branch: data.branch,
-          semester: data.semester, // ensureString was already applied when setting form default
+          semester: data.semester,
           section: data.section
         })
         .eq('id', selectedStudent.id);
@@ -307,7 +293,7 @@ export default function AdminStudentEdit({ user, onLogout }: Props) {
       
       // Prepare updated student data
       const updatedStudentData: Student = {
-        ...selectedStudent, // This includes role and id
+        ...selectedStudent,
         name: data.name,
         email: data.email,
         contactNumber: data.contactNumber,

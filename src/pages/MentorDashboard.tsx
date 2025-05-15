@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { OutpassCard } from "@/components/OutpassCard";
 import { Mentor, Outpass } from "@/lib/types";
 import { generateQRCode } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast"; // Updated import path
+import { useToast } from "@/hooks/use-toast"; // Assuming this is shadcn's older toast, not sonner
 import { PanelRight, Clock, CheckCheck, XCircle, Edit, Loader2 } from "lucide-react";
 import { useOutpasses } from "@/hooks/useOutpasses";
 import MentorProfileEdit from "@/components/MentorProfileEdit";
@@ -19,9 +18,9 @@ interface MentorDashboardProps {
 
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
-  const { toast } = useToast(); // Using shadcn's toast from the correct path
+  const { toast } = useToast();
   // `outpasses` from this hook are already filtered by section for the current mentor
-  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUserProfile } = useOutpasses();
+  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUser } = useOutpasses();
   
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   
@@ -47,8 +46,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const deniedOutpasses = outpasses.filter(o => o.status === "denied");
   
   const handleProfileUpdate = (updatedMentor: Mentor) => {
-    // Call the updateUserProfile function from the useOutpasses (which re-exports from useUserProfile)
-    updateUserProfile(updatedMentor); 
+    // Call the updateUser function from the useOutpasses (which re-exports from useUserProfile)
+    updateUser(updatedMentor); 
     // The UI should reactively update based on `currentUser` changes from the hook.
     setIsEditProfileOpen(false); // Close dialog after update
   };
