@@ -106,21 +106,19 @@ export function useSerialPrefix(adminId?: string) {
     }
   }, [adminId]);
 
-  const updateSerialPrefix = async (newPrefix: string) => {
-    if (!currentAdminId) {
-      toast.error("Admin ID is not set. Cannot update prefix.");
-      console.error("Admin ID not set for prefix update.");
-      return;
-    }
+  const updateSerialPrefix = async (newPrefix: string, adminName?: string): Promise<boolean> => {
     if (!newPrefix.trim()) {
       toast.error("Prefix cannot be empty.");
-      return;
+      return false;
     }
+    
+    const createdBy = adminName || currentAdminId || "Unknown Admin";
+    
     setIsLoading(true);
     try {
       const newLogEntry = {
         prefix: newPrefix.trim().toUpperCase(),
-        created_by: currentAdminId, 
+        created_by: createdBy, 
       };
 
       const { data, error } = await supabase
@@ -141,17 +139,26 @@ export function useSerialPrefix(adminId?: string) {
       const config: SerialCodeConfig = {
         prefix: newPrefix.trim().toUpperCase(),
         updatedAt: new Date().toISOString(),
-        updatedBy: currentAdminId,
+        updatedBy: createdBy,
       };
       localStorage.setItem(SERIAL_CODE_CONFIG_KEY, JSON.stringify(config));
+      
+      return true;
 
     } catch (error: any) {
       console.error('Error updating serial prefix:', error);
       toast.error(error.message || 'Failed to update serial prefix.');
+      return false;
     } finally {
       setIsLoading(false);
     }
   };
 
-  return { serialPrefix, prefixLogs, isLoading, updateSerialPrefix, fetchLatestPrefixAndLogs };
+  return { 
+    serialPrefix, 
+    prefixLogs, 
+    isLoading, 
+    updateSerialPrefix, 
+    refreshData: fetchLatestPrefixAndLogs // Expose fetch method as refreshData
+  };
 }
