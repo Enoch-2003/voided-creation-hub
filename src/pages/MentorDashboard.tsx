@@ -18,9 +18,9 @@ interface MentorDashboardProps {
 
 export default function MentorDashboard({ user, onLogout }: MentorDashboardProps) {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { toast } = useToast(); // Assuming this is shadcn's older toast, not sonner
   // `outpasses` from this hook are already filtered by section for the current mentor
-  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUser } = useOutpasses();
+  const { outpasses, updateOutpass, isLoading: outpassesLoading, currentUser, updateUserProfile } = useOutpasses();
   
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   
@@ -46,8 +46,8 @@ export default function MentorDashboard({ user, onLogout }: MentorDashboardProps
   const deniedOutpasses = outpasses.filter(o => o.status === "denied");
   
   const handleProfileUpdate = (updatedMentor: Mentor) => {
-    // Call the updateUser function from the useOutpasses (which re-exports from useUserProfile)
-    updateUser(updatedMentor); 
+    // Call the updateUserProfile function from the useOutpasses (which re-exports from useUserProfile)
+    updateUserProfile(updatedMentor); 
     // The UI should reactively update based on `currentUser` changes from the hook.
     setIsEditProfileOpen(false); // Close dialog after update
   };
