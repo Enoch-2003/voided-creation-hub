@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,6 @@ import { Student, Outpass } from "@/lib/types";
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
-import { useSerialPrefix } from "@/hooks/useSerialPrefix";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,10 +30,10 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [minTime, setMinTime] = useState("");
   const [maxTime, setMaxTime] = useState("");
+  const [serialPrefix, setSerialPrefix] = useState<string>("XYZ");
   const [tabId] = useState(() => crypto.randomUUID());
   const { addOutpass } = useOutpassOperations(tabId);
   const [showMentorNotAssignedDialog, setShowMentorNotAssignedDialog] = useState(false);
-  const { serialPrefix } = useSerialPrefix();
   
   // Set min and max time constraints
   useEffect(() => {
@@ -62,11 +62,53 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       // Default to min time if outside the range
       setExitDateTime(`${formattedDate}T09:15`); 
     }
+    
+    // Fetch the latest serial code prefix
+    fetchSerialCodePrefix();
   }, []); 
   
   useEffect(() => {
     console.log("Student data in OutpassForm:", student);
   }, [student]);
+  
+  const fetchSerialCodePrefix = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("serial_code_logs")
+        .select("prefix")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      
+      if (error) {
+        console.error("Error fetching serial code prefix:", error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        setSerialPrefix(data[0].prefix);
+      } else {
+        const serialCodeLogs = localStorage.getItem("serialCodeLogs");
+        if (serialCodeLogs) {
+          try {
+            const logs = JSON.parse(serialCodeLogs);
+            if (logs && logs.length > 0) {
+              const sortedLogs = logs.sort((a: any, b: any) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+              
+              if (sortedLogs.length > 0 && sortedLogs[0].prefix) {
+                setSerialPrefix(sortedLogs[0].prefix);
+              }
+            }
+          } catch (error_parsing) { 
+            console.error("Error parsing serial code logs:", error_parsing);
+          }
+        }
+      }
+    } catch (error_fetching) { 
+      console.error("Error fetching serial code prefix:", error_fetching);
+    }
+  };
   
   const generateSerialNumber = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -154,7 +196,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
 
-      // Generate serial code using the current prefix from the hook
+      // Generate serial code
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
@@ -172,6 +214,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         updatedAt: now,
         studentSection: student.section || '', 
         serialCode: serialCode,
+        // Ensure studentSemester is passed if your Outpass type and DB expect it
+        // studentSemester: student.semester || '', // Example if needed
       };
       
       console.log("Creating new outpass:", newOutpass);
@@ -185,6 +229,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
           reason: reason.trim(),
           guardianEmail: student.guardianEmail,
           studentSection: student.section,
+          // studentSemester: student.semester, // Pass semester if edge function needs it
         },
       });
 
@@ -350,3 +395,4 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     </>
   );
 }
+

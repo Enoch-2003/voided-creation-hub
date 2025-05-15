@@ -14,8 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import storageSync from "@/lib/storageSync";
 import { useOutpasses } from "@/hooks/useOutpasses";
-import { useSerialPrefix } from "@/hooks/useSerialPrefix";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -27,7 +27,6 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) {
   const navigate = useNavigate();
   const { allOutpasses, isLoading } = useOutpasses();
-  const { serialPrefix, prefixLogs, isLoading: isPrefixLoading, updateSerialPrefix, refreshData } = useSerialPrefix();
   
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("all");
@@ -38,32 +37,50 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
   const [activeTab, setActiveTab] = useState("today");
   
   // Serial code management
-  const [newSerialCodePrefix, setNewSerialCodePrefix] = useState(serialPrefix);
+  const [serialCodePrefix, setSerialCodePrefix] = useState("XYZ");
+  const [serialCodeLogs, setSerialCodeLogs] = useState<SerialCodeLog[]>([]);
   const [isSerialCodeDialogOpen, setIsSerialCodeDialogOpen] = useState(false);
   const [isHistoryDialogOpen, setIsHistoryDialogOpen] = useState(false);
   const [prefixSearchDate, setPrefixSearchDate] = useState("");
   const [filteredPrefixLogs, setFilteredPrefixLogs] = useState<SerialCodeLog[]>([]);
   
-  // Update new prefix state when serialPrefix changes
+  // Initialize serial code settings
   useEffect(() => {
-    setNewSerialCodePrefix(serialPrefix);
-  }, [serialPrefix]);
+    // Load existing serial code settings or set default
+    const savedSettings = localStorage.getItem("serialCodeSettings");
+    if (savedSettings) {
+      const settings = JSON.parse(savedSettings);
+      setSerialCodePrefix(settings.prefix || "XYZ");
+    } else {
+      // Set default settings
+      const defaultSettings = { prefix: "XYZ" };
+      localStorage.setItem("serialCodeSettings", JSON.stringify(defaultSettings));
+    }
+    
+    // Load serial code logs
+    const savedLogs = localStorage.getItem("serialCodeLogs");
+    if (savedLogs) {
+      const logs = JSON.parse(savedLogs);
+      setSerialCodeLogs(logs);
+      setFilteredPrefixLogs(logs);
+    }
+  }, []);
   
   // Filter logs when the search date changes
   useEffect(() => {
-    if (!prefixSearchDate || !prefixLogs.length) {
-      setFilteredPrefixLogs(prefixLogs);
+    if (!prefixSearchDate) {
+      setFilteredPrefixLogs(serialCodeLogs);
       return;
     }
     
     const searchDate = new Date(prefixSearchDate).toDateString();
-    const filtered = prefixLogs.filter(log => {
+    const filtered = serialCodeLogs.filter(log => {
       const logDate = new Date(log.createdAt).toDateString();
       return logDate === searchDate;
     });
     
     setFilteredPrefixLogs(filtered);
-  }, [prefixSearchDate, prefixLogs]);
+  }, [prefixSearchDate, serialCodeLogs]);
   
   // Filter and search outpasses
   useEffect(() => {
@@ -117,19 +134,31 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     setIsDialogOpen(true);
   };
   
-  const handleUpdateSerialCode = async () => {
+  const handleUpdateSerialCode = () => {
     // Validate the prefix
-    if (!newSerialCodePrefix) {
+    if (!serialCodePrefix) {
       toast.error("Please enter a valid prefix");
       return;
     }
     
-    const success = await updateSerialPrefix(newSerialCodePrefix, user.name);
-    if (success) {
-      setIsSerialCodeDialogOpen(false);
-      // Refresh the logs data
-      refreshData();
-    }
+    // Update serial code settings
+    const settings = { prefix: serialCodePrefix };
+    localStorage.setItem("serialCodeSettings", JSON.stringify(settings));
+    
+    // Log the change
+    const newLog: SerialCodeLog = {
+      id: generateId(),
+      prefix: serialCodePrefix,
+      createdAt: new Date().toISOString(),
+      createdBy: user.name
+    };
+    
+    const updatedLogs = [...serialCodeLogs, newLog];
+    setSerialCodeLogs(updatedLogs);
+    localStorage.setItem("serialCodeLogs", JSON.stringify(updatedLogs));
+    
+    toast.success("Serial code prefix updated successfully");
+    setIsSerialCodeDialogOpen(false);
   };
   
   const getStatusColor = (status: string) => {
@@ -251,23 +280,16 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">Current Serial Code Settings</CardTitle>
             <CardDescription>
-              This prefix will be used for all new outpass serial codes in the format AUMP-{serialPrefix}-XXXXXX
+              This prefix will be used for all new outpass serial codes in the format AUMP-{serialCodePrefix}-XXXXXX
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
                 <span className="font-medium">Current Prefix: </span>
-                {isPrefixLoading ? (
-                  <span className="inline-flex items-center">
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                    Loading...
-                  </span>
-                ) : (
-                  <Badge variant="outline" className="font-mono text-lg ml-2 bg-blue-50">
-                    {serialPrefix}
-                  </Badge>
-                )}
+                <Badge variant="outline" className="font-mono text-lg ml-2 bg-blue-50">
+                  {serialCodePrefix}
+                </Badge>
               </div>
               <Button variant="outline" onClick={() => setIsSerialCodeDialogOpen(true)}>
                 Change Prefix
@@ -315,7 +337,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
                     {filteredOutpasses.map((outpass) => (
                       <TableRow key={outpass.id} className="cursor-pointer hover:bg-muted/60">
                         <TableCell className="font-mono text-xs">
-                          {outpass.serialCode || `AUMP-${serialPrefix}-${outpass.id.substring(0, 6).toUpperCase()}`}
+                          {outpass.serialCode || `AUMP-XYZ-${outpass.id.substring(0, 6).toUpperCase()}`}
                         </TableCell>
                         <TableCell>
                           <div>
@@ -386,7 +408,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               <div>
                 <h4 className="text-sm font-medium text-muted-foreground">Serial Code</h4>
                 <p className="font-mono font-medium">
-                  {selectedOutpass.serialCode || `AUMP-${serialPrefix}-${selectedOutpass.id.substring(0, 6).toUpperCase()}`}
+                  {selectedOutpass.serialCode || `AUMP-XYZ-${selectedOutpass.id.substring(0, 6).toUpperCase()}`}
                 </p>
               </div>
               
@@ -454,8 +476,8 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               <Input
                 id="serialPrefix"
                 placeholder="Enter prefix (e.g. XYZ, ABC, 123)"
-                value={newSerialCodePrefix}
-                onChange={(e) => setNewSerialCodePrefix(e.target.value.toUpperCase())}
+                value={serialCodePrefix}
+                onChange={(e) => setSerialCodePrefix(e.target.value.toUpperCase())}
                 maxLength={5}
                 className="font-mono"
               />
@@ -466,7 +488,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
             
             <div className="bg-muted p-3 rounded-md">
               <h4 className="text-sm font-medium">Preview:</h4>
-              <p className="font-mono mt-1">AUMP-{newSerialCodePrefix}-123456</p>
+              <p className="font-mono mt-1">AUMP-{serialCodePrefix}-123456</p>
             </div>
           </div>
           
@@ -515,11 +537,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
           </div>
           
           <div className="max-h-96 overflow-y-auto">
-            {isPrefixLoading ? (
-              <div className="flex justify-center items-center py-8">
-                <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : filteredPrefixLogs.length === 0 ? (
+            {filteredPrefixLogs.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">
                   {prefixSearchDate ? "No records found for the selected date" : "No history records found"}
@@ -527,7 +545,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredPrefixLogs.map((log) => (
+                {[...filteredPrefixLogs].reverse().map((log) => (
                   <div key={log.id} className="border rounded-md p-3">
                     <div className="flex justify-between items-start">
                       <Badge variant="outline" className="font-mono">
