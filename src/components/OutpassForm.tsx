@@ -81,33 +81,33 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     e.preventDefault();
     
     if (!exitDateTime) {
-      toast.error("Please select an exit date and time");
+      toast({ variant: "destructive", title: "Error", description: "Please select an exit date and time" });
       return;
     }
     
     if (!reason.trim()) {
-      toast.error("Please provide a reason for your outpass request");
+      toast({ variant: "destructive", title: "Error", description: "Please provide a reason for your outpass request" });
       return;
     }
     
     if (!student.enrollmentNumber) {
-      toast.error("Student enrollment number is missing");
+      toast({ variant: "destructive", title: "Error", description: "Student enrollment number is missing" });
       console.error("Missing enrollment number for student:", student);
       return;
     }
 
     if (!student.guardianEmail) {
-      toast.error("Guardian email is not configured. Please update your profile.");
+      toast({ variant: "destructive", title: "Error", description: "Guardian email is not configured. Please update your profile." });
       return;
     }
 
     if (!student.section) {
-      toast.error("Your section is not set. Please update your profile before submitting an outpass.");
+      toast({ variant: "destructive", title: "Error", description: "Your section is not set. Please update your profile before submitting an outpass." });
       return;
     }
 
     if (!student.semester) { // Added check for semester
-      toast.error("Your semester is not set. Please update your profile before submitting an outpass.");
+      toast({ variant: "destructive", title: "Error", description: "Your semester is not set. Please update your profile before submitting an outpass." });
       return;
     }
     
@@ -118,7 +118,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
     if (selectedDateOnly.getTime() !== todayDateOnly.getTime()) {
-      toast.error("You can only select the current day for exit");
+      toast({ variant: "destructive", title: "Error", description: "You can only select the current day for exit" });
       return;
     }
     
@@ -127,7 +127,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
     if (selectedHour < 9 || (selectedHour === 9 && selectedMinute < 15) ||
         selectedHour > 15 || (selectedHour === 15 && selectedMinute > 10)) {
-      toast.error("Exit time must be between 9:15 AM and 3:10 PM");
+      toast({ variant: "destructive", title: "Error", description: "Exit time must be between 9:15 AM and 3:10 PM" });
       return;
     }
     
@@ -143,7 +143,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
       if (mentorCheckError) {
         console.error("Error checking mentor assignment:", mentorCheckError);
-        toast.error("Could not verify mentor assignment. Please try again.");
+        toast({ variant: "destructive", title: "Error", description: "Could not verify mentor assignment. Please try again." });
         setIsSubmitting(false);
         return;
       }

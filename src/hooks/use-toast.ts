@@ -1,16 +1,18 @@
 
 import { toast as sonnerToast } from "sonner";
-import type { ToastActionElement, ToastProps } from "@/components/ui/toast"; // Ensure this imports types, not conflicting hooks
+import type { ToastActionElement } from "@/components/ui/toast"; // Ensure this imports types, not conflicting hooks
 import type React from "react";
 
-interface Toast extends ToastProps {
+// Define the options for our custom toast function
+interface CustomToastOptions {
   id?: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
-  action?: ToastActionElement;
+  action?: ToastActionElement; // This is a React.ReactElement from shadcn/ui's ToastAction
+  variant?: "default" | "destructive";
 }
 
-const toast = ({ ...props }: Toast) => {
+const toast = ({ ...props }: CustomToastOptions) => {
   if (props.variant === "destructive") {
     return sonnerToast.error(props.title || "Error", {
       description: props.description,
@@ -39,3 +41,5 @@ const useToast = () => {
 };
 
 export { useToast, toast };
+export type { CustomToastOptions as ToastOptions }; // Exporting the type for clarity if needed elsewhere
+
