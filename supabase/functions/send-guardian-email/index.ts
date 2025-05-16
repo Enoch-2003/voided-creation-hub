@@ -5,7 +5,8 @@ import Mailjet from "npm:node-mailjet@3.3.4"; // Mailjet client
 
 // const resend = new Resend(Deno.env.get("RESEND_API_KEY")); // Resend initialization, commented out
 
-const mailjetClient = Mailjet.apiConnect(
+// Corrected: Use Mailjet.connect() instead of Mailjet.apiConnect()
+const mailjetClient = Mailjet.connect(
   Deno.env.get("MAILJET_PUB_KEY")!,
   Deno.env.get("MAILJET_PRIV_KEY")!
 );
@@ -21,7 +22,7 @@ interface GuardianEmailRequest {
   exitDateTime: string;
   reason: string;
   guardianEmail: string;
-  mentorName?: string; // Made optional as they might not be passed
+  mentorName?: string; 
   mentorEmail?: string;
   mentorContact?: string;
   // studentSection is received from OutpassForm but not explicitly in this interface before.
@@ -55,6 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     console.log("Attempting to send email to guardian via Mailjet:", guardianEmail);
+    console.log("Using sender email:", senderEmail); // Log sender email
 
     const emailHtml = `
       <h2>Outpass Request Approval Required</h2>
@@ -100,16 +102,14 @@ const handler = async (req: Request): Promise<Response> => {
 
     const emailResponse = await mailjetRequest;
     
-    // Mailjet API v3.1 send response structure is different from Resend.
-    // It usually returns a Messages array with status for each message.
-    // Example: { Messages: [ { Status: 'success', ... } ] }
     console.log("Mailjet email send attempt response:", JSON.stringify(emailResponse.body));
 
-    // Check if the first message was successful, adjust based on actual Mailjet response if needed
     const firstMessageStatus = emailResponse.body?.Messages?.[0]?.Status;
     if (firstMessageStatus !== 'success') {
-        console.error("Mailjet email sending failed:", emailResponse.body);
-        throw new Error(`Mailjet sending error: ${firstMessageStatus || 'Unknown error'}`);
+        console.error("Mailjet email sending failed. Status:", firstMessageStatus, "Full response:", emailResponse.body);
+        // Check for common Mailjet error messages in the response body
+        const errorMessage = emailResponse.body?.Messages?.[0]?.Errors?.[0]?.ErrorMessage || `Mailjet sending error: ${firstMessageStatus || 'Unknown error'}`;
+        throw new Error(errorMessage);
     }
 
     console.log("Email sent successfully via Mailjet to:", guardianEmail);
@@ -123,7 +123,6 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (error: any) {
     console.error("Error sending guardian email via Mailjet:", error.message, error.stack);
-    // Log the full error if available, Mailjet errors might have more details
     if (error.response && error.response.data) {
       console.error("Mailjet API Error Data:", error.response.data);
     }
