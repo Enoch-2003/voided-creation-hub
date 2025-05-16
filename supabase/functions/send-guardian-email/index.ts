@@ -5,11 +5,22 @@ import Mailjet from "npm:node-mailjet@3.3.4"; // Mailjet client
 
 // const resend = new Resend(Deno.env.get("RESEND_API_KEY")); // Resend initialization, commented out
 
-// Corrected: Use Mailjet.connect() instead of Mailjet.apiConnect()
-const mailjetClient = Mailjet.connect(
-  Deno.env.get("MAILJET_PUB_KEY")!,
-  Deno.env.get("MAILJET_PRIV_KEY")!
-);
+const mailjetApiKey = Deno.env.get("MAILJET_PUB_KEY");
+const mailjetApiSecret = Deno.env.get("MAILJET_PRIV_KEY");
+
+if (!mailjetApiKey) {
+  console.error("MAILJET_PUB_KEY is not configured in environment variables. This should be mapped from the MAILJET_API_KEY Supabase secret.");
+  // Throw an error or handle as appropriate for your application startup
+}
+if (!mailjetApiSecret) {
+  console.error("MAILJET_PRIV_KEY is not configured in environment variables. This should be mapped from the MAILJET_API_SECRET Supabase secret.");
+  // Throw an error or handle
+}
+
+// Initialize Mailjet client only if keys are present
+const mailjetClient = mailjetApiKey && mailjetApiSecret 
+  ? Mailjet.connect(mailjetApiKey, mailjetApiSecret)
+  : null;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,6 +46,14 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (!mailjetClient) {
+    console.error("Mailjet client is not initialized. Check MAILJET_PUB_KEY and MAILJET_PRIV_KEY configuration.");
+    return new Response(
+      JSON.stringify({ error: "Email service is not properly configured (missing API keys)." }),
+      { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+    );
+  }
+
   try {
     const {
       studentName,
@@ -46,9 +65,11 @@ const handler = async (req: Request): Promise<Response> => {
       mentorContact = "N/A",
     }: GuardianEmailRequest = await req.json();
 
-    const senderEmail = Deno.env.get("MAILJET_SENDER_EMAIL");
+    // Correctly get the sender email using the environment variable name from config.toml (MAILJET_FROM_EMAIL)
+    const senderEmail = Deno.env.get("MAILJET_FROM_EMAIL");
     if (!senderEmail) {
-      console.error("Mailjet sender email (MAILJET_SENDER_EMAIL) is not configured.");
+      // Update console log to reflect the correct environment variable name
+      console.error("Mailjet sender email (MAILJET_FROM_EMAIL) is not configured. This should be mapped from MAILJET_SENDER_EMAIL Supabase secret.");
       return new Response(
         JSON.stringify({ error: "Email service is not properly configured (missing sender email)." }),
         { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
