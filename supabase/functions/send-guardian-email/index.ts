@@ -80,23 +80,29 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Using sender email:", senderEmail); // Log sender email
 
     const emailHtml = `
-      <h2>Outpass Request Approval Required</h2>
-      <p>Dear Guardian,</p>
-      <p>Your ward ${studentName} has requested an outpass with the following details:</p>
-      <ul>
+      <h2 style="font-family: Arial, sans-serif; color: #333;">Outpass Request Approval Required</h2>
+      <p style="font-family: Arial, sans-serif; color: #555;">Dear Guardian,</p>
+      <p style="font-family: Arial, sans-serif; color: #555;">Your ward ${studentName} has requested an outpass with the following details:</p>
+      <ul style="font-family: Arial, sans-serif; color: #555; list-style-type: disc; padding-left: 20px;">
         <li><strong>Exit Date & Time:</strong> ${new Date(exitDateTime).toLocaleString()}</li>
         <li><strong>Reason:</strong> ${reason}</li>
       </ul>
-      <p>Please contact the mentor to provide your approval for this request:</p>
-      <div style="background-color: #f5f5f5; padding: 15px; margin: 15px 0; border-radius: 5px;">
-        <p><strong>Mentor Details:</strong></p>
-        <ul>
-          <li><strong>Name:</strong> ${mentorName}</li>
-          <li><strong>Email:</strong> ${mentorEmail}</li>
-          <li><strong>Contact:</strong> ${mentorContact}</li>
+      <p style="font-family: Arial, sans-serif; color: #555;">Please contact the mentor to provide your approval for this request:</p>
+      <div style="background-color: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 8px; border: 1px solid #eee; font-family: Arial, sans-serif;">
+        <p style="margin-top: 0; margin-bottom: 10px; font-size: 1.1em; color: #333;"><strong>Mentor Details:</strong></p>
+        <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+          <li style="margin-bottom: 8px; color: #555;"><strong>Name:</strong> ${mentorName}</li>
+          <li style="margin-bottom: 8px; color: #555;"><strong>Email:</strong> <a href="mailto:${mentorEmail}" style="color: #007bff; text-decoration: none;">${mentorEmail}</a></li>
+          <li style="color: #555;">
+            <strong>Contact:</strong> 
+            ${mentorContact && mentorContact !== "N/A"
+              ? `<a href="tel:${mentorContact}" style="color: #007bff; text-decoration: none; padding: 3px 6px; border: 1px solid #007bff; border-radius: 4px; display: inline-block; margin-left: 5px;">${mentorContact}</a> <span style="font-size:0.9em; color:#777; margin-left: 5px;">(Tap to call)</span>`
+              : mentorContact
+            }
+          </li>
         </ul>
       </div>
-      <p>This is an automated message. Please do not reply to this email.</p>
+      <p style="font-family: Arial, sans-serif; font-size: 0.9em; color: #777;">This is an automated message. Please do not reply to this email.</p>
     `;
 
     const mailjetRequest = mailjetClient
