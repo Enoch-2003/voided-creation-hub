@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,11 +143,13 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
     if (!student.section) {
       toast.error("Your section is not set. Please update your profile before submitting an outpass.");
+      console.error("Student section is missing for handleSubmit:", student);
       return;
     }
 
-    if (!student.semester) { // Added check for semester
+    if (!student.semester) { 
       toast.error("Your semester is not set. Please update your profile before submitting an outpass.");
+      console.error("Student semester is missing for handleSubmit:", student);
       return;
     }
     
@@ -175,7 +176,10 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     setIsSubmitting(true);
     
     try {
-      console.log("Checking mentor assignment for section:", student.section, "and semester:", student.semester);
+      console.log(
+        "Attempting to find mentor for student section:", student.section, 
+        "and semester:", student.semester
+      );
       
       // Check for mentor assignment to the student's section and semester
       const { data: mentorData, error: mentorCheckError, count } = await supabase
@@ -184,17 +188,23 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         .contains('sections', [student.section])
         .contains('semesters', [student.semester]);
 
-      console.log("Mentor query response:", { mentorData, mentorCheckError, count });
+      console.log("Mentor query result:", { 
+        data: mentorData, 
+        error: mentorCheckError, 
+        count: count,
+        queriedSection: student.section,
+        queriedSemester: student.semester
+      });
 
       if (mentorCheckError) {
-        console.error("Error checking mentor assignment:", mentorCheckError);
-        toast.error("Could not verify mentor assignment. Please try again.");
+        console.error("Error checking mentor assignment:", mentorCheckError.message);
+        toast.error(`Could not verify mentor assignment: ${mentorCheckError.message}. Please try again.`);
         setIsSubmitting(false);
         return;
       }
 
       if (!mentorData || mentorData.length === 0) {
-        console.log("No mentor assigned for this section and semester");
+        console.warn("No mentor assigned in DB for section:", student.section, "and semester:", student.semester);
         setShowMentorNotAssignedDialog(true);
         setIsSubmitting(false);
         return;
@@ -202,7 +212,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       // Take the first mentor from the results
       const assignedMentor = mentorData[0];
-      console.log("Assigned mentor:", assignedMentor);
+      console.log("Assigned mentor raw data from DB:", assignedMentor);
 
       // Generate serial code
       const serialNumber = generateSerialNumber();
@@ -229,19 +239,25 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       await addOutpass(newOutpass);
 
       // Construct email payload with mentor details
+      const mentorNameFromDb = assignedMentor.name;
+      const mentorEmailFromDb = assignedMentor.email;
+      const mentorContactFromDb = assignedMentor.contact_number;
+
+      console.log("Raw mentor details for payload:", { mentorNameFromDb, mentorEmailFromDb, mentorContactFromDb });
+
       const emailPayload = {
         studentName: student.name,
         exitDateTime: exitDateTime,
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
-        // Explicitly pass mentor details 
-        mentorName: assignedMentor.name || "Not Available",
-        mentorEmail: assignedMentor.email || "Not Available",
-        mentorContact: assignedMentor.contact_number || "Not Available",
+        // Explicitly pass mentor details - use "Not Available" as fallback if DB field is falsy
+        mentorName: mentorNameFromDb || "Not Available",
+        mentorEmail: mentorEmailFromDb || "Not Available",
+        mentorContact: mentorContactFromDb || "Not Available",
       };
 
-      console.log("Sending email with payload:", emailPayload);
+      console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
 
       const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,

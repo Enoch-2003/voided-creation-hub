@@ -50,8 +50,8 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const requestBody = await req.json();
-    console.log("Received request body (raw):", JSON.stringify(requestBody, null, 2));
+    const requestBody: GuardianEmailRequest = await req.json();
+    console.log("Received request body for email function (raw):", JSON.stringify(requestBody, null, 2));
 
     const {
       studentName,
@@ -59,21 +59,31 @@ const handler = async (req: Request): Promise<Response> => {
       reason,
       guardianEmail,
       // studentSection is in requestBody but not explicitly destructured here unless needed
-    }: GuardianEmailRequest = requestBody;
+    } = requestBody;
 
     // Explicitly handle mentor details from requestBody
     const rawMentorName = requestBody.mentorName;
     const rawMentorEmail = requestBody.mentorEmail;
     const rawMentorContact = requestBody.mentorContact;
 
-    console.log("Raw mentor details from request:", { rawMentorName, rawMentorEmail, rawMentorContact });
+    console.log("Raw mentor details received by email function:", { rawMentorName, rawMentorEmail, rawMentorContact });
 
-    const mentorName = rawMentorName && String(rawMentorName).trim() !== "" && String(rawMentorName).toLowerCase() !== "not available" ? String(rawMentorName) : "Not specified";
-    const mentorEmail = rawMentorEmail && String(rawMentorEmail).trim() !== "" && String(rawMentorEmail).toLowerCase() !== "not available" ? String(rawMentorEmail) : "Not specified";
-    const mentorContact = rawMentorContact && String(rawMentorContact).trim() !== "" && String(rawMentorContact).toLowerCase() !== "not available" ? String(rawMentorContact) : "Not specified";
+    // Fallback to "Not specified" if the detail is missing, empty, or explicitly "Not Available"
+    const mentorNameToUse = rawMentorName && String(rawMentorName).trim() !== "" && String(rawMentorName).toLowerCase() !== "not available" 
+      ? String(rawMentorName) 
+      : "Not specified";
+    const mentorEmailToUse = rawMentorEmail && String(rawMentorEmail).trim() !== "" && String(rawMentorEmail).toLowerCase() !== "not available"
+      ? String(rawMentorEmail)
+      : "Not specified";
+    const mentorContactToUse = rawMentorContact && String(rawMentorContact).trim() !== "" && String(rawMentorContact).toLowerCase() !== "not available"
+      ? String(rawMentorContact)
+      : "Not specified";
     
-    console.log("Processed mentor details for email:", { mentorName, mentorEmail, mentorContact });
-
+    console.log("Processed mentor details for email template:", { 
+      name: mentorNameToUse, 
+      email: mentorEmailToUse, 
+      contact: mentorContactToUse 
+    });
 
     const senderEmail = Deno.env.get("MAILJET_FROM_EMAIL");
     if (!senderEmail) {
@@ -122,16 +132,16 @@ const handler = async (req: Request): Promise<Response> => {
                   <div style="background-color: #f8f9fa; padding: 20px; margin: 25px 0; border-radius: 8px; border: 1px solid #BFDBFE;">
                     <p style="margin-top: 0; margin-bottom: 15px; font-size: 1.2em; color: #1D4ED8;"><strong>Mentor Details:</strong></p>
                     <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 16px; line-height: 1.6;">
-                      <li style="margin-bottom: 10px;"><strong>Name:</strong> ${mentorName}</li>
+                      <li style="margin-bottom: 10px;"><strong>Name:</strong> ${mentorNameToUse}</li>
                       <li style="margin-bottom: 10px;">
                         <strong>Email:</strong> 
-                        ${mentorEmail !== "Not specified" ? `<a href="mailto:${mentorEmail}" style="color: #3B82F6; text-decoration: none;">${mentorEmail}</a>` : mentorEmail}
+                        ${mentorEmailToUse !== "Not specified" ? `<a href="mailto:${mentorEmailToUse}" style="color: #3B82F6; text-decoration: none;">${mentorEmailToUse}</a>` : mentorEmailToUse}
                       </li>
                       <li>
                         <strong>Contact:</strong> 
-                        ${mentorContact && mentorContact !== "Not specified"
-                          ? `<a href="tel:${mentorContact}" style="color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 4px; display: inline-block; background-color: #3B82F6; margin-left: 8px;">${mentorContact}</a> <span style="font-size:0.9em; color:#555; margin-left: 5px;">(Tap to call)</span>`
-                          : mentorContact
+                        ${mentorContactToUse && mentorContactToUse !== "Not specified"
+                          ? `<a href="tel:${mentorContactToUse}" style="color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 4px; display: inline-block; background-color: #3B82F6; margin-left: 8px;">${mentorContactToUse}</a> <span style="font-size:0.9em; color:#555; margin-left: 5px;">(Tap to call)</span>`
+                          : mentorContactToUse
                         }
                       </li>
                     </ul>
@@ -153,6 +163,8 @@ const handler = async (req: Request): Promise<Response> => {
       </table>
     </body>
     `;
+    // Ensure mentorNameToUse, mentorEmailToUse, mentorContactToUse are used in the HTML
+    // The existing HTML template already uses these effectively via the ${mentorName}, ${mentorEmail}, ${mentorContact} placeholders, which will now map to mentorNameToUse etc.
 
     const mailjetRequest = mailjetClient
       .post("send", { version: "v3.1" })
@@ -165,7 +177,7 @@ const handler = async (req: Request): Promise<Response> => {
             },
             To: [ { Email: guardianEmail } ],
             Subject: `Outpass Request for ${studentName} - Action Required`,
-            HTMLPart: emailHtml,
+            HTMLPart: emailHtml, // This uses the updated emailHtml with correct mentor variables
           },
         ],
       });
