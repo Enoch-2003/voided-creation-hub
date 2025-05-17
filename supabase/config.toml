@@ -1,20 +1,40 @@
 
-project_id = "uzqxvwavuokaytrluqee"
+# Supabase project ID. Do not edit.
+project_id = "flbxposzgltqbudpkxyp"
 
 [api]
 enabled = true
+# Keep default_jwt_secret empty to use a randomly generated value.
+# For local development, set it to "your-super-secret-jwt-token-with-at-least-32-characters-long"
+default_jwt_secret = "" # Uses a randomly generated value if empty
 
-[db]
+[database]
+# Keep major_version empty to use the latest version.
+major_version = "" # Uses latest version if empty
+
+[auth]
+enable_anonymous_sign_ins = false
+enable_email_provider = true
+enable_phone_provider = false
+# All other external OAuth providers are disabled by default.
+# Example: enable_apple_provider = false
+
+# Email auth settings
+# email_template_body_invite = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=invite&redirect_to={{ .RedirectTo }}"
+# email_template_body_magiclink = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=magiclink&redirect_to={{ .RedirectTo }}"
+# email_template_body_recovery = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}"
+# email_template_body_email_change = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=email_change&redirect_to={{ .RedirectTo }}"
+
+[functions.send-guardian-email.env_vars]
+MAILJET_PUB_KEY = "MAILJET_PUB_KEY"
+MAILJET_PRIV_KEY = "MAILJET_PRIV_KEY"
+MAILJET_FROM_EMAIL = "MAILJET_SENDER_EMAIL"
+SITE_URL = "SITE_URL" # Make sure to set this secret in Supabase Project Settings
+
+# CLI completions for the Supabase CLI have been configured.
+[cli.completions.zsh]
 enabled = true
-
-[realtime]
+[cli.completions.bash]
 enabled = true
-
-[functions.send-guardian-email]
-verify_jwt = false
-[functions.send-guardian-email.secrets]
-# RESEND_API_KEY = "RESEND_API_KEY" # Kept for reference if Resend is used later
-MAILJET_PUB_KEY = "MAILJET_API_KEY" # Maps to the MAILJET_API_KEY secret you added
-MAILJET_PRIV_KEY = "MAILJET_API_SECRET" # Maps to the MAILJET_API_SECRET secret you added
-MAILJET_FROM_EMAIL = "MAILJET_SENDER_EMAIL" # Maps to the MAILJET_SENDER_EMAIL secret you will add
-
+[cli.completions.fish]
+enabled = true

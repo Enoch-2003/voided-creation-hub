@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, Outpass } from "@/lib/types";
+import { Student, Outpass, Mentor } from "@/lib/types"; // Added Mentor type
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
@@ -34,38 +33,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [tabId] = useState(() => crypto.randomUUID());
   const { addOutpass } = useOutpassOperations(tabId);
   const [showMentorNotAssignedDialog, setShowMentorNotAssignedDialog] = useState(false);
-  
-  // Set min and max time constraints
-  useEffect(() => {
-    const today = new Date();
-    
-    // Format current date for date input (YYYY-MM-DD)
-    const formattedDate = format(today, "yyyy-MM-dd");
-    
-    // Set minimum time (9:15 AM)
-    const minTimeDate = new Date(today);
-    minTimeDate.setHours(9, 15, 0);
-    setMinTime(`${formattedDate}T09:15`);
-    
-    // Set maximum time (3:10 PM)
-    const maxTimeDate = new Date(today);
-    maxTimeDate.setHours(15, 10, 0);
-    setMaxTime(`${formattedDate}T15:10`);
-    
-    // If current time is after min time and before max time, set default to current time
-    const now = new Date();
-    if (isAfter(now, minTimeDate) && isBefore(now, maxTimeDate)) {
-      const currentHour = now.getHours().toString().padStart(2, '0');
-      const currentMinute = now.getMinutes().toString().padStart(2, '0');
-      setExitDateTime(`${formattedDate}T${currentHour}:${currentMinute}`);
-    } else {
-      // Default to min time if outside the range
-      setExitDateTime(`${formattedDate}T09:15`); 
-    }
-    
-    // Fetch the latest serial code prefix
-    fetchSerialCodePrefix();
-  }, []); 
   
   useEffect(() => {
     console.log("Student data in OutpassForm:", student);
@@ -118,6 +85,37 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     }
     return result;
   };
+
+  useEffect(() => {
+    const today = new Date();
+    
+    // Format current date for date input (YYYY-MM-DD)
+    const formattedDate = format(today, "yyyy-MM-dd");
+    
+    // Set minimum time (9:15 AM)
+    const minTimeDate = new Date(today);
+    minTimeDate.setHours(9, 15, 0);
+    setMinTime(`${formattedDate}T09:15`);
+    
+    // Set maximum time (3:10 PM)
+    const maxTimeDate = new Date(today);
+    maxTimeDate.setHours(15, 10, 0);
+    setMaxTime(`${formattedDate}T15:10`);
+    
+    // If current time is after min time and before max time, set default to current time
+    const now = new Date();
+    if (isAfter(now, minTimeDate) && isBefore(now, maxTimeDate)) {
+      const currentHour = now.getHours().toString().padStart(2, '0');
+      const currentMinute = now.getMinutes().toString().padStart(2, '0');
+      setExitDateTime(`${formattedDate}T${currentHour}:${currentMinute}`);
+    } else {
+      // Default to min time if outside the range
+      setExitDateTime(`${formattedDate}T09:15`); 
+    }
+    
+    // Fetch the latest serial code prefix
+    fetchSerialCodePrefix();
+  }, []); 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -177,11 +175,12 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     
     try {
       // Check for mentor assignment to the student's section and semester
-      const { count, error: mentorCheckError } = await supabase
+      const { data: mentorData, error: mentorCheckError, count } = await supabase
         .from('mentors')
-        .select('*', { count: 'exact', head: true }) 
-        .contains('sections', [student.section]) // Check if mentor manages this section
-        .contains('semesters', [student.semester]); // Check if mentor manages this semester
+        .select('name, email, contact_number', { count: 'exact' }) 
+        .contains('sections', [student.section])
+        .contains('semesters', [student.semester])
+        .limit(1); // Fetch one mentor
 
       if (mentorCheckError) {
         console.error("Error checking mentor assignment:", mentorCheckError);
@@ -190,11 +189,13 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
 
-      if (count === 0) {
+      if (count === 0 || !mentorData || mentorData.length === 0) {
         setShowMentorNotAssignedDialog(true);
         setIsSubmitting(false);
         return;
       }
+      
+      const assignedMentor = mentorData[0] as { name: string; email: string; contact_number?: string };
 
       // Generate serial code
       const serialNumber = generateSerialNumber();
@@ -214,23 +215,28 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         updatedAt: now,
         studentSection: student.section || '', 
         serialCode: serialCode,
-        // Ensure studentSemester is passed if your Outpass type and DB expect it
-        // studentSemester: student.semester || '', // Example if needed
       };
       
       console.log("Creating new outpass:", newOutpass);
       
       await addOutpass(newOutpass);
 
+      const emailPayload = {
+        studentName: student.name,
+        exitDateTime: exitDateTime,
+        reason: reason.trim(),
+        guardianEmail: student.guardianEmail,
+        studentSection: student.section,
+        // Pass mentor details
+        mentorName: assignedMentor.name || "N/A",
+        mentorEmail: assignedMentor.email || "N/A",
+        mentorContact: assignedMentor.contact_number || "N/A",
+      };
+
+      console.log("Sending email with payload:", emailPayload);
+
       const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
-        body: {
-          studentName: student.name,
-          exitDateTime: exitDateTime,
-          reason: reason.trim(),
-          guardianEmail: student.guardianEmail,
-          studentSection: student.section,
-          // studentSemester: student.semester, // Pass semester if edge function needs it
-        },
+        body: emailPayload,
       });
 
       if (emailError) {
@@ -395,4 +401,3 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     </>
   );
 }
-
