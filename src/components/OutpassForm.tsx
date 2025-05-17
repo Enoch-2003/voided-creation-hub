@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,13 +175,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     setIsSubmitting(true);
     
     try {
+      console.log("Checking mentor assignment for section:", student.section, "and semester:", student.semester);
+      
       // Check for mentor assignment to the student's section and semester
       const { data: mentorData, error: mentorCheckError, count } = await supabase
         .from('mentors')
         .select('name, email, contact_number', { count: 'exact' }) 
         .contains('sections', [student.section])
-        .contains('semesters', [student.semester])
-        .limit(1); // Fetch one mentor
+        .contains('semesters', [student.semester]);
+
+      console.log("Mentor query response:", { mentorData, mentorCheckError, count });
 
       if (mentorCheckError) {
         console.error("Error checking mentor assignment:", mentorCheckError);
@@ -189,13 +193,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
 
-      if (count === 0 || !mentorData || mentorData.length === 0) {
+      if (!mentorData || mentorData.length === 0) {
+        console.log("No mentor assigned for this section and semester");
         setShowMentorNotAssignedDialog(true);
         setIsSubmitting(false);
         return;
       }
       
-      const assignedMentor = mentorData[0] as { name: string; email: string; contact_number?: string };
+      // Take the first mentor from the results
+      const assignedMentor = mentorData[0];
+      console.log("Assigned mentor:", assignedMentor);
 
       // Generate serial code
       const serialNumber = generateSerialNumber();
@@ -221,21 +228,22 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       await addOutpass(newOutpass);
 
+      // Construct email payload with mentor details
       const emailPayload = {
         studentName: student.name,
         exitDateTime: exitDateTime,
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
-        // Pass mentor details
-        mentorName: assignedMentor.name || "N/A",
-        mentorEmail: assignedMentor.email || "N/A",
-        mentorContact: assignedMentor.contact_number || "N/A",
+        // Explicitly pass mentor details 
+        mentorName: assignedMentor.name || "Not Available",
+        mentorEmail: assignedMentor.email || "Not Available",
+        mentorContact: assignedMentor.contact_number || "Not Available",
       };
 
       console.log("Sending email with payload:", emailPayload);
 
-      const { error: emailError } = await supabase.functions.invoke('send-guardian-email', {
+      const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
       });
 
@@ -243,6 +251,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         console.error('Error sending guardian email:', emailError);
         toast.error('Failed to send guardian notification email. Your outpass request was still submitted.');
       } else {
+        console.log('Guardian email response:', emailResponse);
         toast.success('Guardian has been notified via email');
       }
       
@@ -298,7 +307,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="course">Course</Label> {/* Assuming Course is relevant */}
+              <Label htmlFor="course">Course</Label>
               <Input 
                 id="course" 
                 value={student.course || 'N/A'} 
@@ -377,7 +386,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             !student.enrollmentNumber || 
             !student.guardianEmail || 
             !student.section ||
-            !student.semester // Added semester check to disabled state
+            !student.semester
           }
         >
           {isSubmitting ? "Submitting..." : "Submit Outpass Request"}

@@ -51,6 +51,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    const requestBody = await req.json();
+    console.log("Received request body:", requestBody);
+
     const {
       studentName,
       exitDateTime,
@@ -59,7 +62,10 @@ const handler = async (req: Request): Promise<Response> => {
       mentorName = "N/A", 
       mentorEmail = "N/A",
       mentorContact = "N/A",
-    }: GuardianEmailRequest = await req.json();
+    }: GuardianEmailRequest = requestBody;
+
+    // Log mentor details to debug
+    console.log("Mentor details received:", { mentorName, mentorEmail, mentorContact });
 
     const senderEmail = Deno.env.get("MAILJET_FROM_EMAIL");
     if (!senderEmail) {
@@ -72,7 +78,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("Attempting to send email to guardian via Mailjet:", guardianEmail);
     console.log("Using sender email:", senderEmail); 
-    console.log("Mentor details received:", { mentorName, mentorEmail, mentorContact });
     
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
