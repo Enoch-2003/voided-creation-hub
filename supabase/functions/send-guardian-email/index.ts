@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Mailjet from "npm:node-mailjet@3.3.4"; 
 
@@ -30,9 +31,9 @@ interface GuardianEmailRequest {
   exitDateTime: string;
   reason: string;
   guardianEmail: string;
-  mentorName?: string; 
-  mentorEmail?: string;
-  mentorContact?: string;
+  mentorName?: string | null; 
+  mentorEmail?: string | null;
+  mentorContact?: string | null;
   studentSection?: string;
 }
 
@@ -58,26 +59,37 @@ const handler = async (req: Request): Promise<Response> => {
       exitDateTime,
       reason,
       guardianEmail,
-      // studentSection is in requestBody but not explicitly destructured here unless needed
+      // studentSection is in requestBody but not explicitly destructured here
     } = requestBody;
 
-    // Explicitly handle mentor details from requestBody
+    // FIXED: Explicitly handle mentor details as potentially null values
+    // This matches how we're sending them from the form
     const rawMentorName = requestBody.mentorName;
     const rawMentorEmail = requestBody.mentorEmail;
     const rawMentorContact = requestBody.mentorContact;
 
-    console.log("Raw mentor details received by email function:", { rawMentorName, rawMentorEmail, rawMentorContact });
+    console.log("Raw mentor details received by email function:", { 
+      rawMentorName, 
+      rawMentorEmail, 
+      rawMentorContact,
+      isNameNull: rawMentorName === null,
+      isEmailNull: rawMentorEmail === null,
+      isContactNull: rawMentorContact === null
+    });
 
-    // Fallback to "Not specified" if the detail is missing, empty, or explicitly "Not Available"
-    const mentorNameToUse = rawMentorName && String(rawMentorName).trim() !== "" && String(rawMentorName).toLowerCase() !== "not available" 
-      ? String(rawMentorName) 
-      : "Not specified";
-    const mentorEmailToUse = rawMentorEmail && String(rawMentorEmail).trim() !== "" && String(rawMentorEmail).toLowerCase() !== "not available"
-      ? String(rawMentorEmail)
-      : "Not specified";
-    const mentorContactToUse = rawMentorContact && String(rawMentorContact).trim() !== "" && String(rawMentorContact).toLowerCase() !== "not available"
-      ? String(rawMentorContact)
-      : "Not specified";
+    // FIXED: More robust check for valid mentor data
+    // Only use "Not specified" if the value is null, undefined, empty string, or "Not Available"
+    const mentorNameToUse = rawMentorName && String(rawMentorName).trim() !== "" ? 
+      String(rawMentorName) : 
+      "Not specified";
+    
+    const mentorEmailToUse = rawMentorEmail && String(rawMentorEmail).trim() !== "" ? 
+      String(rawMentorEmail) : 
+      "Not specified";
+    
+    const mentorContactToUse = rawMentorContact && String(rawMentorContact).trim() !== "" ? 
+      String(rawMentorContact) : 
+      "Not specified";
     
     console.log("Processed mentor details for email template:", { 
       name: mentorNameToUse, 
@@ -97,10 +109,11 @@ const handler = async (req: Request): Promise<Response> => {
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
     // Amity Colors:
-    // Primary Blue: #3B82F6 (amiblue-500)
-    // Darker Blue: #1D4ED8 (amiblue-700)
-    // Lighter Blue for accents/borders: #BFDBFE (amiblue-200)
-    // Very Light Blue/Almost White: #EFF6FF (amiblue-50)
+    // Primary Blue: #3B82F6 (blue-500)
+    // Darker Blue: #1D4ED8 (blue-700)
+    // Lighter Blue for accents/borders: #BFDBFE (blue-200)
+    // Very Light Blue/Almost White: #EFF6FF (blue-50)
+    // Yellow: #FFD700 (yellow)
     // Soft Yellow: #FEF7CD
 
     const emailHtml = `
@@ -122,7 +135,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <h2 style="color: #1D4ED8; font-size: 22px; margin-top: 0; margin-bottom: 20px;">Outpass Request Approval Required</h2>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Dear Guardian,</p>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Your ward, <strong>${studentName}</strong>, has requested an outpass with the following details:</p>
-                  <ul style="font-size: 16px; line-height: 1.6; list-style-type: none; padding-left: 0; margin-bottom: 25px; background-color: #FEF7CD; padding: 15px; border-radius: 6px;">
+                  <ul style="font-size: 16px; line-height: 1.6; list-style-type: none; padding-left: 0; margin-bottom: 25px; background-color: #FFD700; padding: 15px; border-radius: 6px;">
                     <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${new Date(exitDateTime).toLocaleString()}</li>
                     <li><strong>Reason:</strong> ${reason}</li>
                   </ul>
@@ -163,8 +176,6 @@ const handler = async (req: Request): Promise<Response> => {
       </table>
     </body>
     `;
-    // Ensure mentorNameToUse, mentorEmailToUse, mentorContactToUse are used in the HTML
-    // The existing HTML template already uses these effectively via the ${mentorName}, ${mentorEmail}, ${mentorContact} placeholders, which will now map to mentorNameToUse etc.
 
     const mailjetRequest = mailjetClient
       .post("send", { version: "v3.1" })
@@ -177,7 +188,7 @@ const handler = async (req: Request): Promise<Response> => {
             },
             To: [ { Email: guardianEmail } ],
             Subject: `Outpass Request for ${studentName} - Action Required`,
-            HTMLPart: emailHtml, // This uses the updated emailHtml with correct mentor variables
+            HTMLPart: emailHtml,
           },
         ],
       });

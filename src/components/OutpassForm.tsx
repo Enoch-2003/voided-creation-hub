@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -238,23 +239,32 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       await addOutpass(newOutpass);
 
-      // Construct email payload with mentor details
-      const mentorNameFromDb = assignedMentor.name;
-      const mentorEmailFromDb = assignedMentor.email;
-      const mentorContactFromDb = assignedMentor.contact_number;
+      // FIXED: Explicitly prepare mentor details with exact data from DB query
+      // This ensures we pass actual values to the email function
+      const mentorName = assignedMentor.name || null;
+      const mentorEmail = assignedMentor.email || null;
+      const mentorContact = assignedMentor.contact_number || null;
 
-      console.log("Raw mentor details for payload:", { mentorNameFromDb, mentorEmailFromDb, mentorContactFromDb });
+      console.log("Prepared mentor details for email payload:", {
+        mentorName,
+        mentorEmail,
+        mentorContact,
+        isNameNull: mentorName === null,
+        isEmailNull: mentorEmail === null,
+        isContactNull: mentorContact === null
+      });
 
+      // Construct email payload with exact mentor details from DB
       const emailPayload = {
         studentName: student.name,
         exitDateTime: exitDateTime,
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
-        // Explicitly pass mentor details - use "Not Available" as fallback if DB field is falsy
-        mentorName: mentorNameFromDb || "Not Available",
-        mentorEmail: mentorEmailFromDb || "Not Available",
-        mentorContact: mentorContactFromDb || "Not Available",
+        // Send the actual mentor values, not a fallback string
+        mentorName,
+        mentorEmail,
+        mentorContact,
       };
 
       console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));

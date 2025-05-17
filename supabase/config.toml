@@ -1,40 +1,49 @@
 
-# Supabase project ID. Do not edit.
-project_id = "flbxposzgltqbudpkxyp"
+project_id = "uzqxvwavuokaytrluqee"
 
 [api]
 enabled = true
-# Keep default_jwt_secret empty to use a randomly generated value.
-# For local development, set it to "your-super-secret-jwt-token-with-at-least-32-characters-long"
-default_jwt_secret = "" # Uses a randomly generated value if empty
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
 
-[database]
-# Keep major_version empty to use the latest version.
-major_version = "" # Uses latest version if empty
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 15
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
 
 [auth]
-enable_anonymous_sign_ins = false
-enable_email_provider = true
-enable_phone_provider = false
-# All other external OAuth providers are disabled by default.
-# Example: enable_apple_provider = false
-
-# Email auth settings
-# email_template_body_invite = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=invite&redirect_to={{ .RedirectTo }}"
-# email_template_body_magiclink = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=magiclink&redirect_to={{ .RedirectTo }}"
-# email_template_body_recovery = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=recovery&redirect_to={{ .RedirectTo }}"
-# email_template_body_email_change = "{{ .SiteURL }}/auth/v1/verify?token={{ .TokenHash }}&type=email_change&redirect_to={{ .RedirectTo }}"
-
-[functions.send-guardian-email.env_vars]
-MAILJET_PUB_KEY = "MAILJET_PUB_KEY"
-MAILJET_PRIV_KEY = "MAILJET_PRIV_KEY"
-MAILJET_FROM_EMAIL = "MAILJET_SENDER_EMAIL"
-SITE_URL = "SITE_URL" # Make sure to set this secret in Supabase Project Settings
-
-# CLI completions for the Supabase CLI have been configured.
-[cli.completions.zsh]
 enabled = true
-[cli.completions.bash]
+site_url = "http://127.0.0.1:3000"
+
+[auth.email]
 enabled = true
-[cli.completions.fish]
-enabled = true
+double_confirm_changes = true
+enable_confirmations = false
+
+[analytics]
+enabled = false
+
+[experimental.functions.send-guardian-email]
+verify_jwt = false
+imports = ["npm:node-mailjet@3.3.4"]
+# Map environment variables here
+[experimental.functions.send-guardian-email.env]
+MAILJET_PUB_KEY = "env(MAILJET_PUB_KEY)"
+MAILJET_PRIV_KEY = "env(MAILJET_PRIV_KEY)"
+MAILJET_FROM_EMAIL = "env(MAILJET_FROM_EMAIL)"
+SITE_URL = "env(SITE_URL)"
