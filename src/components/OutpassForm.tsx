@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Student, Outpass, Mentor } from "@/lib/types"; 
-import { format, isToday, isAfter, isBefore } from "date-fns";
+import { format, isToday, isAfter, isBefore, parseISO } from "date-fns"; // Added parseISO
 import { toZonedTime } from "date-fns-tz"; 
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
@@ -30,7 +29,10 @@ const INDIAN_TIMEZONE = 'Asia/Kolkata';
 
 // Convert to Indian time
 const toIndianTime = (date: Date | string) => {
-  return toZonedTime(new Date(date), INDIAN_TIMEZONE);
+  if (typeof date === 'string') {
+    return toZonedTime(parseISO(date), INDIAN_TIMEZONE);
+  }
+  return toZonedTime(date, INDIAN_TIMEZONE);
 };
 
 // Format date with Indian timezone
@@ -40,7 +42,7 @@ const formatIndianTime = (date: Date | string, formatStr: string) => {
 };
 
 export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
-  const [exitDateTime, setExitDateTime] = useState("");
+  const [exitDateTime, setExitDateTime] = useState(""); // Stores datetime-local input string e.g., "2024-05-19T09:15"
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [minTime, setMinTime] = useState("");
@@ -103,34 +105,28 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   };
 
   useEffect(() => {
-    const today = toIndianTime(new Date());
+    const todayInIndia = toZonedTime(new Date(), INDIAN_TIMEZONE);
     
-    // Format current date for date input (YYYY-MM-DD)
-    const formattedDate = format(today, "yyyy-MM-dd");
+    const formattedDateForInput = format(todayInIndia, "yyyy-MM-dd");
     
-    // Set minimum time (9:15 AM Indian time)
-    const minTimeDate = new Date(today);
-    minTimeDate.setHours(9, 15, 0, 0);
-    setMinTime(`${formattedDate}T09:15`);
+    const minTimeDateIndia = new Date(todayInIndia);
+    minTimeDateIndia.setHours(9, 15, 0, 0);
+    setMinTime(`${formattedDateForInput}T09:15`);
     
-    // Set maximum time (3:10 PM Indian time)
-    const maxTimeDate = new Date(today);
-    maxTimeDate.setHours(15, 10, 0, 0);
-    setMaxTime(`${formattedDate}T15:10`);
+    const maxTimeDateIndia = new Date(todayInIndia);
+    maxTimeDateIndia.setHours(15, 10, 0, 0);
+    setMaxTime(`${formattedDateForInput}T15:10`);
     
-    // If current time is after min time and before max time, set default to current time
-    const now = toIndianTime(new Date());
+    const nowInIndia = toZonedTime(new Date(), INDIAN_TIMEZONE);
 
-    if (isAfter(now, minTimeDate) && isBefore(now, maxTimeDate)) {
-      const currentHour = now.getHours().toString().padStart(2, '0');
-      const currentMinute = now.getMinutes().toString().padStart(2, '0');
-      setExitDateTime(`${formattedDate}T${currentHour}:${currentMinute}`);
+    if (isAfter(nowInIndia, minTimeDateIndia) && isBefore(nowInIndia, maxTimeDateIndia)) {
+      const currentHour = format(nowInIndia, 'HH');
+      const currentMinute = format(nowInIndia, 'mm');
+      setExitDateTime(`${formattedDateForInput}T${currentHour}:${currentMinute}`);
     } else {
-      // Default to min time if outside the range or before minTime
-      setExitDateTime(`${formattedDate}T09:15`); 
+      setExitDateTime(`${formattedDateForInput}T09:15`); 
     }
     
-    // Fetch the latest serial code prefix
     fetchSerialCodePrefix();
   }, []); 
 
@@ -171,24 +167,34 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     }
     
     // Validate exit time is within allowed range
-    const selectedDateTime = new Date(exitDateTime); // This will be in local (browser) time
-    // For comparison, convert selectedDateTime to Indian Time for accurate checks against Indian business hours
-    const selectedDateTimeIndian = toIndianTime(selectedDateTime); // Convert to Indian time
-    const todayIndian = toIndianTime(new Date()); // Current date in Indian time
-
-    const selectedDateOnlyIndian = new Date(selectedDateTimeIndian.getFullYear(), selectedDateTimeIndian.getMonth(), selectedDateTimeIndian.getDate());
-    const todayDateOnlyIndian = new Date(todayIndian.getFullYear(), todayIndian.getMonth(), todayIndian.getDate());
+    // The `exitDateTime` state is a string like "YYYY-MM-DDTHH:mm"
+    // This represents the local time chosen by the user.
+    // For validation against Indian business hours, we need to treat this as Indian time.
     
-    if (selectedDateOnlyIndian.getTime() !== todayDateOnlyIndian.getTime()) {
-      toast.error("You can only select the current day for exit");
+    const selectedLocalDateTime = new Date(exitDateTime); // Parses "YYYY-MM-DDTHH:mm" as local (browser) time
+
+    // To correctly validate against 9:15 AM - 3:10 PM Indian Time,
+    // we construct a date object assuming the input parts are in Indian Time.
+    const [datePartValidation, timePartValidation] = exitDateTime.split('T');
+    const [yearValidation, monthValidation, dayValidation] = datePartValidation.split('-').map(Number);
+    const [hourValidation, minuteValidation] = timePartValidation.split(':').map(Number);
+
+    // Create a date object conceptually in Indian Time for validation
+    // Note: `new Date(Y, M, D, H, m)` uses local timezone.
+    // To compare with Indian business hours, we ensure the day is today (Indian)
+    // and time parts are within the allowed range.
+    const todayIndianForValidation = toZonedTime(new Date(), INDIAN_TIMEZONE);
+    if (
+      yearValidation !== todayIndianForValidation.getFullYear() ||
+      (monthValidation -1) !== todayIndianForValidation.getMonth() || // month is 0-indexed in JS Date
+      dayValidation !== todayIndianForValidation.getDate()
+    ) {
+      toast.error("You can only select the current day (Indian Time) for exit");
       return;
     }
     
-    const selectedHourIndian = selectedDateTimeIndian.getHours();
-    const selectedMinuteIndian = selectedDateTimeIndian.getMinutes();
-
-    if (selectedHourIndian < 9 || (selectedHourIndian === 9 && selectedMinuteIndian < 15) ||
-        selectedHourIndian > 15 || (selectedHourIndian === 15 && selectedMinuteIndian > 10)) {
+    if (hourValidation < 9 || (hourValidation === 9 && minuteValidation < 15) ||
+        hourValidation > 15 || (hourValidation === 15 && minuteValidation > 10)) {
       toast.error("Exit time must be between 9:15 AM and 3:10 PM (Indian Time)");
       return;
     }
@@ -243,43 +249,36 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
-      const now = new Date().toISOString();
-      
-      // Get the selected date and time for display exactly as the user selected it
-      // This fixes the time discrepancy issue by using the exact input value
-      const selectedExitTime = exitDateTime;
-      
-      // Format the selected time in a user-friendly way
-      // Parse from the datetime-local input format (YYYY-MM-DDThh:mm)
-      const [datePart, timePart] = selectedExitTime.split('T');
-      const [year, month, day] = datePart.split('-');
-      const [hour, minute] = timePart.split(':');
-      
-      // Create a formatted date string that preserves exactly what the user selected
-      const formattedDate = `${year}-${month}-${day}`;
-      
-      // Convert hour to 12-hour format for display
-      const hourNum = parseInt(hour, 10);
-      const ampm = hourNum >= 12 ? 'PM' : 'AM';
-      const hour12 = hourNum % 12 || 12; // Convert to 12-hour format (0 becomes 12)
-      
-      // Create a human-readable time string exactly matching what the user selected
-      const formattedExitDateTimeForDisplay = `${day}-${month}-${year} ${hour12}:${minute} ${ampm} (IST)`;
-      
-      console.log("Formatted exit time for email:", {
-        rawInput: exitDateTime,
-        formattedForDisplay: formattedExitDateTimeForDisplay
-      });
+      // For storage, we convert the student's selected local time to UTC ISO string
+      // `selectedLocalDateTime` is already `new Date(exitDateTime)`
+      const utcExitDateTime = selectedLocalDateTime.toISOString();
 
-      // For storage, we still use UTC ISO
-      const utcExitDateTime = new Date(selectedDateTime).toISOString();
+      // For display in the email, format the student's selected time exactly as they see it.
+      // `exitDateTime` is "YYYY-MM-DDTHH:mm"
+      const [datePartDisplay, timePartDisplay] = exitDateTime.split('T');
+      const [yearDisplay, monthDisplayStr, dayDisplayStr] = datePartDisplay.split('-');
+      const [hourDisplayStr, minuteDisplayStr] = timePartDisplay.split(':');
+      
+      const studentSelectedDate = new Date(
+        parseInt(yearDisplay), 
+        parseInt(monthDisplayStr) - 1, // JS months are 0-indexed
+        parseInt(dayDisplayStr), 
+        parseInt(hourDisplayStr), 
+        parseInt(minuteDisplayStr)
+      );
+      
+      // Format like "May 19, 2025, 9:15 AM"
+      const studentSelectedDisplayTime = format(studentSelectedDate, "MMMM d, yyyy, h:mm a");
+      
+      console.log("Formatted student selected exit time for email:", studentSelectedDisplayTime);
+      console.log("UTC exit time for DB:", utcExitDateTime);
 
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
         studentId: student.id,
         studentName: student.name,
         enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: utcExitDateTime,
+        exitDateTime: utcExitDateTime, // Store UTC in DB
         reason: reason.trim(),
         status: "pending",
         createdAt: new Date().toISOString(),
@@ -303,23 +302,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         mentorContact
       });
 
-      // Create more readable date format for the email
-      // Use a more standard date format: "May 18, 2023 9:15 AM (IST)"
-      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-      const monthName = months[parseInt(month) - 1];
-      const finalFormattedTime = `${monthName} ${parseInt(day)}, ${year} ${hour12}:${minute} ${ampm} (IST)`;
-
-      // Send email with the formatted time
       const emailPayload = {
         studentName: student.name,
-        exitDateTime: utcExitDateTime,
+        exitDateTime: utcExitDateTime, // For backend reference if needed, but display uses formatted string
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
         mentorName: mentorName,
         mentorEmail: mentorEmail,
         mentorContact: mentorContact,
-        formattedExitDateTime: finalFormattedTime,
+        formattedExitDateTime: studentSelectedDisplayTime, // This is the key for display
       };
 
       console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
@@ -440,7 +432,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Date is {format(toIndianTime(new Date()), "MMMM d, yyyy")}. Time is Indian Standard Time.
+              Date is {exitDateTime ? format(new Date(exitDateTime.split('T')[0]), "MMMM d, yyyy") : format(toZonedTime(new Date(), INDIAN_TIMEZONE), "MMMM d, yyyy")}. Time is Indian Standard Time.
             </p>
           </div>
           
@@ -466,7 +458,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             !student.enrollmentNumber || 
             !student.guardianEmail || 
             !student.section ||
-            !student.semester
+            !student.semester ||
+            !exitDateTime // Also disable if exitDateTime is not set
           }
         >
           {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
