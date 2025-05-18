@@ -40,7 +40,7 @@ enabled = false
 
 [experimental.functions.send-guardian-email]
 verify_jwt = false
-imports = ["npm:node-mailjet@3.3.4"]
+imports = ["npm:node-mailjet@3.3.4", "npm:date-fns@3.6.0", "npm:date-fns-tz@3.0.0"]
 # Map environment variables here
 [experimental.functions.send-guardian-email.env]
 MAILJET_PUB_KEY = "env(MAILJET_PUB_KEY)"

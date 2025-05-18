@@ -1,6 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Mailjet from "npm:node-mailjet@3.3.4"; 
+import { format, formatISO } from "npm:date-fns@3.6.0";
+import { utcToZonedTime } from "npm:date-fns-tz@3.0.0";
 
 const mailjetApiKey = Deno.env.get("MAILJET_PUB_KEY");
 const mailjetApiSecret = Deno.env.get("MAILJET_PRIV_KEY");
@@ -37,6 +39,21 @@ interface GuardianEmailRequest {
   studentSection?: string;
 }
 
+// Indian timezone constant
+const INDIAN_TIMEZONE = 'Asia/Kolkata';
+
+// Convert to Indian time and format
+const formatIndianTime = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    const indianTime = utcToZonedTime(date, INDIAN_TIMEZONE);
+    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)');
+  } catch (error) {
+    console.error("Error formatting date to Indian time:", error);
+    return dateString; // Return original if formatting fails
+  }
+};
+
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,42 +76,45 @@ const handler = async (req: Request): Promise<Response> => {
       exitDateTime,
       reason,
       guardianEmail,
-      // studentSection is in requestBody but not explicitly destructured here
+      mentorName,
+      mentorEmail,
+      mentorContact,
+      studentSection
     } = requestBody;
 
-    // FIXED: Explicitly handle mentor details as potentially null values
-    // This matches how we're sending them from the form
-    const rawMentorName = requestBody.mentorName;
-    const rawMentorEmail = requestBody.mentorEmail;
-    const rawMentorContact = requestBody.mentorContact;
-
-    console.log("Raw mentor details received by email function:", { 
-      rawMentorName, 
-      rawMentorEmail, 
-      rawMentorContact,
-      isNameNull: rawMentorName === null,
-      isEmailNull: rawMentorEmail === null,
-      isContactNull: rawMentorContact === null
+    console.log("Mentor details received in request:", {
+      name: mentorName,
+      email: mentorEmail,
+      contact: mentorContact,
+      isNameNull: mentorName === null,
+      isNameUndefined: mentorName === undefined,
+      isEmailNull: mentorEmail === null,
+      isEmailUndefined: mentorEmail === undefined,
+      isContactNull: mentorContact === null,
+      isContactUndefined: mentorContact === undefined
     });
 
-    // FIXED: More robust check for valid mentor data
-    // Only use "Not specified" if the value is null, undefined, empty string, or "Not Available"
-    const mentorNameToUse = rawMentorName && String(rawMentorName).trim() !== "" ? 
-      String(rawMentorName) : 
+    // Check if mentor data exists and is not null/undefined
+    const hasMentorData = mentorName && mentorEmail && mentorContact;
+    
+    // Only use "Not specified" if the value is null, undefined, empty string
+    const mentorNameToUse = mentorName && String(mentorName).trim() !== "" ? 
+      String(mentorName) : 
       "Not specified";
     
-    const mentorEmailToUse = rawMentorEmail && String(rawMentorEmail).trim() !== "" ? 
-      String(rawMentorEmail) : 
+    const mentorEmailToUse = mentorEmail && String(mentorEmail).trim() !== "" ? 
+      String(mentorEmail) : 
       "Not specified";
     
-    const mentorContactToUse = rawMentorContact && String(rawMentorContact).trim() !== "" ? 
-      String(rawMentorContact) : 
+    const mentorContactToUse = mentorContact && String(mentorContact).trim() !== "" ? 
+      String(mentorContact) : 
       "Not specified";
     
     console.log("Processed mentor details for email template:", { 
       name: mentorNameToUse, 
       email: mentorEmailToUse, 
-      contact: mentorContactToUse 
+      contact: mentorContactToUse,
+      hasMentorData: hasMentorData
     });
 
     const senderEmail = Deno.env.get("MAILJET_FROM_EMAIL");
@@ -108,11 +128,12 @@ const handler = async (req: Request): Promise<Response> => {
     
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
+    // Format the exit time to Indian timezone
+    const formattedExitDateTime = formatIndianTime(exitDateTime);
+
     // Amity Colors:
     // Primary Blue: #3B82F6 (blue-500)
     // Darker Blue: #1D4ED8 (blue-700)
-    // Lighter Blue for accents/borders: #BFDBFE (blue-200)
-    // Very Light Blue/Almost White: #EFF6FF (blue-50)
     // Yellow: #FFD700 (yellow)
     // Soft Yellow: #FEF7CD
 
@@ -124,7 +145,7 @@ const handler = async (req: Request): Promise<Response> => {
             <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
               <!-- Header with Logo -->
               <tr>
-                <td align="center" style="padding: 20px 30px; background-color: #3B82F6; border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                <td align="center" style="padding: 20px 30px; background-color: #1D4ED8; border-top-left-radius: 8px; border-top-right-radius: 8px;">
                   ${logoUrl ? `<img src="${logoUrl}" alt="Amity Logo" width="150" style="display: block;">` : '<h1 style="color: #ffffff; margin: 0; font-size: 24px;">Amity Outpass System</h1>'}
                 </td>
               </tr>
@@ -136,13 +157,13 @@ const handler = async (req: Request): Promise<Response> => {
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Dear Guardian,</p>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Your ward, <strong>${studentName}</strong>, has requested an outpass with the following details:</p>
                   <ul style="font-size: 16px; line-height: 1.6; list-style-type: none; padding-left: 0; margin-bottom: 25px; background-color: #FFD700; padding: 15px; border-radius: 6px;">
-                    <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${new Date(exitDateTime).toLocaleString()}</li>
+                    <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${formattedExitDateTime}</li>
                     <li><strong>Reason:</strong> ${reason}</li>
                   </ul>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Please contact the assigned mentor to provide your approval for this request:</p>
                   
                   <!-- Mentor Details -->
-                  <div style="background-color: #f8f9fa; padding: 20px; margin: 25px 0; border-radius: 8px; border: 1px solid #BFDBFE;">
+                  <div style="background-color: #FEF7CD; padding: 20px; margin: 25px 0; border-radius: 8px; border: 1px solid #FFD700;">
                     <p style="margin-top: 0; margin-bottom: 15px; font-size: 1.2em; color: #1D4ED8;"><strong>Mentor Details:</strong></p>
                     <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 16px; line-height: 1.6;">
                       <li style="margin-bottom: 10px;"><strong>Name:</strong> ${mentorNameToUse}</li>
@@ -166,7 +187,7 @@ const handler = async (req: Request): Promise<Response> => {
               
               <!-- Footer -->
               <tr>
-                <td align="center" style="padding: 20px 30px; background-color: #2563EB; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                <td align="center" style="padding: 20px 30px; background-color: #1D4ED8; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
                   <p style="color: #EFF6FF; font-size: 12px; margin: 0;">&copy; ${new Date().getFullYear()} Amity Outpass System. All rights reserved.</p>
                 </td>
               </tr>

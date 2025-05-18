@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Student, Outpass, Mentor } from "@/lib/types"; // Added Mentor type
 import { format, isToday, isAfter, isBefore } from "date-fns";
+import { utcToZonedTime } from "date-fns-tz";
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
 import {
@@ -23,6 +24,20 @@ interface OutpassFormProps {
   student: Student;
   onSuccess: () => void;
 }
+
+// Indian timezone
+const INDIAN_TIMEZONE = 'Asia/Kolkata';
+
+// Convert to Indian time
+const toIndianTime = (date: Date | string) => {
+  return utcToZonedTime(new Date(date), INDIAN_TIMEZONE);
+};
+
+// Format date with Indian timezone
+const formatIndianTime = (date: Date | string, formatStr: string) => {
+  const indianTime = toIndianTime(date);
+  return format(indianTime, formatStr);
+};
 
 export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   const [exitDateTime, setExitDateTime] = useState("");
@@ -88,23 +103,23 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   };
 
   useEffect(() => {
-    const today = new Date();
+    const today = toIndianTime(new Date());
     
     // Format current date for date input (YYYY-MM-DD)
     const formattedDate = format(today, "yyyy-MM-dd");
     
-    // Set minimum time (9:15 AM)
+    // Set minimum time (9:15 AM Indian time)
     const minTimeDate = new Date(today);
     minTimeDate.setHours(9, 15, 0);
     setMinTime(`${formattedDate}T09:15`);
     
-    // Set maximum time (3:10 PM)
+    // Set maximum time (3:10 PM Indian time)
     const maxTimeDate = new Date(today);
     maxTimeDate.setHours(15, 10, 0);
     setMaxTime(`${formattedDate}T15:10`);
     
     // If current time is after min time and before max time, set default to current time
-    const now = new Date();
+    const now = toIndianTime(new Date());
     if (isAfter(now, minTimeDate) && isBefore(now, maxTimeDate)) {
       const currentHour = now.getHours().toString().padStart(2, '0');
       const currentMinute = now.getMinutes().toString().padStart(2, '0');
@@ -156,7 +171,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     
     // Validate exit time is within allowed range
     const selectedDateTime = new Date(exitDateTime);
-    const today = new Date();
+    const today = toIndianTime(new Date());
     const selectedDateOnly = new Date(selectedDateTime.getFullYear(), selectedDateTime.getMonth(), selectedDateTime.getDate());
     const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
@@ -239,8 +254,15 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       await addOutpass(newOutpass);
 
-      // FIXED: Explicitly prepare mentor details with exact data from DB query
-      // This ensures we pass actual values to the email function
+      // Explicitly prepare mentor details
+      console.log("Preparing mentor details for email payload...");
+      
+      if (!assignedMentor) {
+        console.error("Assigned mentor is undefined, this shouldn't happen!");
+        throw new Error("Failed to retrieve mentor data");
+      }
+      
+      // Extract mentor details with better error handling
       const mentorName = assignedMentor.name || null;
       const mentorEmail = assignedMentor.email || null;
       const mentorContact = assignedMentor.contact_number || null;
@@ -254,17 +276,17 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         isContactNull: mentorContact === null
       });
 
-      // Construct email payload with exact mentor details from DB
+      // Construct email payload with mandatory mentor details
       const emailPayload = {
         studentName: student.name,
         exitDateTime: exitDateTime,
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
-        // Send the actual mentor values, not a fallback string
-        mentorName,
-        mentorEmail,
-        mentorContact,
+        // Important: Send the actual mentor values from the database
+        mentorName: mentorName,
+        mentorEmail: mentorEmail,
+        mentorContact: mentorContact,
       };
 
       console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
