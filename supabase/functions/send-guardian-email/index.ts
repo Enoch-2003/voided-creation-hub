@@ -37,7 +37,7 @@ interface GuardianEmailRequest {
   mentorEmail?: string | null;
   mentorContact?: string | null;
   studentSection?: string;
-  formattedExitDateTime?: string; // Optional pre-formatted time
+  formattedExitDateTime?: string; // Pre-formatted time from frontend
 }
 
 // Indian timezone constant
@@ -46,16 +46,15 @@ const INDIAN_TIMEZONE = 'Asia/Kolkata';
 // Convert UTC string to Indian time and format
 const formatToIndianTimeDisplay = (utcDateString: string): string => {
   try {
-    const date = new Date(utcDateString); // Parse the UTC ISO string
-    const indianTime = toZonedTime(date, INDIAN_TIMEZONE); // Convert to Indian Time
-    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)'); // Format for display
+    const date = new Date(utcDateString);
+    const indianTime = toZonedTime(date, INDIAN_TIMEZONE);
+    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)');
   } catch (error) {
     console.error("Error formatting UTC date to Indian time for display:", error, "Original string:", utcDateString);
-    // Fallback to a simple format if conversion fails
     try {
         return new Date(utcDateString).toLocaleString("en-IN", { timeZone: INDIAN_TIMEZONE, hour12: true, year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }) + " (IST)";
     } catch (e) {
-        return utcDateString; // Return original if all formatting fails
+        return utcDateString;
     }
   }
 };
@@ -75,30 +74,24 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestBody: GuardianEmailRequest = await req.json();
-    console.log("Received request body for email function (raw UTC exitDateTime):", JSON.stringify(requestBody, null, 2));
+    console.log("Received request body for email function:", JSON.stringify(requestBody, null, 2));
 
     const {
       studentName,
-      exitDateTime, // This is UTC
+      exitDateTime,
       reason,
       guardianEmail,
       mentorName,
       mentorEmail,
       mentorContact,
       studentSection,
-      formattedExitDateTime // Optional pre-formatted time from frontend
+      formattedExitDateTime // This contains the formatted time as selected by student
     } = requestBody;
 
     console.log("Mentor details received in request:", {
       name: mentorName,
       email: mentorEmail,
-      contact: mentorContact,
-      isNameNull: mentorName === null,
-      isNameUndefined: mentorName === undefined,
-      isEmailNull: mentorEmail === null,
-      isEmailUndefined: mentorEmail === undefined,
-      isContactNull: mentorContact === null,
-      isContactUndefined: mentorContact === undefined
+      contact: mentorContact
     });
 
     // Check if mentor data exists and is not null/undefined
@@ -135,69 +128,119 @@ const handler = async (req: Request): Promise<Response> => {
     
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
-    // Use pre-formatted time if available, otherwise format here
-    // This ensures consistent formatting between frontend and backend
-    const formattedExitDateTimeForEmail = formattedExitDateTime || formatToIndianTimeDisplay(exitDateTime);
+    // IMPORTANT: We prioritize the pre-formatted time from frontend
+    // This ensures we display exactly what the student selected
+    const displayExitTime = formattedExitDateTime || formatToIndianTimeDisplay(exitDateTime);
     
-    // Double-check what time we're actually displaying
     console.log("Time being displayed in email:", {
       originalExitDateTime: exitDateTime,
-      formattedTime: formattedExitDateTimeForEmail,
+      displayTime: displayExitTime,
       wasPreFormatted: !!formattedExitDateTime
     });
 
     const emailHtml = `
-    <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #EFF6FF;">
-      <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#EFF6FF">
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Outpass Request Approval</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; color: #333;">
+      <table width="100%" border="0" cellspacing="0" cellpadding="0" bgcolor="#f5f5f5">
         <tr>
           <td align="center" style="padding: 20px 0;">
-            <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-              <!-- Header with Logo -->
+            <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #e0e0e0;">
+              
+              <!-- Header with Logo and University Branding -->
               <tr>
-                <td align="center" style="padding: 20px 30px; background-color: #1D4ED8; border-top-left-radius: 8px; border-top-right-radius: 8px;">
-                  ${logoUrl ? `<img src="${logoUrl}" alt="Amity Logo" width="150" style="display: block;">` : '<h1 style="color: #ffffff; margin: 0; font-size: 24px;">Amity Outpass System</h1>'}
+                <td align="center" style="padding: 25px 30px; background: linear-gradient(135deg, #1A237E 0%, #283593 100%); border-top-left-radius: 8px; border-top-right-radius: 8px;">
+                  ${logoUrl ? 
+                    `<img src="${logoUrl}" alt="Amity University Logo" width="180" style="display: block; margin-bottom: 15px;">` : 
+                    '<h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">Amity University</h1>'
+                  }
+                  <h2 style="color: #ffffff; margin: 5px 0 0; font-size: 20px; font-weight: 400;">Outpass Management System</h2>
                 </td>
               </tr>
               
               <!-- Main Content -->
               <tr>
-                <td style="padding: 30px; color: #1A1F2C;">
-                  <h2 style="color: #1D4ED8; font-size: 22px; margin-top: 0; margin-bottom: 20px;">Outpass Request Approval Required</h2>
-                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Dear Guardian,</p>
-                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Your ward, <strong>${studentName}</strong> (Section: ${studentSection || 'N/A'}), has requested an outpass with the following details:</p>
-                  <ul style="font-size: 16px; line-height: 1.6; list-style-type: none; padding-left: 0; margin-bottom: 25px; background-color: #FFD700; padding: 15px; border-radius: 6px;">
-                    <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${formattedExitDateTimeForEmail}</li>
-                    <li><strong>Reason:</strong> ${reason}</li>
-                  </ul>
-                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Please contact the assigned mentor to provide your approval for this request:</p>
+                <td style="padding: 35px 30px; color: #333333;">
+                  <h2 style="color: #1A237E; font-size: 22px; margin-top: 0; margin-bottom: 20px; font-weight: 600; border-bottom: 2px solid #E8EAF6; padding-bottom: 10px;">Outpass Request Approval Required</h2>
                   
-                  <!-- Mentor Details -->
-                  <div style="background-color: #FEF7CD; padding: 20px; margin: 25px 0; border-radius: 8px; border: 1px solid #FFD700;">
-                    <p style="margin-top: 0; margin-bottom: 15px; font-size: 1.2em; color: #1D4ED8;"><strong>Mentor Details:</strong></p>
-                    <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 16px; line-height: 1.6;">
-                      <li style="margin-bottom: 10px;"><strong>Name:</strong> ${mentorNameToUse}</li>
-                      <li style="margin-bottom: 10px;">
-                        <strong>Email:</strong> 
-                        ${mentorEmailToUse !== "Not specified" ? `<a href="mailto:${mentorEmailToUse}" style="color: #3B82F6; text-decoration: none;">${mentorEmailToUse}</a>` : mentorEmailToUse}
-                      </li>
-                      <li>
-                        <strong>Contact:</strong> 
-                        ${mentorContactToUse && mentorContactToUse !== "Not specified"
-                          ? `<a href="tel:${mentorContactToUse}" style="color: #ffffff; text-decoration: none; padding: 6px 12px; border-radius: 4px; display: inline-block; background-color: #3B82F6; margin-left: 8px;">${mentorContactToUse}</a> <span style="font-size:0.9em; color:#555; margin-left: 5px;">(Tap to call)</span>`
-                          : mentorContactToUse
-                        }
-                      </li>
-                    </ul>
+                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Dear Guardian,</p>
+                  
+                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 20px;">Your ward, <strong style="color: #1A237E;">${studentName}</strong> (Section: ${studentSection || 'N/A'}), has requested an outpass with the following details:</p>
+                  
+                  <!-- Outpass Details Box -->
+                  <div style="background-color: #E8EAF6; padding: 20px; border-radius: 6px; margin-bottom: 25px; border-left: 4px solid #3F51B5;">
+                    <table width="100%" style="font-size: 16px; border-collapse: collapse;">
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: 600; width: 140px;">Exit Date & Time:</td>
+                        <td style="padding: 8px 0;">${displayExitTime}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: 600; border-top: 1px solid #C5CAE9;">Reason:</td>
+                        <td style="padding: 8px 0; border-top: 1px solid #C5CAE9;">${reason}</td>
+                      </tr>
+                    </table>
                   </div>
                   
-                  <p style="font-size: 14px; color: #777777; line-height: 1.6; margin-top: 30px;">This is an automated message. Please do not reply to this email.</p>
+                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Please contact the assigned mentor to provide your approval for this request:</p>
+                  
+                  <!-- Mentor Details Box -->
+                  <div style="background-color: #FFF8E1; padding: 25px; border-radius: 6px; margin: 25px 0; border: 1px solid #FFE082; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                    <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 18px; color: #FF8F00; font-weight: 600;">MENTOR DETAILS</h3>
+                    
+                    <table width="100%" style="font-size: 16px; border-collapse: collapse;">
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: 600; width: 100px;">Name:</td>
+                        <td style="padding: 8px 0;">${mentorNameToUse}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: 600; border-top: 1px solid #FFE082;">Email:</td>
+                        <td style="padding: 8px 0; border-top: 1px solid #FFE082;">
+                          ${mentorEmailToUse !== "Not specified" ? 
+                            `<a href="mailto:${mentorEmailToUse}" style="color: #1565C0; text-decoration: none;">${mentorEmailToUse}</a>` : 
+                            mentorEmailToUse
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; font-weight: 600; border-top: 1px solid #FFE082;">Contact:</td>
+                        <td style="padding: 12px 0 8px; border-top: 1px solid #FFE082;">
+                          ${mentorContactToUse && mentorContactToUse !== "Not specified" ?
+                            `<a href="tel:${mentorContactToUse}" style="display: inline-block; background-color: #4CAF50; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: 500;">${mentorContactToUse} &nbsp;📞</a>` :
+                            mentorContactToUse
+                          }
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                  
+                  <div style="background-color: #E8F5E9; border-left: 4px solid #4CAF50; padding: 15px; margin-bottom: 25px;">
+                    <p style="margin: 0; font-size: 15px; line-height: 1.5;">
+                      <strong style="color: #2E7D32;">Note:</strong> Please ensure that your ward returns to campus within the allotted time. Contact the mentor immediately if there are any concerns.
+                    </p>
+                  </div>
+                  
+                  <p style="font-size: 14px; color: #757575; line-height: 1.6; margin-top: 30px; font-style: italic; text-align: center;">
+                    This is an automated message from the Amity University Outpass System. Please do not reply to this email.
+                  </p>
                 </td>
               </tr>
               
               <!-- Footer -->
               <tr>
-                <td align="center" style="padding: 20px 30px; background-color: #1D4ED8; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
-                  <p style="color: #EFF6FF; font-size: 12px; margin: 0;">&copy; ${new Date().getFullYear()} Amity Outpass System. All rights reserved.</p>
+                <td style="padding: 20px 30px; background: linear-gradient(135deg, #283593 0%, #1A237E 100%); border-bottom-left-radius: 8px; border-bottom-right-radius: 8px;">
+                  <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                    <tr>
+                      <td style="color: #ffffff; font-size: 14px; text-align: center;">
+                        <p style="margin: 0; padding-bottom: 5px; font-weight: 500;">Amity University Outpass Management System</p>
+                        <p style="margin: 0; font-size: 12px; opacity: 0.8;">&copy; ${new Date().getFullYear()} Amity University. All rights reserved.</p>
+                      </td>
+                    </tr>
+                  </table>
                 </td>
               </tr>
             </table>
@@ -205,6 +248,7 @@ const handler = async (req: Request): Promise<Response> => {
         </tr>
       </table>
     </body>
+    </html>
     `;
 
     const mailjetRequest = mailjetClient
@@ -214,7 +258,7 @@ const handler = async (req: Request): Promise<Response> => {
           {
             From: {
               Email: senderEmail,
-              Name: "Amity Outpass System",
+              Name: "Amity University Outpass System",
             },
             To: [ { Email: guardianEmail } ],
             Subject: `Outpass Request for ${studentName} - Action Required`,

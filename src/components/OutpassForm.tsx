@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, Outpass, Mentor } from "@/lib/types"; // Added Mentor type
+import { Student, Outpass, Mentor } from "@/lib/types"; 
 import { format, isToday, isAfter, isBefore } from "date-fns";
 import { toZonedTime } from "date-fns-tz"; 
 import { supabase } from "@/integrations/supabase/client";
@@ -103,23 +102,23 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
   };
 
   useEffect(() => {
-    const today = toIndianTime(new Date()); // Uses the updated toIndianTime
+    const today = toIndianTime(new Date());
     
     // Format current date for date input (YYYY-MM-DD)
     const formattedDate = format(today, "yyyy-MM-dd");
     
     // Set minimum time (9:15 AM Indian time)
-    const minTimeDate = new Date(today); // today is already in Indian Time zone context due to toIndianTime
-    minTimeDate.setHours(9, 15, 0, 0); // ensure milliseconds are zero for precise comparison
+    const minTimeDate = new Date(today);
+    minTimeDate.setHours(9, 15, 0, 0);
     setMinTime(`${formattedDate}T09:15`);
     
     // Set maximum time (3:10 PM Indian time)
-    const maxTimeDate = new Date(today); // today is already in Indian Time zone context
-    maxTimeDate.setHours(15, 10, 0, 0); // ensure milliseconds are zero
+    const maxTimeDate = new Date(today);
+    maxTimeDate.setHours(15, 10, 0, 0);
     setMaxTime(`${formattedDate}T15:10`);
     
     // If current time is after min time and before max time, set default to current time
-    const now = toIndianTime(new Date()); // Uses the updated toIndianTime
+    const now = toIndianTime(new Date());
 
     if (isAfter(now, minTimeDate) && isBefore(now, maxTimeDate)) {
       const currentHour = now.getHours().toString().padStart(2, '0');
@@ -229,11 +228,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
       
-      // Declare assignedMentor once here
+      // Get and use the assigned mentor
       const assignedMentor = mentorData[0];
       console.log("Assigned mentor raw data from DB:", assignedMentor);
 
-      if (!assignedMentor) { // This check is good, even if mentorData had length > 0, the element could be nullish
+      if (!assignedMentor) {
         console.error("Assigned mentor is undefined after initial check, this shouldn't happen!");
         toast.error("Critical error: Mentor data is invalid. Please try again.");
         setIsSubmitting(false);
@@ -255,16 +254,16 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       // Convert to UTC ISO string for storage
       const utcExitDateTime = localExitDate.toISOString();
       
-      // Also create a properly formatted display version for the email in Indian time
-      // We need to format the selected exit time as it would appear in Indian time
-      const formattedExitDateTimeForEmail = formatIndianTime(localExitDate, "MMMM d, yyyy h:mm a (IST)");
+      // Format the time exactly as selected by user for display in emails
+      // This should show the time exactly as selected in the input
+      const formattedExitDateTimeForDisplay = format(localExitDate, "MMMM d, yyyy h:mm a");
       
       // Log both the UTC and formatted times to verify they're consistent
       console.log("Exit datetime conversion:", {
         originalInput: exitDateTime,  // What user selected in form
         localParsed: localExitDate.toString(), // Parsed as local date
         utcForStorage: utcExitDateTime, // Converted to UTC for storage
-        formattedForEmail: formattedExitDateTimeForEmail // Formatted for email display
+        formattedForDisplay: formattedExitDateTimeForDisplay // Formatted for display
       });
 
       const newOutpass: Outpass = {
@@ -285,12 +284,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       await addOutpass(newOutpass);
 
-      // Explicitly prepare mentor details using the already declared assignedMentor
-      console.log("Preparing mentor details for email payload...");
-      
-      // No need to redeclare assignedMentor here. We use the one from above.
-      // const assignedMentor = mentorData[0]; // THIS WAS THE DUPLICATE DECLARATION
-
+      // Prepare mentor details for email payload
       const mentorName = assignedMentor.name || null;
       const mentorEmail = assignedMentor.email || null;
       const mentorContact = assignedMentor.contact_number || null;
@@ -301,6 +295,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         mentorContact
       });
 
+      // Send exactly what the student selected as the formatted time
       const emailPayload = {
         studentName: student.name,
         exitDateTime: utcExitDateTime, 
@@ -310,10 +305,10 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         mentorName: mentorName,
         mentorEmail: mentorEmail,
         mentorContact: mentorContact,
-        formattedExitDateTime: formattedExitDateTimeForEmail, // Send pre-formatted time to ensure consistency
+        formattedExitDateTime: formattedExitDateTimeForDisplay + " (IST)", // Add IST indicator
       };
 
-      console.log("Sending email with payload (with pre-formatted time):", JSON.stringify(emailPayload, null, 2));
+      console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
 
       const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
@@ -425,8 +420,8 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
               type="datetime-local"
               value={exitDateTime}
               onChange={(e) => setExitDateTime(e.target.value)}
-              min={minTime} // minTime and maxTime are already set based on Indian Time
-              max={maxTime} // so the datetime-local input will respect these boundaries
+              min={minTime}
+              max={maxTime}
               disabled={isSubmitting}
               required
             />
