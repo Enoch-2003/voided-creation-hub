@@ -37,7 +37,7 @@ interface GuardianEmailRequest {
   mentorEmail?: string | null;
   mentorContact?: string | null;
   studentSection?: string;
-  formattedExitDateTime?: string; // Pre-formatted time from frontend
+  formattedExitDateTime?: string; // Pre-formatted time from frontend - THIS IS THE KEY FIELD
 }
 
 // Indian timezone constant

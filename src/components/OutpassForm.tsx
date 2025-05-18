@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -228,7 +229,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
       
-      // Get and use the assigned mentor
+      // Get assigned mentor
       const assignedMentor = mentorData[0];
       console.log("Assigned mentor raw data from DB:", assignedMentor);
 
@@ -244,27 +245,34 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       const now = new Date().toISOString();
       
-      // IMPORTANT: When we use the datetime-local input, the value is in the LOCAL timezone of the browser
-      // We need to ensure we're properly converting this to UTC for storage but preserving
-      // the exact time the user selected in their local timezone
+      // Get the selected date and time for display exactly as the user selected it
+      // This fixes the time discrepancy issue by using the exact input value
+      const selectedExitTime = exitDateTime;
       
-      // First, parse the datetime-local value as a local date
-      const localExitDate = new Date(exitDateTime);
+      // Format the selected time in a user-friendly way
+      // Parse from the datetime-local input format (YYYY-MM-DDThh:mm)
+      const [datePart, timePart] = selectedExitTime.split('T');
+      const [year, month, day] = datePart.split('-');
+      const [hour, minute] = timePart.split(':');
       
-      // Convert to UTC ISO string for storage
-      const utcExitDateTime = localExitDate.toISOString();
+      // Create a formatted date string that preserves exactly what the user selected
+      const formattedDate = `${year}-${month}-${day}`;
       
-      // Format the time exactly as selected by user for display in emails
-      // This should show the time exactly as selected in the input
-      const formattedExitDateTimeForDisplay = format(localExitDate, "MMMM d, yyyy h:mm a");
+      // Convert hour to 12-hour format for display
+      const hourNum = parseInt(hour, 10);
+      const ampm = hourNum >= 12 ? 'PM' : 'AM';
+      const hour12 = hourNum % 12 || 12; // Convert to 12-hour format (0 becomes 12)
       
-      // Log both the UTC and formatted times to verify they're consistent
-      console.log("Exit datetime conversion:", {
-        originalInput: exitDateTime,  // What user selected in form
-        localParsed: localExitDate.toString(), // Parsed as local date
-        utcForStorage: utcExitDateTime, // Converted to UTC for storage
-        formattedForDisplay: formattedExitDateTimeForDisplay // Formatted for display
+      // Create a human-readable time string exactly matching what the user selected
+      const formattedExitDateTimeForDisplay = `${day}-${month}-${year} ${hour12}:${minute} ${ampm} (IST)`;
+      
+      console.log("Formatted exit time for email:", {
+        rawInput: exitDateTime,
+        formattedForDisplay: formattedExitDateTimeForDisplay
       });
+
+      // For storage, we still use UTC ISO
+      const utcExitDateTime = new Date(selectedDateTime).toISOString();
 
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
@@ -295,17 +303,23 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         mentorContact
       });
 
-      // Send exactly what the student selected as the formatted time
+      // Create more readable date format for the email
+      // Use a more standard date format: "May 18, 2023 9:15 AM (IST)"
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      const monthName = months[parseInt(month) - 1];
+      const finalFormattedTime = `${monthName} ${parseInt(day)}, ${year} ${hour12}:${minute} ${ampm} (IST)`;
+
+      // Send email with the formatted time
       const emailPayload = {
         studentName: student.name,
-        exitDateTime: utcExitDateTime, 
+        exitDateTime: utcExitDateTime,
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
         mentorName: mentorName,
         mentorEmail: mentorEmail,
         mentorContact: mentorContact,
-        formattedExitDateTime: formattedExitDateTimeForDisplay + " (IST)", // Add IST indicator
+        formattedExitDateTime: finalFormattedTime,
       };
 
       console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
