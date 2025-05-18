@@ -1,8 +1,7 @@
-
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Mailjet from "npm:node-mailjet@3.3.4"; 
-import { format, formatISO } from "npm:date-fns@3.6.0";
-import { utcToZonedTime } from "npm:date-fns-tz@3.0.0";
+import { format } from "npm:date-fns@3.6.0"; // formatISO removed as it's not directly used here for IST conversion output
+import { toZonedTime } from "npm:date-fns-tz@3.0.0"; // Changed from utcToZonedTime
 
 const mailjetApiKey = Deno.env.get("MAILJET_PUB_KEY");
 const mailjetApiSecret = Deno.env.get("MAILJET_PRIV_KEY");
@@ -30,7 +29,7 @@ const corsHeaders = {
 
 interface GuardianEmailRequest {
   studentName: string;
-  exitDateTime: string;
+  exitDateTime: string; // Expected to be an ISO string (UTC)
   reason: string;
   guardianEmail: string;
   mentorName?: string | null; 
@@ -42,15 +41,20 @@ interface GuardianEmailRequest {
 // Indian timezone constant
 const INDIAN_TIMEZONE = 'Asia/Kolkata';
 
-// Convert to Indian time and format
-const formatIndianTime = (dateString: string): string => {
+// Convert UTC string to Indian time and format
+const formatToIndianTimeDisplay = (utcDateString: string): string => {
   try {
-    const date = new Date(dateString);
-    const indianTime = utcToZonedTime(date, INDIAN_TIMEZONE);
-    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)');
+    const date = new Date(utcDateString); // Parse the UTC ISO string
+    const indianTime = toZonedTime(date, INDIAN_TIMEZONE); // Convert to Indian Time
+    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)'); // Format for display
   } catch (error) {
-    console.error("Error formatting date to Indian time:", error);
-    return dateString; // Return original if formatting fails
+    console.error("Error formatting UTC date to Indian time for display:", error, "Original string:", utcDateString);
+    // Fallback to a simple format if conversion fails, though ideally it shouldn't if input is valid ISO
+    try {
+        return new Date(utcDateString).toLocaleString("en-IN", { timeZone: INDIAN_TIMEZONE, hour12: true, year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }) + " (IST)";
+    } catch (e) {
+        return utcDateString; // Return original if all formatting fails
+    }
   }
 };
 
@@ -69,17 +73,17 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const requestBody: GuardianEmailRequest = await req.json();
-    console.log("Received request body for email function (raw):", JSON.stringify(requestBody, null, 2));
+    console.log("Received request body for email function (raw UTC exitDateTime):", JSON.stringify(requestBody, null, 2));
 
     const {
       studentName,
-      exitDateTime,
+      exitDateTime, // This is UTC
       reason,
       guardianEmail,
       mentorName,
       mentorEmail,
       mentorContact,
-      studentSection
+      studentSection // Not directly used in email template yet but good to have
     } = requestBody;
 
     console.log("Mentor details received in request:", {
@@ -128,14 +132,8 @@ const handler = async (req: Request): Promise<Response> => {
     
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
-    // Format the exit time to Indian timezone
-    const formattedExitDateTime = formatIndianTime(exitDateTime);
-
-    // Amity Colors:
-    // Primary Blue: #3B82F6 (blue-500)
-    // Darker Blue: #1D4ED8 (blue-700)
-    // Yellow: #FFD700 (yellow)
-    // Soft Yellow: #FEF7CD
+    // Format the UTC exit time to Indian timezone for display in the email
+    const formattedExitDateTimeForEmail = formatToIndianTimeDisplay(exitDateTime);
 
     const emailHtml = `
     <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #EFF6FF;">
@@ -155,9 +153,9 @@ const handler = async (req: Request): Promise<Response> => {
                 <td style="padding: 30px; color: #1A1F2C;">
                   <h2 style="color: #1D4ED8; font-size: 22px; margin-top: 0; margin-bottom: 20px;">Outpass Request Approval Required</h2>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Dear Guardian,</p>
-                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Your ward, <strong>${studentName}</strong>, has requested an outpass with the following details:</p>
+                  <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Your ward, <strong>${studentName}</strong> (Section: ${studentSection || 'N/A'}), has requested an outpass with the following details:</p>
                   <ul style="font-size: 16px; line-height: 1.6; list-style-type: none; padding-left: 0; margin-bottom: 25px; background-color: #FFD700; padding: 15px; border-radius: 6px;">
-                    <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${formattedExitDateTime}</li>
+                    <li style="margin-bottom: 8px;"><strong>Exit Date & Time:</strong> ${formattedExitDateTimeForEmail}</li>
                     <li><strong>Reason:</strong> ${reason}</li>
                   </ul>
                   <p style="font-size: 16px; line-height: 1.6; margin-bottom: 15px;">Please contact the assigned mentor to provide your approval for this request:</p>
