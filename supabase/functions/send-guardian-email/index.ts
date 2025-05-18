@@ -1,7 +1,8 @@
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Mailjet from "npm:node-mailjet@3.3.4"; 
-import { format } from "npm:date-fns@3.6.0"; // formatISO removed as it's not directly used here for IST conversion output
-import { toZonedTime } from "npm:date-fns-tz@3.0.0"; // Changed from utcToZonedTime
+import { format } from "npm:date-fns@3.6.0";
+import { toZonedTime } from "npm:date-fns-tz@3.0.0";
 
 const mailjetApiKey = Deno.env.get("MAILJET_PUB_KEY");
 const mailjetApiSecret = Deno.env.get("MAILJET_PRIV_KEY");
@@ -36,6 +37,7 @@ interface GuardianEmailRequest {
   mentorEmail?: string | null;
   mentorContact?: string | null;
   studentSection?: string;
+  formattedExitDateTime?: string; // Optional pre-formatted time
 }
 
 // Indian timezone constant
@@ -49,7 +51,7 @@ const formatToIndianTimeDisplay = (utcDateString: string): string => {
     return format(indianTime, 'MMMM d, yyyy h:mm a (IST)'); // Format for display
   } catch (error) {
     console.error("Error formatting UTC date to Indian time for display:", error, "Original string:", utcDateString);
-    // Fallback to a simple format if conversion fails, though ideally it shouldn't if input is valid ISO
+    // Fallback to a simple format if conversion fails
     try {
         return new Date(utcDateString).toLocaleString("en-IN", { timeZone: INDIAN_TIMEZONE, hour12: true, year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric' }) + " (IST)";
     } catch (e) {
@@ -83,7 +85,8 @@ const handler = async (req: Request): Promise<Response> => {
       mentorName,
       mentorEmail,
       mentorContact,
-      studentSection // Not directly used in email template yet but good to have
+      studentSection,
+      formattedExitDateTime // Optional pre-formatted time from frontend
     } = requestBody;
 
     console.log("Mentor details received in request:", {
@@ -132,8 +135,16 @@ const handler = async (req: Request): Promise<Response> => {
     
     const logoUrl = siteUrl ? `${siteUrl}/lovable-uploads/945f9f70-9eb7-406e-bf17-148621ddf5cb.png` : '';
 
-    // Format the UTC exit time to Indian timezone for display in the email
-    const formattedExitDateTimeForEmail = formatToIndianTimeDisplay(exitDateTime);
+    // Use pre-formatted time if available, otherwise format here
+    // This ensures consistent formatting between frontend and backend
+    const formattedExitDateTimeForEmail = formattedExitDateTime || formatToIndianTimeDisplay(exitDateTime);
+    
+    // Double-check what time we're actually displaying
+    console.log("Time being displayed in email:", {
+      originalExitDateTime: exitDateTime,
+      formattedTime: formattedExitDateTimeForEmail,
+      wasPreFormatted: !!formattedExitDateTime
+    });
 
     const emailHtml = `
     <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #EFF6FF;">

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Student, Outpass, Mentor } from "@/lib/types"; // Added Mentor type
 import { format, isToday, isAfter, isBefore } from "date-fns";
-import { toZonedTime } from "date-fns-tz"; // Changed from utcToZonedTime
+import { toZonedTime } from "date-fns-tz"; 
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
 import {
@@ -29,7 +30,7 @@ const INDIAN_TIMEZONE = 'Asia/Kolkata';
 
 // Convert to Indian time
 const toIndianTime = (date: Date | string) => {
-  return toZonedTime(new Date(date), INDIAN_TIMEZONE); // Changed from utcToZonedTime
+  return toZonedTime(new Date(date), INDIAN_TIMEZONE);
 };
 
 // Format date with Indian timezone
@@ -243,7 +244,28 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
       const now = new Date().toISOString();
-      const utcExitDateTime = new Date(exitDateTime).toISOString();
+      
+      // IMPORTANT: When we use the datetime-local input, the value is in the LOCAL timezone of the browser
+      // We need to ensure we're properly converting this to UTC for storage but preserving
+      // the exact time the user selected in their local timezone
+      
+      // First, parse the datetime-local value as a local date
+      const localExitDate = new Date(exitDateTime);
+      
+      // Convert to UTC ISO string for storage
+      const utcExitDateTime = localExitDate.toISOString();
+      
+      // Also create a properly formatted display version for the email in Indian time
+      // We need to format the selected exit time as it would appear in Indian time
+      const formattedExitDateTimeForEmail = formatIndianTime(localExitDate, "MMMM d, yyyy h:mm a (IST)");
+      
+      // Log both the UTC and formatted times to verify they're consistent
+      console.log("Exit datetime conversion:", {
+        originalInput: exitDateTime,  // What user selected in form
+        localParsed: localExitDate.toString(), // Parsed as local date
+        utcForStorage: utcExitDateTime, // Converted to UTC for storage
+        formattedForEmail: formattedExitDateTimeForEmail // Formatted for email display
+      });
 
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
@@ -288,11 +310,10 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         mentorName: mentorName,
         mentorEmail: mentorEmail,
         mentorContact: mentorContact,
-        // Format exitDateTime for email in Indian Time
-        formattedExitDateTime: formatIndianTime(utcExitDateTime, "MMMM d, yyyy 'at' h:mm a (IST)"),
+        formattedExitDateTime: formattedExitDateTimeForEmail, // Send pre-formatted time to ensure consistency
       };
 
-      console.log("Sending email with payload (exitDateTime is UTC, formattedExitDateTime is IST):", JSON.stringify(emailPayload, null, 2));
+      console.log("Sending email with payload (with pre-formatted time):", JSON.stringify(emailPayload, null, 2));
 
       const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
