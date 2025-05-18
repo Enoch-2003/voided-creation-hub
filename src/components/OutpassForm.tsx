@@ -200,7 +200,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         "and semester:", student.semester
       );
       
-      // Check for mentor assignment to the student's section and semester
       const { data: mentorData, error: mentorCheckError, count } = await supabase
         .from('mentors')
         .select('name, email, contact_number', { count: 'exact' }) 
@@ -229,20 +228,21 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
       
-      // Take the first mentor from the results
+      // Declare assignedMentor once here
       const assignedMentor = mentorData[0];
       console.log("Assigned mentor raw data from DB:", assignedMentor);
 
-      // Generate serial code
+      if (!assignedMentor) { // This check is good, even if mentorData had length > 0, the element could be nullish
+        console.error("Assigned mentor is undefined after initial check, this shouldn't happen!");
+        toast.error("Critical error: Mentor data is invalid. Please try again.");
+        setIsSubmitting(false);
+        return;
+      }
+      
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
       const now = new Date().toISOString();
-      
-      // Make sure exitDateTime is in ISO string format (UTC) before sending to backend/DB
-      // The input type="datetime-local" provides a string that can be parsed by new Date()
-      // and then toISOString() converts it to UTC.
-      // The backend function will then convert this UTC time to IST for the email.
       const utcExitDateTime = new Date(exitDateTime).toISOString();
 
       const newOutpass: Outpass = {
@@ -250,11 +250,11 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         studentId: student.id,
         studentName: student.name,
         enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: utcExitDateTime, // Send UTC to backend
+        exitDateTime: utcExitDateTime,
         reason: reason.trim(),
         status: "pending",
-        createdAt: new Date().toISOString(), // Use UTC for timestamps
-        updatedAt: new Date().toISOString(), // Use UTC for timestamps
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         studentSection: student.section || '', 
         serialCode: serialCode,
       };
@@ -263,17 +263,12 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       
       await addOutpass(newOutpass);
 
-      // Explicitly prepare mentor details
+      // Explicitly prepare mentor details using the already declared assignedMentor
       console.log("Preparing mentor details for email payload...");
       
-      const assignedMentor = mentorData[0]; // Assuming mentorData has at least one mentor
-      if (!assignedMentor) {
-        console.error("Assigned mentor is undefined after check, this shouldn't happen!");
-        toast.error("Critical error: Mentor data disappeared. Please try again.");
-        setIsSubmitting(false);
-        return;
-      }
-      
+      // No need to redeclare assignedMentor here. We use the one from above.
+      // const assignedMentor = mentorData[0]; // THIS WAS THE DUPLICATE DECLARATION
+
       const mentorName = assignedMentor.name || null;
       const mentorEmail = assignedMentor.email || null;
       const mentorContact = assignedMentor.contact_number || null;
@@ -286,16 +281,18 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
 
       const emailPayload = {
         studentName: student.name,
-        exitDateTime: utcExitDateTime, // Send UTC to Supabase function
+        exitDateTime: utcExitDateTime, 
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
         mentorName: mentorName,
         mentorEmail: mentorEmail,
         mentorContact: mentorContact,
+        // Format exitDateTime for email in Indian Time
+        formattedExitDateTime: formatIndianTime(utcExitDateTime, "MMMM d, yyyy 'at' h:mm a (IST)"),
       };
 
-      console.log("Sending email with payload (exitDateTime is UTC):", JSON.stringify(emailPayload, null, 2));
+      console.log("Sending email with payload (exitDateTime is UTC, formattedExitDateTime is IST):", JSON.stringify(emailPayload, null, 2));
 
       const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
