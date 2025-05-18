@@ -47,8 +47,7 @@ const INDIAN_TIMEZONE = 'Asia/Kolkata';
 const formatToIndianTimeDisplay = (utcDateString: string): string => {
   try {
     const date = new Date(utcDateString);
-    const indianTime = toZonedTime(date, INDIAN_TIMEZONE);
-    return format(indianTime, 'MMMM d, yyyy h:mm a (IST)');
+    return format(date, 'MMMM d, yyyy h:mm a (IST)');
   } catch (error) {
     console.error("Error formatting UTC date to Indian time for display:", error, "Original string:", utcDateString);
     try {
