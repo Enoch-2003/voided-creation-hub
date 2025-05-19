@@ -1,24 +1,31 @@
-
 import { useCallback } from 'react';
 import { Outpass, outpassToDbFormat } from '@/lib/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import storageSync from '@/lib/storageSync';
+import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
+const INDIAN_TIMEZONE = 'Asia/Kolkata';
+
+// Helper to get current IST as ISO string with offset
+const getCurrentISTISOString = () => {
+  const nowInIndia = toZonedTime(new Date(), INDIAN_TIMEZONE);
+  // Format as "yyyy-MM-dd'T'HH:mm:ss.SSSXXX" e.g., "2024-05-20T10:15:30.123+05:30"
+  // Supabase TIMESTAMPTZ columns handle this format correctly.
+  return format(nowInIndia, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX"); 
+};
 
 /**
  * Custom hook for outpass CRUD operations
  */
 export function useOutpassOperations(tabId: string) {
-  // Function to update outpasses with real-time syncing
   const updateOutpass = useCallback(async (updatedOutpass: Outpass) => {
     try {
-      // Update timestamp
-      updatedOutpass.updatedAt = new Date().toISOString();
+      updatedOutpass.updatedAt = getCurrentISTISOString();
       
-      // Convert camelCase to snake_case for database
       const dbOutpass = outpassToDbFormat(updatedOutpass);
-      
-      console.log("Updating outpass in database:", dbOutpass);
+      console.log("Updating outpass in database (updatedAt in IST):", dbOutpass);
       
       const { data, error } = await supabase
         .from('outpasses')
@@ -27,7 +34,6 @@ export function useOutpassOperations(tabId: string) {
         .select();
       
       if (error) throw error;
-      
       console.log("Database update response:", data);
       
       // Also update in localStorage for backup purposes and cross-tab sync
@@ -61,18 +67,14 @@ export function useOutpassOperations(tabId: string) {
     }
   }, [tabId]);
 
-  // Function to add a new outpass with real-time syncing
   const addOutpass = useCallback(async (newOutpass: Outpass) => {
     try {
-      // Set timestamps
-      const now = new Date().toISOString();
-      newOutpass.createdAt = now;
-      newOutpass.updatedAt = now;
+      const nowIST = getCurrentISTISOString();
+      newOutpass.createdAt = nowIST;
+      newOutpass.updatedAt = nowIST;
       
-      // Convert camelCase to snake_case for database
       const dbOutpass = outpassToDbFormat(newOutpass);
-      
-      console.log("Adding new outpass to database:", dbOutpass);
+      console.log("Adding new outpass to database (timestamps in IST, exitDateTime is student input):", dbOutpass);
       
       const { data, error } = await supabase
         .from('outpasses')
@@ -80,7 +82,6 @@ export function useOutpassOperations(tabId: string) {
         .select();
       
       if (error) throw error;
-      
       console.log("Database insert response:", data);
       
       // Also store in localStorage for backup purposes and cross-tab sync

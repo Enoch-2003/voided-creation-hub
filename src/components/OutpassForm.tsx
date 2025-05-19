@@ -167,26 +167,14 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     }
     
     // Validate exit time is within allowed range
-    // The `exitDateTime` state is a string like "YYYY-MM-DDTHH:mm"
-    // This represents the local time chosen by the user.
-    // For validation against Indian business hours, we need to treat this as Indian time.
-    
-    const selectedLocalDateTime = new Date(exitDateTime); // Parses "YYYY-MM-DDTHH:mm" as local (browser) time
-
-    // To correctly validate against 9:15 AM - 3:10 PM Indian Time,
-    // we construct a date object assuming the input parts are in Indian Time.
     const [datePartValidation, timePartValidation] = exitDateTime.split('T');
     const [yearValidation, monthValidation, dayValidation] = datePartValidation.split('-').map(Number);
     const [hourValidation, minuteValidation] = timePartValidation.split(':').map(Number);
 
-    // Create a date object conceptually in Indian Time for validation
-    // Note: `new Date(Y, M, D, H, m)` uses local timezone.
-    // To compare with Indian business hours, we ensure the day is today (Indian)
-    // and time parts are within the allowed range.
     const todayIndianForValidation = toZonedTime(new Date(), INDIAN_TIMEZONE);
     if (
       yearValidation !== todayIndianForValidation.getFullYear() ||
-      (monthValidation -1) !== todayIndianForValidation.getMonth() || // month is 0-indexed in JS Date
+      (monthValidation -1) !== todayIndianForValidation.getMonth() ||
       dayValidation !== todayIndianForValidation.getDate()
     ) {
       toast.error("You can only select the current day (Indian Time) for exit");
@@ -235,9 +223,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         return;
       }
       
-      // Get assigned mentor
       const assignedMentor = mentorData[0];
-      console.log("Assigned mentor raw data from DB:", assignedMentor);
 
       if (!assignedMentor) {
         console.error("Assigned mentor is undefined after initial check, this shouldn't happen!");
@@ -249,10 +235,6 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
-      // For storage, we convert the student's selected local time to UTC ISO string
-      // `selectedLocalDateTime` is already `new Date(exitDateTime)`
-      const utcExitDateTime = selectedLocalDateTime.toISOString();
-
       // For display in the email, format the student's selected time exactly as they see it.
       // `exitDateTime` is "YYYY-MM-DDTHH:mm"
       const [datePartDisplay, timePartDisplay] = exitDateTime.split('T');
@@ -271,52 +253,55 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const studentSelectedDisplayTime = format(studentSelectedDate, "MMMM d, yyyy, h:mm a");
       
       console.log("Formatted student selected exit time for email:", studentSelectedDisplayTime);
-      console.log("UTC exit time for DB:", utcExitDateTime);
+      // Directly use the student's input string for exitDateTime to be stored.
+      // The database column `exit_date_time` is TIMESTAMPTZ.
+      // When a string like "2024-05-20T11:15" is inserted,
+      // PostgreSQL interprets it in the session's time zone (usually UTC from serverless/client)
+      // and stores the equivalent UTC value.
+      console.log("Student selected exit time string for DB:", exitDateTime);
 
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
         studentId: student.id,
         studentName: student.name,
         enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: utcExitDateTime, // Store UTC in DB
+        exitDateTime: exitDateTime, // Use the raw string from student input
         reason: reason.trim(),
         status: "pending",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        // createdAt and updatedAt will be set by useOutpassOperations in IST
+        createdAt: '', // Placeholder, will be overwritten
+        updatedAt: '', // Placeholder, will be overwritten
         studentSection: student.section || '', 
         serialCode: serialCode,
       };
       
-      console.log("Creating new outpass:", newOutpass);
+      console.log("Creating new outpass (exitDateTime is student's raw input):", newOutpass);
       
       await addOutpass(newOutpass);
 
-      // Prepare mentor details for email payload
-      const mentorName = assignedMentor.name || null;
-      const mentorEmail = assignedMentor.email || null;
-      const mentorContact = assignedMentor.contact_number || null;
-
-      console.log("Prepared mentor details for email payload:", {
-        mentorName,
-        mentorEmail,
-        mentorContact
-      });
-
+      // The emailPayload should use utcExitDateTime for backend reference if needed,
+      // or simply rely on formattedExitDateTime for display.
+      // Since exitDateTime in newOutpass is now the student's local string,
+      // we might need to adjust what's sent in emailPayload if the backend function expects UTC.
+      // For now, let's assume formattedExitDateTime is sufficient for the email template.
       const emailPayload = {
         studentName: student.name,
-        exitDateTime: utcExitDateTime, // For backend reference if needed, but display uses formatted string
+        // exitDateTime: utcExitDateTime, // This was the old UTC value.
+                                        // Let's continue sending the student's local time string
+                                        // or formatted string, as the email template uses formattedExitDateTime.
+        exitDateTimeForReference: exitDateTime, // Student's local time string
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
-        mentorName: mentorName,
-        mentorEmail: mentorEmail,
-        mentorContact: mentorContact,
-        formattedExitDateTime: studentSelectedDisplayTime, // This is the key for display
+        mentorName: assignedMentor.name || null,
+        mentorEmail: assignedMentor.email || null,
+        mentorContact: assignedMentor.contact_number || null,
+        formattedExitDateTime: studentSelectedDisplayTime,
       };
 
-      console.log("Sending email with payload:", JSON.stringify(emailPayload, null, 2));
-
-      const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
+      console.log("Sending email with payload (using student's local time for reference):", JSON.stringify(emailPayload, null, 2));
+      
+       const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
       });
 
