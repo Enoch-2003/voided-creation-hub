@@ -4,8 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Student, Outpass, Mentor } from "@/lib/types"; 
-import { format, isToday, isAfter, isBefore, parseISO } from "date-fns"; // Added parseISO
+import { Student, Outpass } from "@/lib/types"; // Removed Mentor as it's not directly used for newOutpass creation here
+import { format, isToday, isAfter, isBefore, parseISO } from "date-fns";
 import { toZonedTime } from "date-fns-tz"; 
 import { supabase } from "@/integrations/supabase/client";
 import { useOutpassOperations } from "@/hooks/useOutpassOperations";
@@ -110,21 +110,28 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
     const formattedDateForInput = format(todayInIndia, "yyyy-MM-dd");
     
     const minTimeDateIndia = new Date(todayInIndia);
-    minTimeDateIndia.setHours(9, 15, 0, 0);
+    minTimeDateIndia.setHours(9, 15, 0, 0); // 9:15 AM IST
     setMinTime(`${formattedDateForInput}T09:15`);
     
     const maxTimeDateIndia = new Date(todayInIndia);
-    maxTimeDateIndia.setHours(15, 10, 0, 0);
+    maxTimeDateIndia.setHours(15, 10, 0, 0); // 3:10 PM IST
     setMaxTime(`${formattedDateForInput}T15:10`);
     
     const nowInIndia = toZonedTime(new Date(), INDIAN_TIMEZONE);
 
+    // Set default exitDateTime based on current time or minTime
     if (isAfter(nowInIndia, minTimeDateIndia) && isBefore(nowInIndia, maxTimeDateIndia)) {
       const currentHour = format(nowInIndia, 'HH');
       const currentMinute = format(nowInIndia, 'mm');
       setExitDateTime(`${formattedDateForInput}T${currentHour}:${currentMinute}`);
+    } else if (isBefore(nowInIndia, minTimeDateIndia)) {
+      setExitDateTime(`${formattedDateForInput}T09:15`); // Default to 9:15 AM if before allowed time
     } else {
-      setExitDateTime(`${formattedDateForInput}T09:15`); 
+      // If after 3:10 PM, it should ideally be disabled or handled,
+      // for now, let's set it to max time, though validation will catch it.
+      // Or better, leave it blank or show an error if submission outside hours isn't allowed.
+      // For now, let's keep it to the min time as a fallback if current time is outside range.
+      setExitDateTime(`${formattedDateForInput}T09:15`);
     }
     
     fetchSerialCodePrefix();
@@ -235,13 +242,35 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
       const serialNumber = generateSerialNumber();
       const serialCode = `AUMP-${serialPrefix}-${serialNumber}`;
       
+      // --- **MODIFICATION START for exitDateTime storage** ---
+      // Student's input from datetime-local (e.g., "2025-05-20T11:15")
+      const studentInputExitDateTimeString = exitDateTime; 
+      
+      // Parse this string. The parts represent the student's local time (assumed IST).
+      const [datePart, timePart] = studentInputExitDateTimeString.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, minute] = timePart.split(':').map(Number);
+      
+      // Create a Date object representing this local time in IST
+      // new Date(year, monthIndex (0-11), day, hour, minute)
+      const localDateForIST = new Date(year, month - 1, day, hour, minute);
+      
+      // Convert this local date (which we know is intended as IST) to a ZonedTime object for IST
+      const zonedExitTimeIST = toZonedTime(localDateForIST, INDIAN_TIMEZONE);
+      
+      // Format this ZonedTime object into an ISO string with the IST offset (+05:30)
+      // This is what will be stored in the database.
+      const exitDateTimeForDB = format(zonedExitTimeIST, "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+      // Example: "2025-05-20T11:15:00.000+05:30"
+      // --- **MODIFICATION END for exitDateTime storage** ---
+
       // For display in the email, format the student's selected time exactly as they see it.
-      // `exitDateTime` is "YYYY-MM-DDTHH:mm"
-      const [datePartDisplay, timePartDisplay] = exitDateTime.split('T');
+      // This uses the original studentInputExitDateTimeString
+      const [datePartDisplay, timePartDisplay] = studentInputExitDateTimeString.split('T');
       const [yearDisplay, monthDisplayStr, dayDisplayStr] = datePartDisplay.split('-');
       const [hourDisplayStr, minuteDisplayStr] = timePartDisplay.split(':');
       
-      const studentSelectedDate = new Date(
+      const studentSelectedDateForEmail = new Date(
         parseInt(yearDisplay), 
         parseInt(monthDisplayStr) - 1, // JS months are 0-indexed
         parseInt(dayDisplayStr), 
@@ -249,47 +278,33 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         parseInt(minuteDisplayStr)
       );
       
-      // Format like "May 19, 2025, 9:15 AM"
-      const studentSelectedDisplayTime = format(studentSelectedDate, "MMMM d, yyyy, h:mm a");
+      const studentSelectedDisplayTime = format(studentSelectedDateForEmail, "MMMM d, yyyy, h:mm a");
       
       console.log("Formatted student selected exit time for email:", studentSelectedDisplayTime);
-      // Directly use the student's input string for exitDateTime to be stored.
-      // The database column `exit_date_time` is TIMESTAMPTZ.
-      // When a string like "2024-05-20T11:15" is inserted,
-      // PostgreSQL interprets it in the session's time zone (usually UTC from serverless/client)
-      // and stores the equivalent UTC value.
-      console.log("Student selected exit time string for DB:", exitDateTime);
+      console.log("Student selected exit time string for DB (with IST offset):", exitDateTimeForDB);
 
       const newOutpass: Outpass = {
         id: crypto.randomUUID(),
         studentId: student.id,
         studentName: student.name,
         enrollmentNumber: student.enrollmentNumber,
-        exitDateTime: exitDateTime, // Use the raw string from student input
+        exitDateTime: exitDateTimeForDB, // Use the IST-offsetted string
         reason: reason.trim(),
         status: "pending",
-        // createdAt and updatedAt will be set by useOutpassOperations in IST
-        createdAt: '', // Placeholder, will be overwritten
-        updatedAt: '', // Placeholder, will be overwritten
+        createdAt: '', // Placeholder, will be overwritten by useOutpassOperations
+        updatedAt: '', // Placeholder, will be overwritten by useOutpassOperations
         studentSection: student.section || '', 
         serialCode: serialCode,
       };
       
-      console.log("Creating new outpass (exitDateTime is student's raw input):", newOutpass);
+      console.log("Creating new outpass (exitDateTime includes IST offset for DB):", newOutpass);
       
       await addOutpass(newOutpass);
 
-      // The emailPayload should use utcExitDateTime for backend reference if needed,
-      // or simply rely on formattedExitDateTime for display.
-      // Since exitDateTime in newOutpass is now the student's local string,
-      // we might need to adjust what's sent in emailPayload if the backend function expects UTC.
-      // For now, let's assume formattedExitDateTime is sufficient for the email template.
       const emailPayload = {
         studentName: student.name,
-        // exitDateTime: utcExitDateTime, // This was the old UTC value.
-                                        // Let's continue sending the student's local time string
-                                        // or formatted string, as the email template uses formattedExitDateTime.
-        exitDateTimeForReference: exitDateTime, // Student's local time string
+        // exitDateTimeForReference should remain the student's original local input if the edge function expects that format
+        exitDateTimeForReference: studentInputExitDateTimeString, 
         reason: reason.trim(),
         guardianEmail: student.guardianEmail,
         studentSection: student.section,
@@ -299,7 +314,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
         formattedExitDateTime: studentSelectedDisplayTime,
       };
 
-      console.log("Sending email with payload (using student's local time for reference):", JSON.stringify(emailPayload, null, 2));
+      console.log("Sending email with payload (using student's raw local time for reference):", JSON.stringify(emailPayload, null, 2));
       
        const { data: emailResponse, error: emailError } = await supabase.functions.invoke('send-guardian-email', {
         body: emailPayload,
@@ -417,7 +432,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
               required
             />
             <p className="text-xs text-muted-foreground">
-              Date is {exitDateTime ? format(new Date(exitDateTime.split('T')[0]), "MMMM d, yyyy") : format(toZonedTime(new Date(), INDIAN_TIMEZONE), "MMMM d, yyyy")}. Time is Indian Standard Time.
+              Date is {exitDateTime ? format(parseISO(exitDateTime.split('T')[0]), "MMMM d, yyyy") : format(toZonedTime(new Date(), INDIAN_TIMEZONE), "MMMM d, yyyy")}. Time is Indian Standard Time.
             </p>
           </div>
           
@@ -444,7 +459,7 @@ export function OutpassForm({ student, onSuccess }: OutpassFormProps) {
             !student.guardianEmail || 
             !student.section ||
             !student.semester ||
-            !exitDateTime // Also disable if exitDateTime is not set
+            !exitDateTime
           }
         >
           {isSubmitting ? "Submitting..." : "Submit Outpass Request"}
