@@ -96,54 +96,17 @@ export default function Register() {
   // Handle student registration
   const handleStudentRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Validate required fields
-    if (!studentName || !studentEnrollment || !studentEmail || !studentPassword) {
-      toast.error("Please fill all required fields: Name, Enrollment, Email, and Password.");
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate Enrollment Number
-    const enrollmentRegex = /^[A-Z]\d+$/;
-    if (!enrollmentRegex.test(studentEnrollment)) {
-      toast.error("Enrollment number must start with a single capital letter followed by digits (e.g., A12345678901).");
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate Contact Number (if provided)
-    if (studentContactNumber) {
-      const contactRegex = /^\d{10}$/;
-      if (!contactRegex.test(studentContactNumber)) {
-        toast.error("Contact number must be exactly 10 digits and contain only numbers (0-9).");
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    // Validate Semester (if provided)
-    if (studentSemester) {
-      const semesterRegex = /^[1-9]$/;
-      if (!semesterRegex.test(studentSemester)) {
-        toast.error("Semester must be a single digit between 1 and 9.");
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    // Validate Section (if provided)
-    if (studentSection) {
-      const sectionRegex = /^[A-Z]$/;
-      if (!sectionRegex.test(studentSection)) {
-        toast.error("Section must be a single uppercase alphabet character.");
-        setIsLoading(false);
-        return;
-      }
-    }
     
     try {
+      setIsLoading(true);
+      
+      // Validate form fields
+      if (!studentName || !studentEnrollment || !studentEmail || !studentPassword) {
+        toast.error("Please fill all required fields");
+        setIsLoading(false);
+        return;
+      }
+      
       // Check if student with this email or enrollment already exists
       const { data: existingUsers, error: fetchError } = await supabase
         .from("students")
@@ -163,16 +126,16 @@ export default function Register() {
         id: crypto.randomUUID(),
         name: studentName,
         email: studentEmail,
-        password: studentPassword, // Note: Storing plain passwords is not secure for production. Consider hashing.
+        password: studentPassword,
         role: 'student' as UserRole,
         enrollment_number: studentEnrollment,
-        contact_number: studentContactNumber || null,
-        guardian_email: studentGuardianEmail || null,
-        department: studentDepartment || null,
-        course: studentCourse || null,
-        branch: studentBranch || null,
-        semester: studentSemester || null,
-        section: studentSection || null,
+        contact_number: studentContactNumber,
+        guardian_email: studentGuardianEmail,
+        department: studentDepartment,
+        course: studentCourse,
+        branch: studentBranch,
+        semester: studentSemester,
+        section: studentSection,
       };
       
       // Insert student into database
@@ -187,9 +150,7 @@ export default function Register() {
       navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
-      // Ensure toast messages are specific if possible, or generic if not.
-      const errorMessage = (error instanceof Error && error.message) ? error.message : "Registration failed. Please try again.";
-      toast.error(errorMessage.includes("already exists") ? errorMessage : "Registration failed. Please try again.");
+      toast.error("Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -198,50 +159,17 @@ export default function Register() {
   // Handle mentor registration
   const handleMentorRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-        
-    // Validate required fields
-    if (!mentorName || !mentorEmail || !mentorPassword) {
-      toast.error("Please fill all required fields: Name, Email, and Password.");
-      setIsLoading(false);
-      return;
-    }
-
-    // Validate Contact Number (if provided)
-    if (mentorContactNumber) {
-      const contactRegex = /^\d{10}$/;
-      if (!contactRegex.test(mentorContactNumber)) {
-        toast.error("Contact number must be exactly 10 digits and contain only numbers (0-9).");
+    
+    try {
+      setIsLoading(true);
+      
+      // Validate form fields
+      if (!mentorName || !mentorEmail || !mentorPassword) {
+        toast.error("Please fill all required fields");
         setIsLoading(false);
         return;
       }
-    }
-
-    // Validate Semesters (if any are entered)
-    if (selectedSemesters.length > 0) {
-      const semesterRegex = /^[1-9]$/;
-      for (const sem of selectedSemesters) {
-        if (!semesterRegex.test(sem)) {
-          toast.error("Each semester in the list must be a single digit between 1 and 9.");
-          setIsLoading(false);
-          return;
-        }
-      }
-    }
-    
-    // Validate Sections (if any are entered)
-    if (selectedSections.length > 0) {
-      const sectionRegex = /^[A-Z]$/;
-      for (const sec of selectedSections) {
-        if (!sectionRegex.test(sec)) {
-          toast.error("Each section in the list must be a single uppercase alphabet character.");
-          setIsLoading(false);
-          return;
-        }
-      }
-    }
-
-    try {
+      
       // Check if mentor with this email already exists
       const { data: existingUsers, error: fetchError } = await supabase
         .from("mentors")
@@ -261,14 +189,14 @@ export default function Register() {
         id: crypto.randomUUID(),
         name: mentorName,
         email: mentorEmail,
-        password: mentorPassword, // Note: Storing plain passwords is not secure for production. Consider hashing.
+        password: mentorPassword,
         role: 'mentor' as UserRole,
-        contact_number: mentorContactNumber || null,
-        department: mentorDepartment || null,
-        branches: selectedBranches.length > 0 ? selectedBranches : null,
-        courses: selectedCourses.length > 0 ? selectedCourses : null,
-        sections: selectedSections.length > 0 ? selectedSections : null,
-        semesters: selectedSemesters.length > 0 ? selectedSemesters : null,
+        contact_number: mentorContactNumber,
+        department: mentorDepartment,
+        branches: selectedBranches,
+        courses: selectedCourses,
+        sections: selectedSections,
+        semesters: selectedSemesters,
       };
       
       // Insert mentor into database
@@ -283,8 +211,7 @@ export default function Register() {
       navigate("/login");
     } catch (error) {
       console.error("Registration error:", error);
-      const errorMessage = (error instanceof Error && error.message) ? error.message : "Registration failed. Please try again.";
-      toast.error(errorMessage.includes("already exists") ? errorMessage : "Registration failed. Please try again.");
+      toast.error("Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -576,7 +503,7 @@ export default function Register() {
                   <div className="grid grid-cols-3 gap-2">
                     {Object.values(courseOptions)
                       .flat()
-                      .filter((value, index, self) => self.indexOf(value) === index) // Unique courses
+                      .filter((value, index, self) => self.indexOf(value) === index)
                       .map((course) => (
                         <div key={course} className="flex items-center space-x-2">
                           <input
@@ -600,7 +527,7 @@ export default function Register() {
                   <div className="grid grid-cols-3 gap-2">
                     {Object.values(branchOptions)
                       .flatMap((courses) => Object.values(courses).flat())
-                      .filter((value, index, self) => self.indexOf(value) === index) // Unique branches
+                      .filter((value, index, self) => self.indexOf(value) === index)
                       .map((branch) => (
                         <div key={branch} className="flex items-center space-x-2">
                           <input
@@ -620,7 +547,7 @@ export default function Register() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Semesters (Enter comma-separated values, e.g., 1,2)</Label>
+                  <Label>Semesters (Enter comma-separated values)</Label>
                   <Input
                     placeholder="e.g., 1,2,3,4"
                     value={selectedSemesters.join(',')}
@@ -633,7 +560,7 @@ export default function Register() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Sections (Enter comma-separated values, e.g., A,B)</Label>
+                  <Label>Sections (Enter comma-separated values)</Label>
                   <Input
                     placeholder="e.g., A,B,C,D"
                     value={selectedSections.join(',')}

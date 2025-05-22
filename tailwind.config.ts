@@ -154,8 +154,8 @@ export default {
         'scale-up': 'scale-up 0.4s ease-out'
 			},
       fontFamily: {
-        sans: ['Inter', 'sans-serif'], // Changed 'Inter var' to 'Inter'
-        display: ['SF Pro Display', 'Inter', 'sans-serif'] // Changed 'Inter var' to 'Inter'
+        sans: ['Inter var', 'sans-serif'],
+        display: ['SF Pro Display', 'Inter var', 'sans-serif']
       },
       boxShadow: {
         'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
@@ -169,4 +169,3 @@ export default {
 	},
 	plugins: [require("tailwindcss-animate")],
 } satisfies Config;
-
