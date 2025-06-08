@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -154,8 +153,8 @@ export default {
         'scale-up': 'scale-up 0.4s ease-out'
 			},
       fontFamily: {
-        sans: ['Inter var', 'sans-serif'],
-        display: ['SF Pro Display', 'Inter var', 'sans-serif']
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       boxShadow: {
         'glass': '0 4px 30px rgba(0, 0, 0, 0.1)',
