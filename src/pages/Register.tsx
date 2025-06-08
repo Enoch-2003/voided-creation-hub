@@ -34,10 +34,10 @@ export default function Register() {
   const [mentorPassword, setMentorPassword] = useState("");
   const [mentorContactNumber, setMentorContactNumber] = useState("");
   const [mentorDepartment, setMentorDepartment] = useState("");
-  const [selectedSemesters, setSelectedSemesters] = useState<string[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState("");
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
   const [selectedCourses, setSelectedCourses] = useState<string[]>([]);
-  const [selectedSections, setSelectedSections] = useState<string[]>([]);
+  const [selectedSection, setSelectedSection] = useState("");
   
   // Department options
   const departmentOptions = [
@@ -92,6 +92,51 @@ export default function Register() {
       "Ph.D": ["Fine Arts"],
     },
   };
+
+  // Input validation functions
+  const validateEnrollmentNumber = (value: string): string => {
+    // Remove any non-alphanumeric characters and convert to uppercase
+    const cleaned = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    
+    // Ensure it starts with a letter followed by digits
+    if (cleaned.length === 0) return '';
+    
+    const firstChar = cleaned[0];
+    const restChars = cleaned.slice(1);
+    
+    // Keep only the first character if it's a letter, and only digits after
+    if (/[A-Z]/.test(firstChar)) {
+      const digitsOnly = restChars.replace(/[^0-9]/g, '');
+      return firstChar + digitsOnly;
+    }
+    
+    return '';
+  };
+
+  const validateContactNumber = (value: string): string => {
+    // Remove all non-digit characters and limit to 10 digits
+    const digits = value.replace(/[^0-9]/g, '');
+    return digits.slice(0, 10);
+  };
+
+  const validateSemester = (value: string): string => {
+    // Remove non-digits and ensure it's between 1-10
+    const digits = value.replace(/[^0-9]/g, '');
+    const num = parseInt(digits);
+    
+    if (isNaN(num) || num < 1 || num > 10) {
+      return '';
+    }
+    
+    return digits;
+  };
+
+  const validateSection = (value: string): string => {
+    // Keep only the first uppercase letter
+    const upperCase = value.toUpperCase();
+    const letter = upperCase.replace(/[^A-Z]/g, '');
+    return letter.slice(0, 1);
+  };
   
   // Handle student registration
   const handleStudentRegister = async (e: React.FormEvent) => {
@@ -103,6 +148,31 @@ export default function Register() {
       // Validate form fields
       if (!studentName || !studentEnrollment || !studentEmail || !studentPassword) {
         toast.error("Please fill all required fields");
+        setIsLoading(false);
+        return;
+      }
+
+      // Additional validation for formatted fields
+      if (studentEnrollment && !/^[A-Z][0-9]+$/.test(studentEnrollment)) {
+        toast.error("Enrollment number must start with a capital letter followed by digits");
+        setIsLoading(false);
+        return;
+      }
+
+      if (studentContactNumber && (studentContactNumber.length !== 10 || !/^[0-9]+$/.test(studentContactNumber))) {
+        toast.error("Contact number must be exactly 10 digits");
+        setIsLoading(false);
+        return;
+      }
+
+      if (studentSemester && (!/^[1-9]|10$/.test(studentSemester))) {
+        toast.error("Semester must be between 1 and 10");
+        setIsLoading(false);
+        return;
+      }
+
+      if (studentSection && !/^[A-Z]$/.test(studentSection)) {
+        toast.error("Section must be a single uppercase letter");
         setIsLoading(false);
         return;
       }
@@ -169,6 +239,25 @@ export default function Register() {
         setIsLoading(false);
         return;
       }
+
+      // Additional validation for formatted fields
+      if (mentorContactNumber && (mentorContactNumber.length !== 10 || !/^[0-9]+$/.test(mentorContactNumber))) {
+        toast.error("Contact number must be exactly 10 digits");
+        setIsLoading(false);
+        return;
+      }
+
+      if (selectedSemester && (!/^[1-9]|10$/.test(selectedSemester))) {
+        toast.error("Semester must be between 1 and 10");
+        setIsLoading(false);
+        return;
+      }
+
+      if (selectedSection && !/^[A-Z]$/.test(selectedSection)) {
+        toast.error("Section must be a single uppercase letter");
+        setIsLoading(false);
+        return;
+      }
       
       // Check if mentor with this email already exists
       const { data: existingUsers, error: fetchError } = await supabase
@@ -195,8 +284,8 @@ export default function Register() {
         department: mentorDepartment,
         branches: selectedBranches,
         courses: selectedCourses,
-        sections: selectedSections,
-        semesters: selectedSemesters,
+        sections: selectedSection ? [selectedSection] : [],
+        semesters: selectedSemester ? [selectedSemester] : [],
       };
       
       // Insert mentor into database
@@ -282,7 +371,7 @@ export default function Register() {
                     id="studentEnrollment"
                     placeholder="e.g., A12345678901"
                     value={studentEnrollment}
-                    onChange={(e) => setStudentEnrollment(e.target.value)}
+                    onChange={(e) => setStudentEnrollment(validateEnrollmentNumber(e.target.value))}
                     disabled={isLoading}
                     required
                   />
@@ -320,7 +409,7 @@ export default function Register() {
                     id="studentContact"
                     placeholder="Your mobile number"
                     value={studentContactNumber}
-                    onChange={(e) => setStudentContactNumber(e.target.value)}
+                    onChange={(e) => setStudentContactNumber(validateContactNumber(e.target.value))}
                     disabled={isLoading}
                   />
                 </div>
@@ -397,9 +486,9 @@ export default function Register() {
                     <Label htmlFor="studentSemester">Semester</Label>
                     <Input
                       id="studentSemester"
-                      placeholder="Enter your semester"
+                      placeholder="Enter your semester (1-10)"
                       value={studentSemester}
-                      onChange={(e) => setStudentSemester(e.target.value)}
+                      onChange={(e) => setStudentSemester(validateSemester(e.target.value))}
                       disabled={isLoading}
                     />
                   </div>
@@ -408,9 +497,9 @@ export default function Register() {
                     <Label htmlFor="studentSection">Section</Label>
                     <Input
                       id="studentSection"
-                      placeholder="Enter your section"
+                      placeholder="Enter your section (A-Z)"
                       value={studentSection}
-                      onChange={(e) => setStudentSection(e.target.value)}
+                      onChange={(e) => setStudentSection(validateSection(e.target.value))}
                       disabled={isLoading}
                     />
                   </div>
@@ -477,7 +566,7 @@ export default function Register() {
                     id="mentorContact"
                     placeholder="Your mobile number"
                     value={mentorContactNumber}
-                    onChange={(e) => setMentorContactNumber(e.target.value)}
+                    onChange={(e) => setMentorContactNumber(validateContactNumber(e.target.value))}
                     disabled={isLoading}
                   />
                 </div>
@@ -546,30 +635,28 @@ export default function Register() {
                   </div>
                 </div>
                 
-                <div className="space-y-2">
-                  <Label>Semesters (Enter comma-separated values)</Label>
-                  <Input
-                    placeholder="e.g., 1,2,3,4"
-                    value={selectedSemesters.join(',')}
-                    onChange={(e) => {
-                      const values = e.target.value.split(',').map(v => v.trim()).filter(v => v);
-                      setSelectedSemesters(values);
-                    }}
-                    disabled={isLoading}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label>Sections (Enter comma-separated values)</Label>
-                  <Input
-                    placeholder="e.g., A,B,C,D"
-                    value={selectedSections.join(',')}
-                    onChange={(e) => {
-                      const values = e.target.value.split(',').map(v => v.trim()).filter(v => v);
-                      setSelectedSections(values);
-                    }}
-                    disabled={isLoading}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="mentorSemester">Semester</Label>
+                    <Input
+                      id="mentorSemester"
+                      placeholder="Enter semester (1-10)"
+                      value={selectedSemester}
+                      onChange={(e) => setSelectedSemester(validateSemester(e.target.value))}
+                      disabled={isLoading}
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="mentorSection">Section</Label>
+                    <Input
+                      id="mentorSection"
+                      placeholder="Enter section (A-Z)"
+                      value={selectedSection}
+                      onChange={(e) => setSelectedSection(validateSection(e.target.value))}
+                      disabled={isLoading}
+                    />
+                  </div>
                 </div>
                 
                 <div className="pt-4 flex flex-col gap-4">
