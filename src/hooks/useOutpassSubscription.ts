@@ -86,8 +86,15 @@ export function useOutpassSubscription() {
             const newOutpass = dbToOutpassFormat(payloadData);
             console.log("Inserted new outpass:", newOutpass);
             
-            // Update state with the new outpass
+            // Update state with the new outpass, ensuring no duplicates
             setOutpasses(prev => {
+              // Check if this outpass already exists
+              const existsIndex = prev.findIndex(o => o.id === newOutpass.id);
+              if (existsIndex !== -1) {
+                console.log("Outpass already exists, skipping duplicate:", newOutpass.id);
+                return prev;
+              }
+              
               const updated = [newOutpass, ...prev];
               // Also update localStorage for cross-tab sync
               storageSync.setItem("outpasses", updated);
@@ -243,8 +250,9 @@ export function useOutpassSubscription() {
         
         if (type === 'insert') {
           setOutpasses(prev => {
-            // Check if we already have this outpass
+            // Check if we already have this outpass to prevent duplicates
             if (prev.some(o => o.id === outpass.id)) {
+              console.log("Broadcast: Outpass already exists, skipping duplicate:", outpass.id);
               return prev;
             }
             return [outpass, ...prev];

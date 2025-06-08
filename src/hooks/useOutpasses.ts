@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Outpass, Student, Mentor, User, isStudent, isMentor } from '@/lib/types';
 import { useOutpassSubscription } from './useOutpassSubscription';
@@ -14,12 +13,18 @@ export function useOutpasses() {
   const { currentUser, userRole, updateUser, isLoading: profileLoading } = useUserProfile();
   const { updateOutpass, addOutpass, deleteOutpass } = useOutpassOperations(tabId);
   
-  // Get filtered outpasses based on user role
-  const filteredOutpasses = allOutpasses.filter(outpass => {
+  // Get filtered outpasses based on user role with deduplication
+  const filteredOutpasses = allOutpasses.filter((outpass, index, array) => {
     if (!currentUser) return false;
     
-    // Don't validate, just use the outpass directly to avoid validation errors
-    // This is safe because our database schema enforces correctness
+    // Remove duplicates first - keep only the first occurrence of each ID
+    const firstOccurrenceIndex = array.findIndex(o => o.id === outpass.id);
+    if (firstOccurrenceIndex !== index) {
+      console.log("Removing duplicate outpass:", outpass.id);
+      return false;
+    }
+    
+    // Apply user role-based filtering
     if (isStudent(currentUser)) {
       return outpass.studentId === currentUser.id;
     } else if (isMentor(currentUser)) {
