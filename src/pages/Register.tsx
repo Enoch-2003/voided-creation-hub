@@ -93,49 +93,83 @@ export default function Register() {
     },
   };
 
-  // Input validation functions
+  // Input validation functions with enhanced error messaging
   const validateEnrollmentNumber = (value: string): string => {
-    // Remove any non-alphanumeric characters and convert to uppercase
     const cleaned = value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     
-    // Ensure it starts with a letter followed by digits
     if (cleaned.length === 0) return '';
     
     const firstChar = cleaned[0];
     const restChars = cleaned.slice(1);
     
-    // Keep only the first character if it's a letter, and only digits after
     if (/[A-Z]/.test(firstChar)) {
       const digitsOnly = restChars.replace(/[^0-9]/g, '');
-      return firstChar + digitsOnly;
+      const result = firstChar + digitsOnly;
+      
+      // Show error if format is violated
+      if (value !== result && value.length > 0) {
+        toast.error("Enrollment number must start with a capital letter followed by digits only");
+      }
+      
+      return result;
+    }
+    
+    if (value.length > 0) {
+      toast.error("Enrollment number must start with a capital letter");
     }
     
     return '';
   };
 
   const validateContactNumber = (value: string): string => {
-    // Remove all non-digit characters and limit to 10 digits
     const digits = value.replace(/[^0-9]/g, '');
-    return digits.slice(0, 10);
+    const result = digits.slice(0, 10);
+    
+    // Show error if non-digit characters were entered
+    if (value !== result && value.length > 0) {
+      toast.error("Contact number must contain only digits");
+    }
+    
+    // Show error if trying to enter more than 10 digits
+    if (digits.length > 10) {
+      toast.error("Contact number must be exactly 10 digits");
+    }
+    
+    return result;
   };
 
   const validateSemester = (value: string): string => {
-    // Remove non-digits and ensure it's between 1-10
     const digits = value.replace(/[^0-9]/g, '');
     const num = parseInt(digits);
     
+    if (digits.length === 0) return '';
+    
     if (isNaN(num) || num < 1 || num > 10) {
+      if (value.length > 0) {
+        toast.error("Semester must be between 1 and 10");
+      }
       return '';
+    }
+    
+    // Show error if non-digit characters were entered
+    if (value !== digits && value.length > 0) {
+      toast.error("Semester must be a number between 1 and 10");
     }
     
     return digits;
   };
 
   const validateSection = (value: string): string => {
-    // Keep only the first uppercase letter
     const upperCase = value.toUpperCase();
     const letter = upperCase.replace(/[^A-Z]/g, '');
-    return letter.slice(0, 1);
+    const result = letter.slice(0, 1);
+    
+    // Show error if non-letter characters were entered
+    if (value !== result && value.length > 0) {
+      toast.error("Section must be a single uppercase letter");
+    }
+    
+    return result;
   };
   
   // Handle student registration
@@ -226,7 +260,7 @@ export default function Register() {
     }
   };
   
-  // Handle mentor registration
+  // Handle mentor registration with improved validation
   const handleMentorRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     

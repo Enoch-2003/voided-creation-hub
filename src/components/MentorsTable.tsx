@@ -42,6 +42,7 @@ export default function MentorsTable({ mentors, isLoading = false }: MentorsTabl
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Email</TableHead>
+            <TableHead>Contact</TableHead>
             <TableHead>Department</TableHead>
             <TableHead>Sections</TableHead>
           </TableRow>
@@ -51,6 +52,7 @@ export default function MentorsTable({ mentors, isLoading = false }: MentorsTabl
             <TableRow key={mentor.id}>
               <TableCell className="font-medium">{mentor.name}</TableCell>
               <TableCell>{mentor.email}</TableCell>
+              <TableCell>{mentor.contactNumber || 'Not provided'}</TableCell>
               <TableCell>{mentor.department || 'Not specified'}</TableCell>
               <TableCell>
                 <div className="flex flex-wrap gap-1">
